@@ -36,3 +36,11 @@ class Benchmark:
     @property
     def returns(self) -> np.ndarray:
         return self._returns
+
+    @property
+    def total_returns(self) -> np.ndarray:
+        return np.nansum(self.returns, axis=1)
+
+    @property
+    def cumulative_returns(self):
+        return np.nancumsum(self.total_returns)

@@ -33,14 +33,11 @@ class FilteringFactor(Factor):
         self.min_threshold = min_threshold
         self.max_threshold = max_threshold
 
-    def filter(
-            self,
-            data: np.ndarray
-    ) -> np.ndarray:
+    def filter(self, data: np.ndarray) -> np.ndarray:
         if data.shape != self.values.shape:
             raise ValueError('stock_data must match in shape with factor')
 
-        filter_by_factor = (self.values >= self.min_threshold) & \
+        filter_by_factor = (self.min_threshold <= self.values) & \
                            (self.values <= self.max_threshold)
         filtered_stock_data = data * filter_by_factor
         filtered_stock_data[filtered_stock_data == 0] = np.nan

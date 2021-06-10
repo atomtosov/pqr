@@ -32,8 +32,8 @@ class Factor:
             self._columns = np.arange(data.shape[1])
         elif isinstance(data, pd.DataFrame):
             self._data = data.values.copy()
-            self._index = np.array(data.index.copy())
-            self._columns = np.array(data.columns.copy())
+            self._index = np.array(data.index)
+            self._columns = np.array(data.columns)
         else:
             raise ValueError('data must be numpy.ndarray or pandas.DataFrame')
         self._data[self._data == replace_with_nan] = np.nan
@@ -60,7 +60,7 @@ class Factor:
     def _fill_values(self) -> np.ndarray:
         return self._transform()
 
-    def _reset_values(self):
+    def _reset_values(self) -> None:
         self._values = None
 
     @property

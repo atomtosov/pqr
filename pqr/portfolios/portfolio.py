@@ -33,10 +33,7 @@ class Portfolio(ABC):
         self._benchmark = None
 
     @abstractmethod
-    def _choose_stocks(
-            self,
-            factor_values: np.ndarray
-    ) -> np.ndarray:
+    def _choose_stocks(self, factor_values: np.ndarray) -> np.ndarray:
         ...
 
     def construct(
@@ -50,6 +47,9 @@ class Portfolio(ABC):
     ):
         if isinstance(stock_prices, pd.DataFrame):
             stock_prices = stock_prices.values
+        elif not isinstance(stock_prices, np.ndarray):
+            raise ValueError('stock_prices must be numpy.ndarray '
+                             'or pandas.DataFrame')
 
         # filter factor values
         filtered_factor = self._filter_stock_universe(
@@ -73,8 +73,10 @@ class Portfolio(ABC):
             weighted_positions
         )
 
-        if benchmark is not None:
+        if isinstance(benchmark, Benchmark) or benchmark is None:
             self._benchmark = benchmark
+        else:
+            raise ValueError('benchmark must be Benchmark')
 
         return self
 
@@ -154,7 +156,7 @@ class Portfolio(ABC):
         return self._budget
 
     @budget.setter
-    def budget(self, value: Union[int, float]) -> None:
+    def budget(self, value: Union[int, float, None]) -> None:
         if isinstance(value, (int, float)) and value > 0 \
                 or value is None:
             self._budget = value
