@@ -27,11 +27,11 @@ class Factor:
     ):
         if isinstance(data, np.ndarray):
             assert len(data.shape) == 2, 'data must be 2-dimensional'
-            self._data = data.copy()
+            self._data = data
             self._index = np.arange(data.shape[0])
             self._columns = np.arange(data.shape[1])
         elif isinstance(data, pd.DataFrame):
-            self._data = data.values.copy()
+            self._data = data.values
             self._index = np.array(data.index)
             self._columns = np.array(data.columns)
         else:
@@ -44,7 +44,7 @@ class Factor:
         self.lag = lag
 
     def _transform(self) -> np.ndarray:
-        values = self._data.copy()
+        values = self._data
         if self.static:
             values = lag(
                 values,

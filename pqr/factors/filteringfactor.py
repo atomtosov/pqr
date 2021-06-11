@@ -1,4 +1,4 @@
-from typing import Union, Any
+from typing import Union, Any, Iterable
 
 import numpy as np
 import pandas as pd
@@ -65,3 +65,8 @@ class FilteringFactor(Factor):
         else:
             raise ValueError('max_threshold must be int or float '
                              'and >= min_threshold')
+
+
+class NoFilter(FilteringFactor):
+    def __init__(self, shape: Iterable[int]):
+        super(NoFilter).__init__(np.ones(shape))
