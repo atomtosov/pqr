@@ -44,6 +44,10 @@ class QuantilePortfolio(Portfolio):
         return (lower_threshold[:, np.newaxis] <= factor_values) & \
                (factor_values < upper_threshold[:, np.newaxis])
 
+    def __repr__(self) -> str:
+        return f'QuantilePortfolio({self._quantiles.lower:.2f}, ' \
+               f'{self._quantiles.upper:.2f})'
+
     @property
     def quantiles(self) -> Quantiles:
         return self._quantiles

@@ -34,6 +34,9 @@ class ThresholdPortfolio(Portfolio):
         return (self.thresholds.lower <= factor_values) & \
                (factor_values < self.thresholds.upper)
 
+    def __repr__(self) -> str:
+        return f'Portfolio{self.thresholds}'
+
     @property
     def thresholds(self) -> Thresholds:
         return self._thresholds

@@ -7,14 +7,10 @@ from .factormodel import FactorModel
 from pqr.factors import Factor, FilteringFactor, WeightingFactor
 from pqr.portfolios import Portfolio, QuantilePortfolio
 from pqr.benchmarks import Benchmark
+from pqr.utils import make_intervals
 
 
 class SingleFactorModel(FactorModel):
-    _portfolios: List[Portfolio]
-
-    def __init__(self):
-        self._portfolios = []
-
     def fit(
             self,
             prices: Union[np.ndarray, pd.DataFrame],

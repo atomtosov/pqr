@@ -1,5 +1,6 @@
 from typing import Union
 
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
@@ -29,18 +30,20 @@ class Benchmark:
             self._returns = pct_change(stock_index.values[:, np.newaxis])\
                 .flatten()
 
-    @property
-    def index(self) -> np.ndarray:
-        return self._index
+    def __repr__(self):
+        return 'Benchmark()'
 
     @property
     def returns(self) -> np.ndarray:
         return self._returns
 
     @property
-    def total_returns(self) -> np.ndarray:
-        return np.nansum(self.returns, axis=1)
+    def cumulative_returns(self):
+        return np.nancumprod(self.returns + 1) - 1
 
     @property
-    def cumulative_returns(self):
-        return np.nancumsum(self.total_returns)
+    def total_return(self):
+        return self.cumulative_returns[-1] * 100
+
+    def plot_cumulative_returns(self):
+        plt.plot(self._index, self.cumulative_returns, label=repr(self))

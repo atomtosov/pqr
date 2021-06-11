@@ -69,4 +69,4 @@ class FilteringFactor(Factor):
 
 class NoFilter(FilteringFactor):
     def __init__(self, shape: Iterable[int]):
-        super(NoFilter).__init__(np.ones(shape))
+        super().__init__(np.ones(shape))

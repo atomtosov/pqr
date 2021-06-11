@@ -1,12 +1,23 @@
 from abc import ABC, abstractmethod
-from typing import Union
+from typing import Union, Dict
+from collections import namedtuple
 
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import statsmodels.api as sm
 
-from pqr.factors import Factor, WeightingFactor, FilteringFactor
+from pqr.factors import (
+    Factor,
+    WeightingFactor, EqualWeights,
+    FilteringFactor, NoFilter
+)
 from pqr.benchmarks import Benchmark
 from pqr.utils import lag, pct_change
+
+
+Alpha = namedtuple('Alpha', ['coef', 'p_value'])
+Beta = namedtuple('Beta', ['coef', 'p_value'])
 
 
 class Portfolio(ABC):
@@ -14,6 +25,7 @@ class Portfolio(ABC):
     _fee_rate: Union[int, float, None]
     _fee_fixed: Union[int, float, None]
 
+    _index: np.ndarray
     _positions: np.ndarray
     _returns: np.ndarray
     _benchmark: Union[Benchmark, None]
@@ -28,12 +40,17 @@ class Portfolio(ABC):
         self.fee_rate = fee_rate
         self.fee_fixed = fee_fixed
 
+        self._index = np.array([])
         self._positions = np.array([])
         self._returns = np.array([])
         self._benchmark = None
 
     @abstractmethod
     def _choose_stocks(self, factor_values: np.ndarray) -> np.ndarray:
+        ...
+
+    @abstractmethod
+    def __repr__(self) -> str:
         ...
 
     def construct(
@@ -45,9 +62,12 @@ class Portfolio(ABC):
             weighting_factor: WeightingFactor = None,
             benchmark: Benchmark = None
     ):
-        if isinstance(stock_prices, pd.DataFrame):
+        if isinstance(stock_prices, np.ndarray):
+            self._index = np.arange(stock_prices.shape[0])
+        elif isinstance(stock_prices, pd.DataFrame):
+            self._index = np.array(stock_prices.index)
             stock_prices = stock_prices.values
-        elif not isinstance(stock_prices, np.ndarray):
+        else:
             raise ValueError('stock_prices must be numpy.ndarray '
                              'or pandas.DataFrame')
 
@@ -86,9 +106,7 @@ class Portfolio(ABC):
             filtering_factor: FilteringFactor = None
     ) -> np.ndarray:
         if filtering_factor is None:
-            filtering_factor = FilteringFactor(
-                np.ones(factor_values.shape)
-            )
+            filtering_factor = NoFilter(factor_values.shape)
         return filtering_factor.filter(factor_values)
 
     @staticmethod
@@ -123,9 +141,7 @@ class Portfolio(ABC):
             weighting_factor: WeightingFactor
     ) -> np.ndarray:
         if weighting_factor is None:
-            weighting_factor = WeightingFactor(
-                np.ones(positions.shape)
-            )
+            weighting_factor = EqualWeights(positions.shape)
         return weighting_factor.weigh(positions)
 
     @staticmethod
@@ -138,18 +154,6 @@ class Portfolio(ABC):
     @property
     def positions(self) -> np.ndarray:
         return self._positions
-
-    @property
-    def returns(self) -> np.ndarray:
-        return self._returns
-    
-    @property
-    def total_returns(self) -> np.ndarray:
-        return np.nansum(self.returns, axis=1)
-    
-    @property
-    def cumulative_returns(self):
-        return np.nancumsum(self.total_returns)
 
     @property
     def budget(self) -> Union[int, float, None]:
@@ -184,3 +188,98 @@ class Portfolio(ABC):
             self._fee_fixed = value
         else:
             raise ValueError('fee_fixed must be int or float')
+
+    @property
+    def returns(self) -> np.ndarray:
+        return np.nansum(self._returns, axis=1)
+
+    @property
+    def cumulative_returns(self) -> np.ndarray:
+        return np.nancumprod(self.returns + 1) - 1
+
+    @property
+    def total_return(self) -> Union[int, float]:
+        return self.cumulative_returns[-1]
+
+    @property
+    def alpha(self) -> Union[Alpha, None]:
+        if self._benchmark is None:
+            return None
+        x = sm.add_constant(np.nan_to_num(self._benchmark.returns))
+        est = sm.OLS(self.returns, x).fit()
+        return Alpha(
+            coef=est.params[0],
+            p_value=est.pvalues[0]
+        )
+
+    @property
+    def beta(self) -> Union[Beta, None]:
+        if self._benchmark is None:
+            return None
+        x = sm.add_constant(np.nan_to_num(self._benchmark.returns))
+        est = sm.OLS(self.returns, x).fit()
+        return Beta(
+            coef=est.params[1],
+            p_value=est.pvalues[1]
+        )
+
+    @property
+    def sharpe(self) -> Union[int, float]:
+        # TODO: work with annualization
+        return self.returns.mean() / self.returns.std()
+
+    @property
+    def mean_return(self) -> Union[int, float]:
+        return self.returns.mean()
+
+    @property
+    def excessive_return(self) -> Union[int, float, None]:
+        if self._benchmark is None:
+            return None
+        return self.mean_return - np.nanmean(self._benchmark.returns)
+
+    @property
+    def mean_volatility(self) -> Union[int, float]:
+        return self.returns.std()
+
+    @property
+    def benchmark_correlation(self) -> Union[int, float, None]:
+        if self._benchmark is None:
+            return None
+        return np.corrcoef(
+            self.returns,
+            np.nan_to_num(self._benchmark.returns)
+        )[0, 1]
+
+    @property
+    def profitable_periods(self) -> Union[int, float]:
+        return (self.returns > 0).sum() / np.size(self.returns)
+
+    @property
+    def max_drawdown(self):
+        return (
+                self.cumulative_returns -
+                np.maximum.accumulate(self.cumulative_returns)
+        ).min()
+
+    @property
+    def stats(self) -> Dict[str, Union[int, float]]:
+        return {
+            'Alpha, %': self.alpha.coef * 100,
+            'Alpha p-value': self.alpha.p_value,
+            'Beta': self.beta.coef,
+            'Beta p-value': self.beta.p_value,
+            'Sharpe Ratio': self.sharpe,
+            'Mean Return, %': self.mean_return * 100,
+            'Excessive Return, %': self.excessive_return * 100,
+            'Total Return, %': self.total_return * 100,
+            'Volatility, %': self.mean_volatility * 100,
+            'Benchmark Correlation': self.benchmark_correlation,
+            'Profitable Periods, %': self.profitable_periods * 100,
+            'Maximum Drawdown, %': self.max_drawdown * 100
+        }
+
+    def plot_cumulative_returns(self, add_benchmark: bool = True):
+        plt.plot(self._index, self.cumulative_returns, label=repr(self))
+        if add_benchmark and self._benchmark is not None:
+            self._benchmark.plot_cumulative_returns()
