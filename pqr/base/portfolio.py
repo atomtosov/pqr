@@ -1,4 +1,4 @@
-from abc import ABC, abstractmethod
+from abc import ABC
 from typing import Union, Dict
 from collections import namedtuple
 
@@ -7,12 +7,13 @@ import numpy as np
 import pandas as pd
 import statsmodels.api as sm
 
-from pqr.factors import (
-    Factor,
-    WeightingFactor, EqualWeights,
-    FilteringFactor, NoFilter
+from .factor import (
+    ChoosingFactorInterface,
+    WeightingFactorInterface, EqualWeights,
+    FilteringFactorInterface, NoFilter
 )
-from pqr.benchmarks import Benchmark
+from .benchmark import BaseBenchmark
+from .limits import BaseLimits
 from pqr.utils import lag, pct_change
 
 
@@ -20,7 +21,7 @@ Alpha = namedtuple('Alpha', ['coef', 'p_value'])
 Beta = namedtuple('Beta', ['coef', 'p_value'])
 
 
-class Portfolio(ABC):
+class BasePortfolio(ABC):
     _budget: Union[int, float, None]
     _fee_rate: Union[int, float, None]
     _fee_fixed: Union[int, float, None]
@@ -28,14 +29,24 @@ class Portfolio(ABC):
     _index: np.ndarray
     _positions: np.ndarray
     _returns: np.ndarray
-    _benchmark: Union[Benchmark, None]
+    _benchmark: Union[BaseBenchmark, None]
+    _shift: int
+    _annualization_rate: int
+
+    _positions_value: Union[np.ndarray, None]
 
     def __init__(
             self,
+            limits: BaseLimits,
             budget: Union[int, float] = None,
             fee_rate: Union[int, float] = None,
             fee_fixed: Union[int, float] = None
     ):
+        if isinstance(limits, BaseLimits):
+            self._limits = limits
+        else:
+            raise ValueError('limits must be Limits')
+
         self.budget = budget
         self.fee_rate = fee_rate
         self.fee_fixed = fee_fixed
@@ -44,70 +55,58 @@ class Portfolio(ABC):
         self._positions = np.array([])
         self._returns = np.array([])
         self._benchmark = None
+        self._shift = 0
+        self._annualization_rate = np.sqrt(12)
 
-    @abstractmethod
-    def _choose_stocks(self, factor_values: np.ndarray) -> np.ndarray:
-        ...
-
-    @abstractmethod
     def __repr__(self) -> str:
-        ...
+        return f'{self.__class__.__name__}({self._limits.lower:.2f}, ' \
+               f'{self._limits.upper:.2f})'
 
     def construct(
             self,
-            stock_prices: Union[np.ndarray, pd.DataFrame],
-            factor: Factor,
+            prices: Union[np.ndarray, pd.DataFrame],
+            factor: ChoosingFactorInterface,
             holding_period: int = 1,
-            filtering_factor: FilteringFactor = None,
-            weighting_factor: WeightingFactor = None,
-            benchmark: Benchmark = None
+            filtering_factor: FilteringFactorInterface = None,
+            weighting_factor: WeightingFactorInterface = None,
+            benchmark: BaseBenchmark = None
     ):
-        if isinstance(stock_prices, np.ndarray):
-            self._index = np.arange(stock_prices.shape[0])
-        elif isinstance(stock_prices, pd.DataFrame):
-            self._index = np.array(stock_prices.index)
-            stock_prices = stock_prices.values
+        if isinstance(prices, np.ndarray):
+            self._index = np.arange(prices.shape[0])
+        elif isinstance(prices, pd.DataFrame):
+            self._index = np.array(prices.index)
+            prices = prices.values
         else:
             raise ValueError('stock_prices must be numpy.ndarray '
                              'or pandas.DataFrame')
+        if filtering_factor is None:
+            filtering_factor = NoFilter()
+        if weighting_factor is None:
+            weighting_factor = EqualWeights()
 
-        # filter factor values
-        filtered_factor = self._filter_stock_universe(
-            factor.values,
-            filtering_factor
-        )
-        # construct positions by factor
+        self._shift = factor.shift
+        self._annualization_rate = np.sqrt(factor.periodicity)
+
+        positions = factor.choose(prices, self._limits)
+        filtered_positions = filtering_factor.filter(positions)
         self._positions = self._set_holding_period(
-            self._choose_stocks(filtered_factor),
+            filtered_positions,
             holding_period,
             factor.shift
         )
-        # weighting positions
-        weighted_positions = self._set_weights(
-            self._positions,
-            weighting_factor
-        )
+        weighted_positions = weighting_factor.weigh(self._positions)
         # calculate returns
         self._returns = self._calculate_returns(
-            stock_prices,
+            prices,
             weighted_positions
         )
 
-        if isinstance(benchmark, Benchmark) or benchmark is None:
+        if isinstance(benchmark, BaseBenchmark) or benchmark is None:
             self._benchmark = benchmark
         else:
             raise ValueError('benchmark must be Benchmark')
 
         return self
-
-    @staticmethod
-    def _filter_stock_universe(
-            factor_values: np.ndarray,
-            filtering_factor: FilteringFactor = None
-    ) -> np.ndarray:
-        if filtering_factor is None:
-            filtering_factor = NoFilter(factor_values.shape)
-        return filtering_factor.filter(factor_values)
 
     @staticmethod
     def _set_holding_period(
@@ -126,7 +125,7 @@ class Portfolio(ABC):
             np.arange(positions.shape[0])[:, np.newaxis],
             0
         )
-        # forward filling rows with nans to
+        # forward filling rows with nans by positions of rebalancing periods
         positions = np.take_along_axis(
             positions,
             np.maximum.accumulate(indices_of_rebalancing_periods, axis=0),
@@ -134,15 +133,6 @@ class Portfolio(ABC):
         ).astype(bool)
         positions[:shift] = False
         return positions
-
-    @staticmethod
-    def _set_weights(
-            positions: np.ndarray,
-            weighting_factor: WeightingFactor
-    ) -> np.ndarray:
-        if weighting_factor is None:
-            weighting_factor = EqualWeights(positions.shape)
-        return weighting_factor.weigh(positions)
 
     @staticmethod
     def _calculate_returns(
@@ -205,8 +195,10 @@ class Portfolio(ABC):
     def alpha(self) -> Union[Alpha, None]:
         if self._benchmark is None:
             return None
-        x = sm.add_constant(np.nan_to_num(self._benchmark.returns))
-        est = sm.OLS(self.returns, x).fit()
+        x = sm.add_constant(
+            np.nan_to_num(self._benchmark.returns[self._shift+1:])
+        )
+        est = sm.OLS(self.returns[self._shift+1:], x).fit()
         return Alpha(
             coef=est.params[0],
             p_value=est.pvalues[0]
@@ -216,8 +208,10 @@ class Portfolio(ABC):
     def beta(self) -> Union[Beta, None]:
         if self._benchmark is None:
             return None
-        x = sm.add_constant(np.nan_to_num(self._benchmark.returns))
-        est = sm.OLS(self.returns, x).fit()
+        x = sm.add_constant(
+            np.nan_to_num(self._benchmark.returns[self._shift+1:])
+        )
+        est = sm.OLS(self.returns[self._shift+1:], x).fit()
         return Beta(
             coef=est.params[1],
             p_value=est.pvalues[1]
@@ -225,8 +219,8 @@ class Portfolio(ABC):
 
     @property
     def sharpe(self) -> Union[int, float]:
-        # TODO: work with annualization
-        return self.returns.mean() / self.returns.std()
+        return self.returns.mean() / self.returns.std() * \
+               self._annualization_rate
 
     @property
     def mean_return(self) -> Union[int, float]:
@@ -282,4 +276,4 @@ class Portfolio(ABC):
     def plot_cumulative_returns(self, add_benchmark: bool = True):
         plt.plot(self._index, self.cumulative_returns, label=repr(self))
         if add_benchmark and self._benchmark is not None:
-            self._benchmark.plot_cumulative_returns()
+            self._benchmark.plot_cumulative_returns(self._shift)

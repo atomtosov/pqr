@@ -1,65 +1,21 @@
-from typing import Union, Tuple, Iterable
-from collections import namedtuple
+from typing import Union
 
-import numpy as np
-
-from .portfolio import Portfolio
+from pqr.base.portfolio import BasePortfolio
+from pqr.base.limits import Quantiles
 
 
-Quantiles = namedtuple('Quantiles', ('lower', 'upper'))
-
-
-class QuantilePortfolio(Portfolio):
-    _quantiles: Quantiles
-
+class QuantilePortfolio(BasePortfolio):
     def __init__(
             self,
-            quantiles: Tuple[float, float],
+            lower_quantile: Union[int, float] = 0,
+            upper_quantile: Union[int, float] = 1,
             budget: Union[int, float] = None,
             fee_rate: Union[int, float] = None,
             fee_fixed: Union[int, float] = None
     ):
         super().__init__(
+            Quantiles(lower_quantile, upper_quantile),
             budget,
             fee_rate,
             fee_fixed
         )
-
-        self.quantiles = quantiles
-
-    def _choose_stocks(
-            self,
-            factor_values: np.ndarray
-    ) -> np.ndarray:
-        lower_threshold = np.nanquantile(
-            factor_values,
-            self.quantiles.lower,
-            axis=1
-        )
-        upper_threshold = np.nanquantile(
-            factor_values,
-            self.quantiles.upper,
-            axis=1
-        )
-        return (lower_threshold[:, np.newaxis] <= factor_values) & \
-               (factor_values < upper_threshold[:, np.newaxis])
-
-    def __repr__(self) -> str:
-        return f'QuantilePortfolio({self._quantiles.lower:.2f}, ' \
-               f'{self._quantiles.upper:.2f})'
-
-    @property
-    def quantiles(self) -> Quantiles:
-        return self._quantiles
-
-    @quantiles.setter
-    def quantiles(self, value: Tuple[float, float]) -> None:
-        if isinstance(value, Iterable) \
-                and len(value) == 2 \
-                and all((isinstance(q, float)
-                         and 0 <= q <= 1) for q in value) \
-                and value[0] < value[1]:
-            self._quantiles = Quantiles(*value)
-        else:
-            raise ValueError('quantiles must be tuple of 2 floats '
-                             'in range [0, 1]')

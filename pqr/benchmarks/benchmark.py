@@ -1,49 +1,37 @@
 from typing import Union
 
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
+
+from pqr.base.benchmark import BaseBenchmark
 from pqr.utils import pct_change
 
 
-class Benchmark:
-    _index: np.ndarray
-    _returns: np.ndarray
-
+class Benchmark(BaseBenchmark):
     def __init__(
             self,
-            stock_index: Union[np.ndarray, pd.DataFrame, pd.Series]
+            data: Union[np.ndarray, pd.DataFrame, pd.Series],
+            name: str = None
     ):
-        if isinstance(stock_index, np.ndarray):
-            if stock_index.ndim != 1:
+        if isinstance(data, np.ndarray):
+            if data.ndim != 1:
                 raise ValueError('stock_index must be 1-dimensional')
-            self._index = np.arange(stock_index.shape[0])
-            self._returns = pct_change(stock_index[:, np.newaxis]).flatten()
-        elif isinstance(stock_index, pd.DataFrame):
-            if stock_index.shape[1] != 1:
+            index = np.arange(data.shape[0])
+            self._prices = data
+        elif isinstance(data, pd.DataFrame):
+            if data.shape[1] != 1:
                 raise ValueError('stock_index must be 1-dimensional')
-            self._index = np.array(stock_index.index.values)
-            self._returns = pct_change(stock_index.values).flatten()
-        elif isinstance(stock_index, pd.Series):
-            self._index = np.array(stock_index.index.values)
-            self._returns = pct_change(stock_index.values[:, np.newaxis])\
-                .flatten()
+            index = np.array(data.index.values)
+            self._prices = data.values.flatten()
+        elif isinstance(data, pd.Series):
+            index = np.array(data.index.values)
+            self._prices = data.values
+        else:
+            raise ValueError('data must be numpy.ndarray, pandas.DataFrame '
+                             'or pandas.Series')
 
-    def __repr__(self):
-        return 'Benchmark()'
+        super().__init__(index, name)
 
-    @property
-    def returns(self) -> np.ndarray:
-        return self._returns
-
-    @property
-    def cumulative_returns(self):
-        return np.nancumprod(self.returns + 1) - 1
-
-    @property
-    def total_return(self):
-        return self.cumulative_returns[-1] * 100
-
-    def plot_cumulative_returns(self):
-        plt.plot(self._index, self.cumulative_returns, label=repr(self))
+    def _calc_returns(self) -> np.ndarray:
+        return pct_change(self._prices[:, np.newaxis]).flatten()

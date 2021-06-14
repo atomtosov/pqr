@@ -1,16 +1,15 @@
-from typing import Union, List
+from typing import Union
 
 import numpy as np
 import pandas as pd
 
-from .factormodel import FactorModel
+from pqr.base.factor_model import BaseFactorModel
 from pqr.factors import Factor, FilteringFactor, WeightingFactor
-from pqr.portfolios import Portfolio, QuantilePortfolio
+from pqr.portfolios import QuantilePortfolio
 from pqr.benchmarks import Benchmark
-from pqr.utils import make_intervals
 
 
-class SingleFactorModel(FactorModel):
+class SingleFactorModel(BaseFactorModel):
     def fit(
             self,
             prices: Union[np.ndarray, pd.DataFrame],
@@ -24,15 +23,10 @@ class SingleFactorModel(FactorModel):
             fee_fixed: Union[int, float] = None,
             n_quantile_portfolios: int = 3
     ) -> None:
-        quantiles = np.take(
-            np.linspace(0, 1, n_quantile_portfolios + 1),
-            np.arange(n_quantile_portfolios * 2).
-            reshape((n_quantile_portfolios, -1)) -
-            np.indices((n_quantile_portfolios, 2))[0]
-        )
+        quantiles = self._get_quantiles(n_quantile_portfolios)
         self._portfolios = [
-            QuantilePortfolio(q, budget, fee_rate, fee_fixed).
-            construct(
+            QuantilePortfolio(q.lower, q.upper, budget, fee_rate, fee_fixed)
+            .construct(
                 prices,
                 factor,
                 holding_period,
@@ -42,7 +36,3 @@ class SingleFactorModel(FactorModel):
             )
             for q in quantiles
         ]
-
-    @property
-    def portfolios(self) -> List[Portfolio]:
-        return self._portfolios

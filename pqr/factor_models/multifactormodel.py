@@ -1,5 +1,5 @@
-from .factormodel import FactorModel
+from pqr.base.factor_model import BaseFactorModel
 
 
-class MultiFactorModel(FactorModel):
+class MultiFactorModel(BaseFactorModel):
     ...

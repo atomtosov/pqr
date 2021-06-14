@@ -1,14 +1,14 @@
-from typing import Union, Any, Iterable
+from typing import Union, Any
 
 import numpy as np
 import pandas as pd
 
-from .factor import Factor
+from pqr.base.factor import BaseFactor, FilteringFactorInterface
+from pqr.base.limits import Thresholds
 
 
-class FilteringFactor(Factor):
-    _min_threshold: Union[int, float]
-    _max_threshold: Union[int, float]
+class FilteringFactor(BaseFactor, FilteringFactorInterface):
+    _thresholds: Thresholds
 
     def __init__(
             self,
@@ -30,43 +30,24 @@ class FilteringFactor(Factor):
             bigger_better
         )
 
-        self.min_threshold = min_threshold
-        self.max_threshold = max_threshold
+        self.thresholds = Thresholds(min_threshold, max_threshold)
 
     def filter(self, data: np.ndarray) -> np.ndarray:
-        if data.shape != self.values.shape:
-            raise ValueError('stock_data must match in shape with factor')
+        self._check_match_in_shape(data)
 
-        filter_by_factor = (self.min_threshold <= self.values) & \
-                           (self.values <= self.max_threshold)
-        filtered_stock_data = data * filter_by_factor
+        filter_by_factor = (self.thresholds.lower <= self.values) & \
+                           (self.values <= self.thresholds.upper)
+        filtered_stock_data = (data * filter_by_factor).astype(float)
         filtered_stock_data[filtered_stock_data == 0] = np.nan
-        return filtered_stock_data
+        return ~np.isnan(filtered_stock_data)
 
     @property
-    def min_threshold(self) -> Union[int, float]:
-        return self._min_threshold
+    def thresholds(self) -> Thresholds:
+        return self._thresholds
 
-    @min_threshold.setter
-    def min_threshold(self, value: Union[int, float]) -> None:
-        if isinstance(value, (int, float)):
-            self._min_threshold = value
+    @thresholds.setter
+    def thresholds(self, value: Thresholds):
+        if isinstance(value, Thresholds):
+            self._thresholds = value
         else:
-            raise ValueError('min_threshold must be int or float')
-
-    @property
-    def max_threshold(self) -> Union[int, float]:
-        return self._max_threshold
-
-    @max_threshold.setter
-    def max_threshold(self, value: Union[int, float]) -> None:
-        if isinstance(value, (int, float)) and value >= self.min_threshold:
-            self._max_threshold = value
-        else:
-            raise ValueError('max_threshold must be int or float '
-                             'and >= min_threshold')
-
-
-class NoFilter(FilteringFactor):
-    def __init__(self, shape: Iterable[int]):
-        super().__init__(np.ones(shape))
+            raise ValueError('thresholds must be Thresholds')

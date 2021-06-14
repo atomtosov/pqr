@@ -1,5 +1,5 @@
-from .portfolio import Portfolio
+from pqr.base.portfolio import BasePortfolio
 
 
-class TopNPortfolio(Portfolio):
+class TopNPortfolio(BasePortfolio):
     ...
