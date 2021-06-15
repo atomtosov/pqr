@@ -1,45 +1,49 @@
-from typing import Union, Any
+from typing import Union, Any, Iterable
 
 import numpy as np
 import pandas as pd
 
-from pqr.base.factor import BaseFactor, FilteringFactorInterface
-from pqr.base.limits import Thresholds
+from .singlefactor import SingleFactor
+from pqr.utils import Thresholds
 
 
-class FilteringFactor(BaseFactor, FilteringFactorInterface):
+class FilteringFactor(SingleFactor):
     _thresholds: Thresholds
 
-    def __init__(
-            self,
-            data: Union[np.ndarray, pd.DataFrame],
-            static: bool = True,
-            looking_period: int = 1,
-            lag: int = 0,
-            replace_with_nan: Any = None,
-            bigger_better: bool = True,
-            min_threshold: Union[int, float] = -np.inf,
-            max_threshold: Union[int, float] = np.inf
-    ):
+    def __init__(self,
+                 data: Union[np.ndarray, pd.DataFrame],
+                 dynamic: bool = False,
+                 bigger_better: bool = True,
+                 data_periodicity: str = 'monthly',
+                 replace_with_nan: Any = None,
+                 name: str = None,
+                 min_threshold: Union[int, float] = -np.inf,
+                 max_threshold: Union[int, float] = np.inf):
         super().__init__(
             data,
-            static,
-            looking_period,
-            lag,
+            dynamic,
+            bigger_better,
+            data_periodicity,
             replace_with_nan,
-            bigger_better
+            name
         )
 
         self.thresholds = Thresholds(min_threshold, max_threshold)
 
     def filter(self, data: np.ndarray) -> np.ndarray:
-        self._check_match_in_shape(data)
+        """
+        Принимает на вход данные и возвращает те же данные, но в клетках,
+        которые не прошли фильтр появляются np.nan
 
-        filter_by_factor = (self.thresholds.lower <= self.values) & \
-                           (self.values <= self.thresholds.upper)
-        filtered_stock_data = (data * filter_by_factor).astype(float)
-        filtered_stock_data[filtered_stock_data == 0] = np.nan
-        return ~np.isnan(filtered_stock_data)
+        :param data:
+        :return:
+        """
+        values = self.transform(1, 0)
+        filter_by_factor = (self.thresholds.lower <= values) & \
+                           (values <= self.thresholds.upper)
+        filtered_data = (data * filter_by_factor).astype(float)
+        filtered_data[filtered_data == 0] = np.nan
+        return filtered_data
 
     @property
     def thresholds(self) -> Thresholds:
@@ -51,3 +55,8 @@ class FilteringFactor(BaseFactor, FilteringFactorInterface):
             self._thresholds = value
         else:
             raise ValueError('thresholds must be Thresholds')
+
+
+class NoFilter(FilteringFactor):
+    def __init__(self, shape: Iterable[int]):
+        super().__init__(np.ones(shape))

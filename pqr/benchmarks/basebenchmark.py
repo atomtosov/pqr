@@ -2,29 +2,17 @@ from abc import ABC, abstractmethod
 
 import matplotlib.pyplot as plt
 import numpy as np
+from pqr.utils import HasNameMixin, HasIndexMixin
 
 
-class BaseBenchmark(ABC):
-    _index: np.ndarray
-    _name: str
-
-    def __init__(self,
-                 index: np.ndarray,
-                 name: str = None):
-        self._index = index
-        self._name = name
-
-    def __repr__(self):
-        return f'{self.__class__.__name__}(' \
-               f'{self.name if self.name is not None else ""})'
+class BaseBenchmark(ABC, HasNameMixin, HasIndexMixin):
+    def __init__(self, name: str = None):
+        HasNameMixin.__init__(self, name)
+        HasIndexMixin.__init__(self)
 
     @abstractmethod
     def _calc_returns(self) -> np.ndarray:
         ...
-
-    @property
-    def name(self) -> str:
-        return self._name
 
     @property
     def returns(self) -> np.ndarray:

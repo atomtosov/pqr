@@ -1,23 +1,26 @@
 import numpy as np
 
-from pqr.base.multi_factor import BaseMultiFactor
-from pqr.base.factor import ChoosingFactorInterface
-from pqr.base.limits import BaseLimits, Quantiles
+from .multifactor import MultiFactor
+from pqr.utils import Quantiles
 
 
-class NSortMultiFactor(BaseMultiFactor, ChoosingFactorInterface):
-    def choose(self, data: np.ndarray, by: BaseLimits):
-        if isinstance(by, Quantiles):
-            for factor in self.factors:
-                data = data * factor.choose(
-                    data,
-                    by if factor.bigger_better
-                    else Quantiles(1 - by.upper, 1 - by.lower)
-                )
-                data = data.astype(float)
-                data[data == 0] = np.nan
-            return ~np.isnan(data)
-        elif isinstance(by, BaseLimits):
-            raise NotImplementedError
-        else:
-            raise ValueError('by must be Limits')
+class NSortMultiFactor(MultiFactor):
+    def choose(self,
+               data: np.ndarray,
+               interval: Quantiles,
+               looking_period: int = 1,
+               lag_period: int = 0) -> np.ndarray:
+        if not isinstance(interval, Quantiles):
+            raise ValueError('interval must be Quantiles')
+
+        different_factors = self.bigger_better is None
+        for factor in self.factors:
+            data = data * factor.choose(
+                data,
+                interval if (not different_factors or factor.bigger_better)
+                # mirroring quantiles
+                else Quantiles(1-interval.upper, 1-interval.lower)
+            )
+            data = data.astype(float)
+            data[data == 0] = np.nan
+        return ~np.isnan(data)

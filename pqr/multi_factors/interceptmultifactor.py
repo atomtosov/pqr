@@ -1,27 +1,30 @@
-from typing import Tuple, Iterable
-
 import numpy as np
 
-from pqr.base.multi_factor import BaseMultiFactor
-from pqr.base.factor import ChoosingFactorInterface
-from pqr.base.limits import BaseLimits, Quantiles
+from .multifactor import MultiFactor
+from pqr.utils import Quantiles
 
 
-class InterceptMultiFactor(BaseMultiFactor, ChoosingFactorInterface):
-    def choose(self, data: np.ndarray, by: BaseLimits):
-        # TODO: change bigger_better behavior
-        if isinstance(by, Quantiles):
-            factors_choices = np.array(
-                [factor.choose(data,
-                               by if factor.bigger_better
-                               else Quantiles(1 - by.upper, 1 - by.lower))
-                 for factor in self.factors]
+class InterceptMultiFactor(MultiFactor):
+    def choose(self,
+               data: np.ndarray,
+               interval: Quantiles,
+               looking_period: int = 1,
+               lag_period: int = 0) -> np.ndarray:
+        if not isinstance(interval, Quantiles):
+            raise ValueError('interval must be Quantiles')
+        different_factors = self.bigger_better is None
+        factors_choices = np.array(
+            [factor.choose(
+                data,
+                interval if (not different_factors or factor.bigger_better)
+                # mirroring quantiles
+                else Quantiles(1-interval.upper, 1-interval.lower),
+                looking_period,
+                lag_period
             )
-            factors_choices = np.nanprod(factors_choices, axis=0).astype(float)
-            data = (data * factors_choices).astype(float)
-            data[data == 0] = np.nan
-            return ~np.isnan(data)
-        elif isinstance(by, BaseLimits):
-            raise NotImplementedError
-        else:
-            raise ValueError('by must be Limits')
+                for factor in self.factors]
+        )
+        factors_choices = np.nanprod(factors_choices, axis=0).astype(float)
+        data = (data * factors_choices).astype(float)
+        data[data == 0] = np.nan
+        return ~np.isnan(data)

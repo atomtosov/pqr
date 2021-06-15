@@ -1,14 +1,26 @@
+from typing import Iterable
+
 import numpy as np
 
-from pqr.base.factor import BaseFactor, WeightingFactorInterface
+from .singlefactor import SingleFactor
 
 
-class WeightingFactor(BaseFactor, WeightingFactorInterface):
+class WeightingFactor(SingleFactor):
     def weigh(self, data: np.ndarray) -> np.ndarray:
-        self._check_match_in_shape(data)
-
+        """
+        Принимает на вход данные и возвращает те же данные, но взвешенные по
+        своим значениям
+        :param data:
+        :return:
+        """
+        values = self.transform(1, 0)
         if self.bigger_better:
-            weights = self.values * data
+            weights = values * data
             return weights / np.nansum(weights, axis=1)[:, np.newaxis]
         else:
             raise NotImplementedError
+
+
+class EqualWeights(WeightingFactor):
+    def __init__(self, shape: Iterable[int]):
+        super().__init__(np.ones(shape))

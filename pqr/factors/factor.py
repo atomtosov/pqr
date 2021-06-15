@@ -1,35 +1,43 @@
 import numpy as np
 
-from pqr.base.factor import BaseFactor, ChoosingFactorInterface
-from pqr.base.limits import BaseLimits, Quantiles, Thresholds
-from pqr.utils import epsilon
+from .singlefactor import SingleFactor
+from pqr.utils import epsilon, Interval, Quantiles, Thresholds
 
 
-class Factor(BaseFactor, ChoosingFactorInterface):
-    def choose(self, data: np.ndarray, by: BaseLimits) -> np.ndarray:
-        self._check_match_in_shape(data)
-
+class Factor(SingleFactor):
+    def choose(self,
+               data: np.ndarray,
+               interval: Interval,
+               looking_period: int = 1,
+               lag_period: int = 0) -> np.ndarray:
+        """
+        Принимает на вход данные, обрабатывает их и возвращает массив из
+        True и False - выбранные по фактору позиции
+        :param data:
+        :param interval:
+        :param looking_period:
+        :param lag_period:
+        :return:
+        """
         # exclude values which are not available in data
-        values = np.copy(self.values)
+        values = self.transform(looking_period, lag_period)
         values[np.isnan(data)] = np.nan
 
-        if isinstance(by, Quantiles):
-            lower_threshold = np.nanquantile(values, by.lower, axis=1)
-            upper_threshold = np.nanquantile(values, by.upper, axis=1)
+        if isinstance(interval, Quantiles):
+            lower_threshold = np.nanquantile(values, interval.lower, axis=1)
+            upper_threshold = np.nanquantile(values, interval.upper, axis=1)
             # to include stock with highest factor value
-            if by.upper == 1:
+            if interval.upper == 1:
                 upper_threshold += epsilon
             choice = (lower_threshold[:, np.newaxis] <= values) & \
                      (values < upper_threshold[:, np.newaxis])
             data = (data * choice).astype(float)
             data[data == 0] = np.nan
             return ~np.isnan(data)
-        elif isinstance(by, Thresholds):
-            choice = (by.lower <= values) & (values < by.upper)
+        elif isinstance(interval, Thresholds):
+            choice = (interval.lower <= values) & (values < interval.upper)
             data = (data * choice).astype(float)
             data[data == 0] = np.nan
             return ~np.isnan(data)
-        elif isinstance(by, BaseLimits):
-            raise NotImplementedError
         else:
-            raise ValueError('by must be Quantiles or Thresholds')
+            raise ValueError('interval must be Quantiles or Thresholds')

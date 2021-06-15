@@ -4,12 +4,10 @@ from typing import Union
 import numpy as np
 
 
-class BaseLimits(ABC):
-    def __init__(
-            self,
-            lower: Union[int, float] = -np.inf,
-            upper: Union[int, float] = np.inf
-    ):
+class Interval(ABC):
+    def __init__(self,
+                 lower: Union[int, float] = -np.inf,
+                 upper: Union[int, float] = np.inf):
         self._lower = lower
         self._upper = upper
 
@@ -41,17 +39,15 @@ class BaseLimits(ABC):
                              'and more than lower')
 
 
-class Quantiles(BaseLimits):
-    def __init__(
-            self,
-            lower: Union[int, float] = 0,
-            upper: Union[int, float] = 1
-    ):
+class Quantiles(Interval):
+    def __init__(self,
+                 lower: Union[int, float] = 0,
+                 upper: Union[int, float] = 1):
         if 0 <= lower <= 1 and 0 <= upper <= 1:
             super().__init__(lower, upper)
         else:
             raise ValueError('quantiles must be in range [0, 1]')
 
 
-class Thresholds(BaseLimits):
+class Thresholds(Interval):
     pass

@@ -1,52 +1,56 @@
-from typing import Iterable, Union
+from typing import Iterable, Sequence, Union
 
 import numpy as np
 
-from pqr.base.multi_factor import BaseMultiFactor
-from pqr.base.factor import ChoosingFactorInterface, BaseFactor
-from pqr.base.limits import BaseLimits, Quantiles
-from pqr.utils import epsilon
+from .multifactor import MultiFactor
+from pqr.factors import Factor
+from pqr.utils import Quantiles, epsilon
 
 
-class WeightedMultiFactor(BaseMultiFactor, ChoosingFactorInterface):
+class WeightedMultiFactor(MultiFactor):
     _weights: np.ndarray
 
     def __init__(
             self,
-            factors: Iterable[BaseFactor],
-            weights: Iterable[Union[int, float]] = None
+            factors: Sequence[Factor],
+            weights: Iterable[Union[int, float]] = None,
+            name: str = None
     ):
-        super().__init__(factors)
+        super().__init__(factors, name)
 
         self.weights = weights
 
-    def _calc_values(self):
-        factors_values = np.array(
-            [factor.values for factor in self.factors]
+    def transform(self,
+                  looking_period: int = 1,
+                  lag_period: int = 1) -> np.ndarray:
+        factors = np.array(
+            [factor.transform(looking_period, lag_period)
+             for factor in self.factors]
         )
-        weighted_factor_values = factors_values * \
-            self.weights[:, np.newaxis, np.newaxis]
-        return np.nansum(weighted_factor_values, axis=0)
+        weighted_factors = factors * self.weights[:, np.newaxis, np.newaxis]
+        return np.nansum(weighted_factors, axis=0)
 
-    def choose(self, data: np.ndarray, by: BaseLimits):
-        if isinstance(by, Quantiles):
-            values = self._calc_values()
-            values[np.isnan(data)] = np.nan
+    def choose(self,
+               data: np.ndarray,
+               interval: Quantiles,
+               looking_period: int = 1,
+               lag_period: int = 0) -> np.ndarray:
+        if not isinstance(interval, Quantiles):
+            raise ValueError('interval must be Quantiles')
 
-            lower_threshold = np.nanquantile(values, by.lower, axis=1)
-            upper_threshold = np.nanquantile(values, by.upper, axis=1)
-            # to include stock with highest factor value
-            if by.upper == 1:
-                upper_threshold += epsilon
-            choice = (lower_threshold[:, np.newaxis] <= values) & \
-                     (values < upper_threshold[:, np.newaxis])
-            data = (data * choice).astype(float)
-            data[data == 0] = np.nan
-            return ~np.isnan(data)
-        elif isinstance(by, BaseLimits):
-            raise NotImplementedError
-        else:
-            raise ValueError('by must be Limits')
+        values = self.transform(looking_period, lag_period)
+        values[np.isnan(data)] = np.nan
+
+        lower_threshold = np.nanquantile(values, interval.lower, axis=1)
+        upper_threshold = np.nanquantile(values, interval.upper, axis=1)
+        # to include stock with highest factor value
+        if interval.upper == 1:
+            upper_threshold += epsilon
+        choice = (lower_threshold[:, np.newaxis] <= values) & \
+                 (values < upper_threshold[:, np.newaxis])
+        data = (data * choice).astype(float)
+        data[data == 0] = np.nan
+        return ~np.isnan(data)
 
     @property
     def weights(self):
