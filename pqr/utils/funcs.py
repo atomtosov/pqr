@@ -1,5 +1,3 @@
-from enum import Enum
-
 import numpy as np
 
 
@@ -34,11 +32,3 @@ def make_intervals(array: np.ndarray) -> np.ndarray:
         array,
         np.arange(n * 2).reshape((n, -1)) - np.indices((n, 2))[0]
     )
-
-
-epsilon = np.finfo(float).eps
-
-
-class DataPeriodicity(Enum):
-    monthly = 12
-    daily = 252
