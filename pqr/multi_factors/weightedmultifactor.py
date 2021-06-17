@@ -62,8 +62,7 @@ class WeightedMultiFactor(MultiFactor):
             self._weights = np.ones(len(self.factors)) / len(self.factors)
         elif np.all([isinstance(w, (int, float)) and w > 0 for w in value]):
             # normalize weights if necessary (sum of weights must be = 1)
-            value = np.array(value) / (np.sum(value)) \
-                if np.sum(value) != 1 else 1
+            value = np.array(value) / np.sum(value)
             self._weights = value
         else:
             raise ValueError('weights must be Iterable of int or float > 0')

@@ -1,4 +1,4 @@
-from typing import Union, List
+from typing import Union, List, Iterable, Dict, Tuple
 
 import numpy as np
 import pandas as pd
@@ -8,10 +8,10 @@ from pqr.factors import Factor, FilteringFactor, WeightingFactor
 from pqr.multi_factors import MultiFactor
 from pqr.portfolios import BasePortfolio, QuantilePortfolio, WMLPortfolio
 from pqr.benchmarks import BaseBenchmark
-from pqr.utils import make_intervals, Quantiles
+from pqr.utils import HasNameMixin, make_intervals, Quantiles
 
 
-class FactorModel:
+class FactorModel(HasNameMixin):
     _looking_period: int
     _lag_period: int
     _holding_period: int
@@ -22,6 +22,8 @@ class FactorModel:
                  looking_period: int = 1,
                  lag_period: int = 0,
                  holding_period: int = 1):
+        super().__init__(f'{looking_period}, {lag_period}, {holding_period}')
+
         self.looking_period = looking_period
         self.lag_period = lag_period
         self.holding_period = holding_period
@@ -72,17 +74,57 @@ class FactorModel:
                               benchmark=benchmark)
             self._portfolios.append(wml)
 
-    def compare_portfolios(self):
+    def compare_portfolios(self, plot: bool = True):
         stats = {}
         plt.figure(figsize=(16, 9))
         for i, portfolio in enumerate(self.portfolios):
             stats[repr(portfolio)] = portfolio.stats
-            portfolio.plot_cumulative_returns(
-                add_benchmark=(i == len(self.portfolios) - 1)
-            )
-        plt.legend()
-        plt.suptitle('Portfolio Cumulative Returns', fontsize=25)
+            if plot:
+                portfolio.plot_cumulative_returns(
+                    add_benchmark=(i == len(self.portfolios) - 1)
+                )
+        if plot:
+            plt.legend()
+            plt.suptitle('Portfolio Cumulative Returns', fontsize=25)
         return pd.DataFrame(stats).round(2)
+
+    def grid_search(self,
+                    looking_periods: Iterable[int],
+                    lag_periods: Iterable[int],
+                    holding_periods: Iterable[int],
+                    prices: Union[np.ndarray, pd.DataFrame],
+                    factor: Union[Factor, MultiFactor],
+                    filtering_factor: FilteringFactor = None,
+                    weighting_factor: WeightingFactor = None,
+                    benchmark: BaseBenchmark = None,
+                    budget: Union[int, float] = None,
+                    fee_rate: Union[int, float] = None,
+                    fee_fixed: Union[int, float] = None,
+                    n_quantiles: int = 3,
+                    add_wml: bool = False) -> Dict[Tuple[int, int, int],
+                                                   pd.DataFrame]:
+        results = {}
+        for looking_period in looking_periods:
+            for lag_period in lag_periods:
+                for holding_period in holding_periods:
+                    self.looking_period = looking_period
+                    self.lag_period = lag_period
+                    self.holding_period = holding_period
+                    self.fit(
+                        prices,
+                        factor,
+                        filtering_factor,
+                        weighting_factor,
+                        benchmark,
+                        budget,
+                        fee_rate,
+                        fee_fixed,
+                        n_quantiles,
+                        add_wml
+                    )
+                    results[(looking_period, lag_period, holding_period)] = \
+                        self.compare_portfolios(plot=False)
+        return results
 
     @property
     def portfolios(self) -> List[BasePortfolio]:
