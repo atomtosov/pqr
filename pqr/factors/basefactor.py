@@ -6,7 +6,7 @@ import numpy as np
 from pqr.utils import HasNameMixin, DataPeriodicity
 
 
-class BaseFactor(ABC, HasNameMixin):
+class BaseFactor(HasNameMixin):
     """
     Abstract base class for factors.
 
@@ -50,15 +50,6 @@ class BaseFactor(ABC, HasNameMixin):
         self.bigger_better = bigger_better
         self.periodicity = periodicity
         super().__init__(name)
-
-    @abstractmethod
-    def transform(self,
-                  looking_period: int,
-                  lag_period: int) -> np.ndarray:
-        """
-        Transform factor values into appropriate for decision-making format.
-        """
-        ...
 
     @property
     def dynamic(self) -> bool:
