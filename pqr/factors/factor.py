@@ -5,21 +5,46 @@ from pqr.utils import epsilon, Interval, Quantiles, Thresholds
 
 
 class Factor(SingleFactor):
+    """
+    Class Factor, which actually represents ChoosingFactor - Factor, which can
+    choose some stocks by its own transformed values with respect to given data
+    Extends SingleFactor
+
+    Attributes:
+        dynamic: bool - is factor dynamic or not, this information is needed
+        for future transformation of factor data
+        bigger_better: bool | None - is better, when factor value bigger
+        (e.g. ROA) or when factor value lower (e.g. P/E); if value is None it
+        means that it cannot be said exactly, what is better (used for multi-
+        factors)
+        periodicity: DataPeriodicity - info about periodicity or discreteness
+        of factor data, used for annualization and smth more
+        name: str - name of factor
+
+    Methods:
+        transform() - returns transformed values of factor data
+        with looking_period and lag_period (NOTE: if factor is dynamic,
+        real lag = lag_period + 1)
+
+        choose() - choose values from given dataset with respect to its own
+        values, transformed with looking_period and lag_period, and interval
+    """
     def choose(self,
                data: np.ndarray,
                interval: Interval,
                looking_period: int = 1,
                lag_period: int = 0) -> np.ndarray:
         """
-        Принимает на вход данные, обрабатывает их и возвращает массив из
-        True и False - выбранные по фактору позиции
-        :param data:
-        :param interval:
-        :param looking_period:
-        :param lag_period:
-        :return:
+
+        :param data: dataset, from which pick stocks (it is needed to exclude
+        from factor data values, when in the same period are not represented in
+        data (e.g. after filtering))
+        :param interval: interval by which pick stocks
+        :param looking_period: period to lookahead
+        :param lag_period: period to shift data
+        :return: 2-dimensional boolean matrix of choices (True if chosen)
         """
-        # exclude values which are not available in data
+        # exclude values which are not available in data (e.g. after filtering)
         values = self.transform(looking_period, lag_period)
         values[np.isnan(data)] = np.nan
 

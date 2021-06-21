@@ -4,6 +4,24 @@ from pqr.utils import HasNameMixin, DataPeriodicity
 
 
 class BaseFactor(HasNameMixin):
+    """
+    Abstract base class for Factors
+    Inherits from HasNameMixin to be nameable
+
+    Attributes:
+        dynamic: bool - is factor dynamic or not, this information is needed
+        for future transformation of factor data
+        bigger_better: bool | None - is better, when factor value bigger
+        (e.g. ROA) or when factor value lower (e.g. P/E); if value is None it
+        means that it cannot be said exactly, what is better (used for multi-
+        factors)
+        periodicity: DataPeriodicity - info about periodicity or discreteness
+        of factor data, used for annualization and smth more
+        name: str - name of factor
+
+    Raises ValueError if values to be set as attributes are incorrect
+    """
+
     _dynamic: bool
     _bigger_better: Union[bool, None]
     _periodicity: DataPeriodicity
@@ -13,6 +31,14 @@ class BaseFactor(HasNameMixin):
                  bigger_better: Union[bool, None],
                  periodicity: str,
                  name: str):
+        """
+        Initialization of BaseFactor class
+
+        :param dynamic: is factor dynamic or not
+        :param bigger_better: is better, when factor value bigger
+        :param periodicity: periodicity or discreteness of factor data
+        :param name: name of factor
+        """
         self.dynamic = dynamic
         self.bigger_better = bigger_better
         self.periodicity = periodicity
@@ -49,5 +75,7 @@ class BaseFactor(HasNameMixin):
         if isinstance(value, str):
             self._periodicity = getattr(DataPeriodicity, value)
         else:
-            # TODO: nice error output
-            raise ValueError('data_periodicity must be ')
+            raise ValueError(
+                f'periodicity must be one of values: '
+                f'{", ".join(list(DataPeriodicity.__members__.keys()))}'
+            )
