@@ -9,30 +9,38 @@ from pqr.utils import Thresholds
 
 class FilteringFactor(SingleFactor):
     """
-    Class for filtering factors: filtering factor is used to filter given
-    dataset by factor values, if factor values are in Thresholds
-    Extends SingleFactor
+    Class for factors used to filter stock universe.
 
-    Attributes:
-        dynamic: bool - is factor dynamic or not, this information is needed
-        for future transformation of factor data
-        bigger_better: bool | None - is better, when factor value bigger
-        (e.g. ROA) or when factor value lower (e.g. P/E); if value is None it
-        means that it cannot be said exactly, what is better (used for multi-
-        factors)
-        periodicity: DataPeriodicity - info about periodicity or discreteness
-        of factor data, used for annualization and smth more
-        name: str - name of factor
-        thresholds: Thresholds - lower and upper threshold to filter (e.g. we
-        can have liquidity filter >1 000 000$ daily turnover)
+    Parameters
+    ----------
+    data : np.ndarray, pd.DataFrame
+        Matrix with values of factor.
+    dynamic : bool, default=False
+        Whether factor values should be used to make decisions in absolute form
+        or in relative form (percentage changes).
+    bigger_better : bool, None, default=True
+        Whether more factor value, better company or less factor value better
+        company. If it equals None, cannot be defined correctly (e.g. intercept
+        multi-factor).
+    periodicity : str, default='monthly'
+        Discreteness of factor with respect to one year (e.g. 'monthly' equals
+        to 12, because there are 12 trading months in 1 year).
+    replace_with_nan: Any, default=None
+        Value to be replaced with np.nan in data.
+    name : str, optional
+        Name of factor.
+    min_threshold : int, float, default=-np.inf
+        Lower threshold of factor values to filter stock universe.
+    max_threshold : int, float, default=np.inf
+        Upper threshold of factor values to filter stock universe.
 
-    Methods:
-        transform() - returns transformed values of factor data
-        with looking_period and lag_period (NOTE: if factor is dynamic,
-        real lag = lag_period + 1)
-
-        filter() - filter values in given dataset with respect to factor values
-        and thresholds
+    Attributes
+    ----------
+        dynamic
+        bigger_better
+        periodicity
+        name
+        thresholds
     """
 
     _thresholds: Thresholds
@@ -41,45 +49,39 @@ class FilteringFactor(SingleFactor):
                  data: Union[np.ndarray, pd.DataFrame],
                  dynamic: bool = False,
                  bigger_better: bool = True,
-                 data_periodicity: str = 'monthly',
+                 periodicity: str = 'monthly',
                  replace_with_nan: Any = None,
                  name: str = None,
                  min_threshold: Union[int, float] = -np.inf,
                  max_threshold: Union[int, float] = np.inf):
         """
-        Initialization of FilteringFactor
-
-        :param data: matrix of factor values
-        :param dynamic: is factor dynamic or not
-        :param bigger_better: is better, when factor value bigger
-        :param data_periodicity: periodicity or discreteness of factor data
-        :param replace_with_nan: value, which interpreted as nan in data
-        :param name: name of factor
-        :param min_threshold: lower threshold of filter
-        :param max_threshold: upper threshold of filter
-
-        :raise ValueError if format of data values is incorrect
+        Initialize FilteringFactor instance.
         """
-        super().__init__(
-            data,
-            dynamic,
-            bigger_better,
-            data_periodicity,
-            replace_with_nan,
-            name
-        )
+
+        # init parent SingleFactor class
+        super().__init__(data, dynamic, bigger_better, periodicity,
+                         replace_with_nan, name)
 
         self.thresholds = Thresholds(min_threshold, max_threshold)
 
     def filter(self, data: np.ndarray) -> np.ndarray:
         """
-        Filtering values in given dataset by factor values: check if factor
-        values falls between thresholds. If not replace it with np.nan
+        Filter stock universe by thresholds for factor values.
 
-        :param data: given dataset to be filtered
-        :return: 2-dimensional matrix with nans in places, where filtering
-        condition is not met
+        Parameters
+        ----------
+        data : np.ndarray
+            Data to be filtered by factor values. Expected to get stock prices,
+            but it isn't obligatory.
+
+        Returns
+        -------
+            2-d matrix with the same data as given, but with replaced with
+            np.nan values, which are filtered by factor values and thresholds.
         """
+
+        # TODO: check data
+
         values = self.transform(looking_period=1, lag_period=0)
         filter_by_factor = (self.thresholds.lower <= values) & \
                            (values <= self.thresholds.upper)
@@ -101,34 +103,29 @@ class FilteringFactor(SingleFactor):
 
 class NoFilter(FilteringFactor):
     """
-    Simple dummy for FilteringFactor
-    Inherits from FilteringFactor to provide factor, which not filter anything
+    Class for dummy-filtering. Used to replace FilteringFactor with factor,
+    which doesn't filter anything.
 
-    Attributes:
-        dynamic: bool - is factor dynamic or not, this information is needed
-        for future transformation of factor data
-        bigger_better: bool | None - is better, when factor value bigger
-        (e.g. ROA) or when factor value lower (e.g. P/E); if value is None it
-        means that it cannot be said exactly, what is better (used for multi-
-        factors)
-        periodicity: DataPeriodicity - info about periodicity or discreteness
-        of factor data, used for annualization and smth more
-        name: str - name of factor
-        thresholds: Thresholds - lower and upper threshold to filter (e.g. we
-        can have liquidity filter >1 000 000$ daily turnover)
+    Parameters
+    ----------
+    shape: iterable of int
+        Shape of data to be filtered.
 
-    Methods:
-        transform() - returns transformed values of factor data
-        with looking_period and lag_period (NOTE: if factor is dynamic,
-        real lag = lag_period + 1)
-
-        filter() - filter values in given dataset with respect to factor values
-        and thresholds
+    Attributes
+    ----------
+        dynamic
+        bigger_better
+        periodicity
+        name
+        thresholds
     """
+
     def __init__(self, shape: Iterable[int]):
         """
-        Initialization of NoFilter
+        Initialize NoFilter instance.
 
-        :param shape: shape of dataset to be filtered (actually not)
+        Creates FilteringFactor with matrix, filled with ones and thresholds
+        equals to (-np.inf, np.inf) to not filter data at all.
         """
+
         super().__init__(np.ones(shape))

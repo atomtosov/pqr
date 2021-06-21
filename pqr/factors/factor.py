@@ -6,46 +6,76 @@ from pqr.utils import epsilon, Interval, Quantiles, Thresholds
 
 class Factor(SingleFactor):
     """
-    Class Factor, which actually represents ChoosingFactor - Factor, which can
-    choose some stocks by its own transformed values with respect to given data
-    Extends SingleFactor
+    Class for factors used to pick stocks.
 
-    Attributes:
-        dynamic: bool - is factor dynamic or not, this information is needed
-        for future transformation of factor data
-        bigger_better: bool | None - is better, when factor value bigger
-        (e.g. ROA) or when factor value lower (e.g. P/E); if value is None it
-        means that it cannot be said exactly, what is better (used for multi-
-        factors)
-        periodicity: DataPeriodicity - info about periodicity or discreteness
-        of factor data, used for annualization and smth more
-        name: str - name of factor
+    Parameters
+    ----------
+    data : np.ndarray, pd.DataFrame
+        Matrix with values of factor.
+    dynamic : bool, default=False
+        Whether factor values should be used to make decisions in absolute form
+        or in relative form (percentage changes).
+    bigger_better : bool, None, default=True
+        Whether more factor value, better company or less factor value better
+        company. If it equals None, cannot be defined correctly (e.g. intercept
+        multi-factor).
+    periodicity : str, default='monthly'
+        Discreteness of factor with respect to one year (e.g. 'monthly' equals
+        to 12, because there are 12 trading months in 1 year).
+    replace_with_nan: Any, default=None
+        Value to be replaced with np.nan in data.
+    name : str, optional
+        Name of factor.
 
-    Methods:
-        transform() - returns transformed values of factor data
-        with looking_period and lag_period (NOTE: if factor is dynamic,
-        real lag = lag_period + 1)
-
-        choose() - choose values from given dataset with respect to its own
-        values, transformed with looking_period and lag_period, and interval
+    Attributes
+    ----------
+        dynamic
+        bigger_better
+        periodicity
+        name
     """
-    def choose(self,
-               data: np.ndarray,
-               interval: Interval,
-               looking_period: int = 1,
-               lag_period: int = 0) -> np.ndarray:
+
+    def pick(self,
+             data: np.ndarray,
+             interval: Interval,
+             looking_period: int = 1,
+             lag_period: int = 0) -> np.ndarray:
+        """
+        Pick stocks from data, using some interval.
+
+        Parameters
+        ----------
+        data : np.ndarray
+            Data, from which stocks are picked. If some values are missed in
+            data but exist in factor values, they are excluded from factor
+            values too to prevent situations, when stock cannot be traded, but
+            picked.
+        interval : Interval
+            Interval of factor values to pick. Can be Quantiles, Thresholds or
+            Top.
+        looking_period : int, default=1
+            Looking period to transform factor values
+            (see SingleFactor.transform()).
+        lag_period : int, default=0
+            Lag period to transform factor values
+            (see SingleFactor.transform()).
+
+        Returns
+        -------
+            2-d matrix of bool values. True means that stock is picked, False -
+            isn't picked.
+
+        Raises
+        ------
+        ValueError
+            Given data is incorrect or given interval is not supported to pick
+            stocks.
         """
 
-        :param data: dataset, from which pick stocks (it is needed to exclude
-        from factor data values, when in the same period are not represented in
-        data (e.g. after filtering))
-        :param interval: interval by which pick stocks
-        :param looking_period: period to lookahead
-        :param lag_period: period to shift data
-        :return: 2-dimensional boolean matrix of choices (True if chosen)
-        """
-        # exclude values which are not available in data (e.g. after filtering)
+        # TODO: check data
+
         values = self.transform(looking_period, lag_period)
+        # exclude values which are not available in data (e.g. after filtering)
         values[np.isnan(data)] = np.nan
 
         if isinstance(interval, Quantiles):

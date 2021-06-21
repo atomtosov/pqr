@@ -1,25 +1,36 @@
+from abc import abstractmethod, ABC
 from typing import Union
+
+import numpy as np
 
 from pqr.utils import HasNameMixin, DataPeriodicity
 
 
-class BaseFactor(HasNameMixin):
+class BaseFactor(ABC, HasNameMixin):
     """
-    Abstract base class for Factors
-    Inherits from HasNameMixin to be nameable
+    Abstract base class for factors.
 
-    Attributes:
-        dynamic: bool - is factor dynamic or not, this information is needed
-        for future transformation of factor data
-        bigger_better: bool | None - is better, when factor value bigger
-        (e.g. ROA) or when factor value lower (e.g. P/E); if value is None it
-        means that it cannot be said exactly, what is better (used for multi-
-        factors)
-        periodicity: DataPeriodicity - info about periodicity or discreteness
-        of factor data, used for annualization and smth more
-        name: str - name of factor
+    Parameters
+    ----------
+    dynamic : bool
+        Whether factor values should be used to make decisions in absolute form
+        or in relative form (percentage changes).
+    bigger_better : bool, None
+        Whether more factor value, better company or less factor value better
+        company. If it equals None, cannot be defined correctly (e.g. intercept
+        multi-factor).
+    periodicity : str
+        Discreteness of factor with respect to one year (e.g. 'monthly' equals
+        to 12, because there are 12 trading months in 1 year).
+    name : str
+        Name of factor.
 
-    Raises ValueError if values to be set as attributes are incorrect
+    Attributes
+    ----------
+        dynamic
+        bigger_better
+        periodicity
+        name
     """
 
     _dynamic: bool
@@ -32,17 +43,22 @@ class BaseFactor(HasNameMixin):
                  periodicity: str,
                  name: str):
         """
-        Initialization of BaseFactor class
-
-        :param dynamic: is factor dynamic or not
-        :param bigger_better: is better, when factor value bigger
-        :param periodicity: periodicity or discreteness of factor data
-        :param name: name of factor
+        Initialize BaseFactor instance.
         """
+
         self.dynamic = dynamic
         self.bigger_better = bigger_better
         self.periodicity = periodicity
         super().__init__(name)
+
+    @abstractmethod
+    def transform(self,
+                  looking_period: int,
+                  lag_period: int) -> np.ndarray:
+        """
+        Transform factor values into appropriate for decision-making format.
+        """
+        ...
 
     @property
     def dynamic(self) -> bool:
@@ -53,7 +69,7 @@ class BaseFactor(HasNameMixin):
         if isinstance(value, bool):
             self._dynamic = value
         else:
-            raise ValueError('static must be bool (True or False)')
+            raise ValueError('dynamic must be bool')
 
     @property
     def bigger_better(self) -> Union[bool, None]:

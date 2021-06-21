@@ -9,24 +9,33 @@ from pqr.utils import lag, pct_change
 
 class SingleFactor(BaseFactor):
     """
-    Class for single factors (e.g. value - P/E)
-    Inherits from BaseFactor to inherit some attributes, but overrides init
+    Class for factors, which can be represented by 1 matrix (e.g. value - P/E).
 
-    Attributes:
-        dynamic: bool - is factor dynamic or not, this information is needed
-        for future transformation of factor data
-        bigger_better: bool | None - is better, when factor value bigger
-        (e.g. ROA) or when factor value lower (e.g. P/E); if value is None it
-        means that it cannot be said exactly, what is better (used for multi-
-        factors)
-        periodicity: DataPeriodicity - info about periodicity or discreteness
-        of factor data, used for annualization and smth more
-        name: str - name of factor
+    Parameters
+    ----------
+    data : np.ndarray, pd.DataFrame
+        Matrix with values of factor.
+    dynamic : bool, default=False
+        Whether factor values should be used to make decisions in absolute form
+        or in relative form (percentage changes).
+    bigger_better : bool, None, default=True
+        Whether more factor value, better company or less factor value better
+        company. If it equals None, cannot be defined correctly (e.g. intercept
+        multi-factor).
+    periodicity : str, default='monthly'
+        Discreteness of factor with respect to one year (e.g. 'monthly' equals
+        to 12, because there are 12 trading months in 1 year).
+    replace_with_nan: Any, default=None
+        Value to be replaced with np.nan in data.
+    name : str, optional
+        Name of factor.
 
-    Methods:
-        transform(looking_period=1, lag_period=1) - returns transformed values
-        of factor data with looking_period and lag_period (NOTE: if factor is
-        dynamic, real lag = lag_period + 1)
+    Attributes
+    ----------
+        dynamic
+        bigger_better
+        periodicity
+        name
     """
 
     _values: np.ndarray
@@ -35,26 +44,19 @@ class SingleFactor(BaseFactor):
                  data: Union[np.ndarray, pd.DataFrame],
                  dynamic: bool = False,
                  bigger_better: bool = True,
-                 data_periodicity: str = 'monthly',
+                 periodicity: str = 'monthly',
                  replace_with_nan: Any = None,
                  name: str = None):
         """
-        Initialization of SingleFactor class
-
-        :param data: matrix of factor values
-        :param dynamic: is factor dynamic or not
-        :param bigger_better: is better, when factor value bigger
-        :param data_periodicity: periodicity or discreteness of factor data
-        :param replace_with_nan: value, which interpreted as nan in data
-        :param name: name of factor
-
-        :raise ValueError if format of data values is incorrect
+        Initialize SingleFactor instance.
         """
 
-        super().__init__(dynamic, bigger_better, data_periodicity, name)
+        # init parent BaseFactor class
+        super().__init__(dynamic, bigger_better, periodicity, name)
 
         if isinstance(data, np.ndarray):
             if data.ndim == 2:
+                # ensure that np.array is 2-dimensional
                 self._values = np.array(data, dtype=float)
             else:
                 raise ValueError('data must be 2-dimensional')
@@ -68,15 +70,32 @@ class SingleFactor(BaseFactor):
                   looking_period: int = 1,
                   lag_period: int = 0) -> np.ndarray:
         """
-        Transforms factor values by looking_period and lag_period:
-            - if factor is dynamic, calculate pct change to t(-looking_period)
-            - if factor is static, just shift data to t(-looking_period)
-            - then shift data by lag_period (if on testing you react on factor
-            data with lag)
+        Transform factor values into appropriate for decision-making format.
 
-        :param looking_period: period to lookahead
-        :param lag_period: period to shift data
-        :return: 2-dimensional matrix of transformed factor values
+        If factor is dynamic:
+            calculate percentage change t(-looking_period)/t(0)-1 and then lag
+            it to lag_period+1 (additional shift is necessary, because it is
+            always needed to know t(0) data, but it can be get only at t(1);
+            so, it helps to avoid lookahead bias).
+
+        If factor is static:
+            just lag all values to looking_period+lag_period.
+
+        Parameters
+        ----------
+        looking_period : int, default=1
+            Period to lookahead in data to transform it.
+        lag_period : int, default=0
+            Period to lag data to create effect of delayed reaction to factor
+            values.
+
+        Returns
+        -------
+            2-d matrix with shape equal to shape of data with transformed
+            factor values. First looking_period+lag_period lines are equal to
+            np.nan, because in these moments decision-making is abandoned
+            because of lack of data. For dynamic factors one more line is equal
+            to np.nan (see above).
         """
 
         if not isinstance(looking_period, int) or looking_period < 1:

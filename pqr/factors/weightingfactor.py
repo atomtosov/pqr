@@ -7,36 +7,56 @@ from .singlefactor import SingleFactor
 
 class WeightingFactor(SingleFactor):
     """
-    Class for weighting factor: factor which used to weigh positions by factor
-    values
-    Extends SingleFactor
+    Class for factors used to weigh positions.
 
-    Attributes:
-        dynamic: bool - is factor dynamic or not, this information is needed
-        for future transformation of factor data
-        bigger_better: bool | None - is better, when factor value bigger
-        (e.g. ROA) or when factor value lower (e.g. P/E); if value is None it
-        means that it cannot be said exactly, what is better (used for multi-
-        factors)
-        periodicity: DataPeriodicity - info about periodicity or discreteness
-        of factor data, used for annualization and smth more
-        name: str - name of factor
+    Parameters
+    ----------
+    data : np.ndarray, pd.DataFrame
+        Matrix with values of factor.
+    dynamic : bool, default=False
+        Whether factor values should be used to make decisions in absolute form
+        or in relative form (percentage changes).
+    bigger_better : bool, None, default=True
+        Whether more factor value, better company or less factor value better
+        company. If it equals None, cannot be defined correctly (e.g. intercept
+        multi-factor).
+    periodicity : str, default='monthly'
+        Discreteness of factor with respect to one year (e.g. 'monthly' equals
+        to 12, because there are 12 trading months in 1 year).
+    replace_with_nan: Any, default=None
+        Value to be replaced with np.nan in data.
+    name : str, optional
+        Name of factor.
 
-    Methods:
-        transform() - returns transformed values of factor data
-        with looking_period and lag_period (NOTE: if factor is dynamic,
-        real lag = lag_period + 1)
-
-        weigh() - weigh values in given dataset by factor values
+    Attributes
+    ----------
+        dynamic
+        bigger_better
+        periodicity
+        name
     """
 
     def weigh(self, data: np.ndarray) -> np.ndarray:
         """
-        Weigh values in given dataset by factor values
+        Weigh values in given data by factor values.
 
-        :param data: given dataset (expected positions, but may be smth other)
-        :return: 2-dimensional weighted matrix
+        Parameters
+        ----------
+        data : np.ndarray
+            Data to be weighted. Expected positions (matrix with True/False or
+            1/0), but not obligatory.
+
+        Notes
+        -----
+            Now work only for bigger_better factors with all positive values.
+
+        Returns
+        -------
+            2-d matrix with weighted factor values.
         """
+
+        # TODO: check data
+
         values = self.transform(looking_period=1, lag_period=0)
         if self.bigger_better:
             weights = values * data
@@ -48,14 +68,28 @@ class WeightingFactor(SingleFactor):
 
 class EqualWeights(WeightingFactor):
     """
-    Simple dummy for WeightingFactor
-    Inherits from WeightingFactor to provide factor, which weigh equally
+    Class for dummy-weighting. Used to replace WeightingFactor with factor,
+    which weigh equally.
+
+    Parameters
+    ----------
+    shape: iterable of int
+        Shape of data to be weighted.
+
+    Attributes
+    ----------
+        dynamic
+        bigger_better
+        periodicity
+        name
+        thresholds
     """
 
     def __init__(self, shape: Iterable[int]):
         """
-        Initialization of EqualWeights
+        Initialization EqualWeights instance.
 
-        :param shape: shape of dataset to be weighted (actually not)
+        Creates WeightingFactor with matrix, filled with ones to weigh equally.
         """
+
         super().__init__(np.ones(shape))
