@@ -53,6 +53,12 @@ class WeightingFactor(SingleFactor):
         Returns
         -------
             2-d matrix with weighted factor values.
+
+        Raises
+        ------
+        ValueError
+            Given data is incorrect or given interval is not supported to pick
+            stocks.
         """
 
         # TODO: check data

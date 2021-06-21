@@ -78,6 +78,12 @@ class FilteringFactor(SingleFactor):
         -------
             2-d matrix with the same data as given, but with replaced with
             np.nan values, which are filtered by factor values and thresholds.
+
+        Raises
+        ------
+        ValueError
+            Given data is incorrect or given interval is not supported to pick
+            stocks.
         """
 
         # TODO: check data
