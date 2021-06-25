@@ -3,7 +3,7 @@ from typing import Union, Any
 import numpy as np
 import pandas as pd
 
-from .basefactor import BaseFactor
+from ..basefactor import BaseFactor
 from pqr.utils import lag, pct_change
 
 
@@ -46,7 +46,7 @@ class SingleFactor(BaseFactor):
                  bigger_better: bool = True,
                  periodicity: str = 'monthly',
                  replace_with_nan: Any = None,
-                 name: str = None):
+                 name: str = ''):
         """
         Initialize SingleFactor instance.
         """
@@ -57,14 +57,18 @@ class SingleFactor(BaseFactor):
         if isinstance(data, np.ndarray):
             if data.ndim == 2:
                 # ensure that np.array is 2-dimensional
-                self._values = np.array(data, dtype=float)
+                self.values = data
+                self.index = np.arange(data.shape[0])
+                self.columns = np.arange(data.shape[1])
             else:
                 raise ValueError('data must be 2-dimensional')
         elif isinstance(data, pd.DataFrame):
-            self._values = np.array(data.values, dtype=float)
+            self.values = data.values
+            self.index = data.index
+            self.columns = data.columns
         else:
             raise ValueError('data must be np.ndarray or pd.DataFrame')
-        self._values[self._values == replace_with_nan] = np.nan
+        self.values[self.values == replace_with_nan] = np.nan
 
     def transform(self,
                   looking_period: int = 1,

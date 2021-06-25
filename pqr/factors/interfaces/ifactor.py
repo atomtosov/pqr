@@ -1,14 +1,15 @@
-from abc import abstractmethod
+from typing import Optional
 
 import numpy as np
 
+from pqr.utils import DataPeriodicity
 
-from .ifactor import IFactor
 
-
-class IWeightingFactor(IFactor):
+class IFactor:
     """
-    Class-interface for weighting factors.
+    Class-interface for factors.
+
+    Created to pull up annotations.
 
     Attributes
     ----------
@@ -24,6 +25,11 @@ class IWeightingFactor(IFactor):
         to 12, because there are 12 trading months in 1 year).
     """
 
-    @abstractmethod
-    def weigh(self, data: np.ndarray) -> np.ndarray:
+    dynamic: bool
+    bigger_better: Optional[bool]
+    periodicity: DataPeriodicity
+
+    def transform(self,
+                  looking_period: int,
+                  lag_period: int) -> np.ndarray:
         ...

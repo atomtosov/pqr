@@ -1,17 +1,20 @@
 import numpy as np
 
-from .multifactor import MultiFactor
+from .pickingmultifactor import PickingMultiFactor
 from pqr.utils import Quantiles
 
 
-class NSortMultiFactor(MultiFactor):
+class InterceptMultiFactor(PickingMultiFactor):
     """
     Class for multi-factors to pick stocks by intercepting picks of factors.
 
     Parameters
     ----------
-    factors : sequence of Factor
-        Sequence of factors.
+    factors : sequence of IPickingFactor
+        Sequence of factors, which implement interface of picking factor.
+    weights : sequence of int or float, optional
+        Sequence of weights. Must have the same length as factors. By default
+        equal weights are used.
     name : str, optional
         Name of factor.
 
@@ -22,6 +25,12 @@ class NSortMultiFactor(MultiFactor):
         periodicity
         name
         factors
+        weights
+
+    Raises
+    ------
+    ValueError
+        If any of given factors doesn't implement interface of picking factor.
     """
 
     def pick(self,
@@ -34,10 +43,9 @@ class NSortMultiFactor(MultiFactor):
 
         Provide the same interface as Factor.pick().
 
-        Picking stocks is based on iterative choice of factors. On every
-        iteration unpicked choices are deleting from stock universe and this
-        data are given to next factor to pick. So, after the last iteration
-        choice is ready.
+        Picking stocks is based on choices of every factor by the same data and
+        the same interval (if factors are different, interval is mirrored).
+        Then, matrices with choices are multiplied element-wise.
 
         Parameters
         ----------
@@ -73,14 +81,21 @@ class NSortMultiFactor(MultiFactor):
             raise ValueError('interval must be Quantiles')
 
         different_factors = self.bigger_better is None
+        # every factor pick stocks by interval from the same data
+        choice = None
         for factor in self.factors:
-            # update data by picking stocks by interval every time
-            data = data * factor.pick(
+            pick = factor.pick(
                 data,
-                interval if (not different_factors or factor.bigger_better)
                 # mirroring quantiles
-                else Quantiles(1 - interval.upper, 1 - interval.lower)
+                interval if (not different_factors or factor.bigger_better)
+                else Quantiles(1 - interval.upper, 1 - interval.lower),
+                looking_period,
+                lag_period
             )
-            data = data.astype(float)
-            data[data == 0] = np.nan
+            if choice is None:
+                choice = pick
+            else:
+                choice *= pick
+        data = (data * choice).astype(float)
+        data[data == 0] = np.nan
         return ~np.isnan(data)

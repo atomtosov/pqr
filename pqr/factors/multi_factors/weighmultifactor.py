@@ -1,17 +1,20 @@
 import numpy as np
 
-from .multifactor import MultiFactor
-from pqr.utils import Quantiles
+from .pickingmultifactor import PickingMultiFactor
+from pqr.utils import Quantiles, epsilon
 
 
-class InterceptMultiFactor(MultiFactor):
+class WeighMultiFactor(PickingMultiFactor):
     """
-    Class for multi-factors to pick stocks by intercepting picks of factors.
+    Class for multi-factors to pick stocks by linearly weighting factors.
 
     Parameters
     ----------
-    factors : sequence of Factor
-        Sequence of factors.
+    factors : sequence of IPickingFactor
+        Sequence of factors, which implement interface of picking factor.
+    weights : sequence of int or float, optional
+        Sequence of weights. Must have the same length as factors. By default
+        equal weights are used.
     name : str, optional
         Name of factor.
 
@@ -22,6 +25,12 @@ class InterceptMultiFactor(MultiFactor):
         periodicity
         name
         factors
+        weights
+
+    Raises
+    ------
+    ValueError
+        If any of given factors doesn't implement interface of picking factor.
     """
 
     def pick(self,
@@ -34,9 +43,7 @@ class InterceptMultiFactor(MultiFactor):
 
         Provide the same interface as Factor.pick().
 
-        Picking stocks is based on choices of every factor by the same data and
-        the same interval (if factors are different, interval is mirrored).
-        Then, matrices with choices are multiplied element-wise.
+        Picking stocks works like for simple single factor.
 
         Parameters
         ----------
@@ -71,23 +78,21 @@ class InterceptMultiFactor(MultiFactor):
         if not isinstance(interval, Quantiles):
             raise ValueError('interval must be Quantiles')
 
-        different_factors = self.bigger_better is None
-        # every factor pick stocks by interval from the same data
-        factors_choices = np.array(
-            [
-                factor.pick(
-                    data,
-                    # mirroring quantiles
-                    interval if (not different_factors or factor.bigger_better)
-                    else Quantiles(1 - interval.upper, 1 - interval.lower),
-                    looking_period,
-                    lag_period
-                )
-                for factor in self.factors
-            ]
+        values = np.nansum(
+            self.transform(looking_period, lag_period)
+            * self.weights[:, np.newaxis, np.newaxis],
+            axis=0
         )
-        # then choices are multiplied
-        factors_choices = np.nanprod(factors_choices, axis=0).astype(float)
-        data = (data * factors_choices).astype(float)
+        # exclude values which are not available in data (e.g. after filtering)
+        values[np.isnan(data)] = np.nan
+
+        lower_threshold = np.nanquantile(values, interval.lower, axis=1)
+        upper_threshold = np.nanquantile(values, interval.upper, axis=1)
+        # to include stock with highest factor value
+        if interval.upper == 1:
+            upper_threshold += epsilon
+        choice = (lower_threshold[:, np.newaxis] <= values) & \
+                 (values < upper_threshold[:, np.newaxis])
+        data = (data * choice).astype(float)
         data[data == 0] = np.nan
         return ~np.isnan(data)

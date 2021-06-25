@@ -4,10 +4,11 @@ import numpy as np
 import pandas as pd
 
 from .singlefactor import SingleFactor
+from ..interfaces import IFilteringFactor
 from pqr.utils import Thresholds
 
 
-class FilteringFactor(SingleFactor):
+class FilteringFactor(SingleFactor, IFilteringFactor):
     """
     Class for factors used to filter stock universe.
 
@@ -82,8 +83,7 @@ class FilteringFactor(SingleFactor):
         Raises
         ------
         ValueError
-            Given data is incorrect or given interval is not supported to pick
-            stocks.
+            Given data doesn't match in shape with factor values.
         """
 
         # TODO: check data
@@ -107,31 +107,11 @@ class FilteringFactor(SingleFactor):
             raise ValueError('thresholds must be Thresholds')
 
 
-class NoFilter(FilteringFactor):
+class NoFilter(IFilteringFactor):
     """
     Class for dummy-filtering. Used to replace FilteringFactor with factor,
-    which doesn't filter anything.
-
-    Parameters
-    ----------
-    shape: iterable of int
-        Shape of data to be filtered.
-
-    Attributes
-    ----------
-        dynamic
-        bigger_better
-        periodicity
-        name
-        thresholds
+    which doesn't filter anything, but provides the same interface.
     """
 
-    def __init__(self, shape: Iterable[int]):
-        """
-        Initialize NoFilter instance.
-
-        Creates FilteringFactor with matrix, filled with ones and thresholds
-        equals to (-np.inf, np.inf) to not filter data at all.
-        """
-
-        super().__init__(np.ones(shape))
+    def filter(self, data: np.ndarray) -> np.ndarray:
+        return data

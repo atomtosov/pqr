@@ -3,9 +3,10 @@ from typing import Iterable
 import numpy as np
 
 from .singlefactor import SingleFactor
+from ..interfaces import IWeightingFactor
 
 
-class WeightingFactor(SingleFactor):
+class WeightingFactor(SingleFactor, IWeightingFactor):
     """
     Class for factors used to weigh positions.
 
@@ -52,13 +53,12 @@ class WeightingFactor(SingleFactor):
 
         Returns
         -------
-            2-d matrix with weighted factor values.
+            2-d matrix with weighted data.
 
         Raises
         ------
         ValueError
-            Given data is incorrect or given interval is not supported to pick
-            stocks.
+            Given data doesn't match in shape with factor values.
         """
 
         # TODO: check data
@@ -72,30 +72,11 @@ class WeightingFactor(SingleFactor):
                                       'are not supported yet')
 
 
-class EqualWeights(WeightingFactor):
+class EqualWeights(IWeightingFactor):
     """
     Class for dummy-weighting. Used to replace WeightingFactor with factor,
-    which weigh equally.
-
-    Parameters
-    ----------
-    shape: iterable of int
-        Shape of data to be weighted.
-
-    Attributes
-    ----------
-        dynamic
-        bigger_better
-        periodicity
-        name
-        thresholds
+    which weigh equally, but provides the same interface.
     """
 
-    def __init__(self, shape: Iterable[int]):
-        """
-        Initialization EqualWeights instance.
-
-        Creates WeightingFactor with matrix, filled with ones to weigh equally.
-        """
-
-        super().__init__(np.ones(shape))
+    def weigh(self, data: np.ndarray) -> np.ndarray:
+        return data / np.nansum(data, axis=1)[:, np.newaxis]

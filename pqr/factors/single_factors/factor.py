@@ -1,10 +1,11 @@
 import numpy as np
 
 from .singlefactor import SingleFactor
+from ..interfaces import IPickingFactor
 from pqr.utils import epsilon, Interval, Quantiles, Thresholds
 
 
-class Factor(SingleFactor):
+class Factor(SingleFactor, IPickingFactor):
     """
     Class for factors used to pick stocks.
 
