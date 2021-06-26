@@ -4,16 +4,17 @@ from typing import Sequence, Optional, Union, Tuple
 import numpy as np
 
 from .multifactor import MultiFactor
-from ..interfaces import IPickingFactor
+from ..basefactor import BaseFactor
+from ..interfaces import IPicking
 
 
-class PickingMultiFactor(ABC, MultiFactor, IPickingFactor):
+class PickingMultiFactor(MultiFactor, ABC, IPicking):
     """
     Abstract base class for multi-factors, which consist of single-factors.
 
     Parameters
     ----------
-    factors : sequence of IPickingFactor
+    factors : sequence of IPicking
         Sequence of factors, which implement interface of picking factor.
     weights : sequence of int or float, optional
         Sequence of weights. Must have the same length as factors. By default
@@ -25,7 +26,6 @@ class PickingMultiFactor(ABC, MultiFactor, IPickingFactor):
     ----------
         dynamic
         bigger_better
-        periodicity
         name
         factors
         weights
@@ -36,33 +36,24 @@ class PickingMultiFactor(ABC, MultiFactor, IPickingFactor):
         If any of given factors doesn't implement interface of picking factor.
     """
 
-    factors: Tuple[IPickingFactor, ...]
+    factors: Tuple[IPicking, ...]
 
     def __init__(self,
-                 factors: Sequence[IPickingFactor],
+                 factors: Sequence[BaseFactor],
                  weights: Optional[Sequence[Union[int, float]]] = None,
-                 name: str = None):
+                 name: str = ''):
         """
-        Initialize WeightingMultiFactor instance.
+        Initialize PickingMultiFactor instance.
         """
 
-        if not all([isinstance(factor, IPickingFactor)
-                    for factor in factors]):
-            raise ValueError('all factors must implement IPickingFactor')
+        if np.all([isinstance(factor, IPicking) for factor in factors]):
+            super().__init__(factors, name)
+        else:
+            raise ValueError('all factors must implement IPicking')
 
-        # init parent ABC
-        ABC.__init__(self)
-        # init parent MultiFactor
-        MultiFactor.__init__(self, factors, name)
-        # init parent IPickingFactor
-        IPickingFactor.__init__(self)
-
-        self.weights = weights
+        # TODO: check weights
+        self._weights = np.array(weights)
 
     @property
     def weights(self) -> np.ndarray:
         return self._weights
-
-    @weights.setter
-    def weights(self, value: Optional[Sequence[Union[int, float]]]) -> None:
-        self._weights = np.array(value)

@@ -4,11 +4,11 @@ import numpy as np
 import pandas as pd
 
 from .singlefactor import SingleFactor
-from ..interfaces import IFilteringFactor
+from ..interfaces import IFiltering
 from pqr.utils import Thresholds
 
 
-class FilteringFactor(SingleFactor, IFilteringFactor):
+class FilteringFactor(SingleFactor, IFiltering):
     """
     Class for factors used to filter stock universe.
 
@@ -60,8 +60,14 @@ class FilteringFactor(SingleFactor, IFilteringFactor):
         """
 
         # init parent SingleFactor class
-        super().__init__(data, dynamic, bigger_better, periodicity,
-                         replace_with_nan, name)
+        super().__init__(
+            data,
+            dynamic,
+            bigger_better,
+            periodicity,
+            replace_with_nan,
+            name
+        )
 
         self.thresholds = Thresholds(min_threshold, max_threshold)
 
@@ -107,7 +113,7 @@ class FilteringFactor(SingleFactor, IFilteringFactor):
             raise ValueError('thresholds must be Thresholds')
 
 
-class NoFilter(IFilteringFactor):
+class NoFilter(IFiltering):
     """
     Class for dummy-filtering. Used to replace FilteringFactor with factor,
     which doesn't filter anything, but provides the same interface.

@@ -3,10 +3,11 @@ from typing import Tuple, Sequence
 import numpy as np
 
 from .multifactor import MultiFactor
-from ..interfaces import IWeightingFactor
+from ..basefactor import BaseFactor
+from ..interfaces import IWeighting
 
 
-class WeightingMultiFactor(MultiFactor, IWeightingFactor):
+class WeightingMultiFactor(MultiFactor, IWeighting):
     """
     Class for multi-factors used to weigh positions. Consists of factors,
     implementing interface of weighting factors.
@@ -22,27 +23,24 @@ class WeightingMultiFactor(MultiFactor, IWeightingFactor):
     ----------
         dynamic
         bigger_better
-        periodicity
         name
         factors
     """
 
-    factors: Tuple[IWeightingFactor, ...]
+    factors: Tuple[IWeighting, ...]
 
     def __init__(self,
-                 factors: Sequence[IWeightingFactor],
-                 name: str = None):
+                 factors: Sequence[BaseFactor],
+                 name: str = ''):
         """
         Initialize WeightingMultiFactor instance.
         """
 
         # check that all given factors implements IWeightingFactor
-        if not all([isinstance(factor, IWeightingFactor)
-                    for factor in factors]):
+        if np.all([isinstance(factor, IWeighting) for factor in factors]):
+            super().__init__(factors, name)
+        else:
             raise ValueError('all factors must implement IWeightingFactor')
-
-        # init parent MultiFactor
-        super().__init__(factors, name)
 
     def weigh(self, data: np.ndarray) -> np.ndarray:
         """

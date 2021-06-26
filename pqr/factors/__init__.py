@@ -1,5 +1,5 @@
 """
-    Module, providing single factors:
+    Module, providing factors (single and multi):
         picking factors (simply factors),
         filtering factors,
         weighting factors.
@@ -12,5 +12,7 @@ from .single_factors import (
 )
 
 from .multi_factors import (
-    WeighMultiFactor, InterceptMultiFactor, NSortMultiFactor
+    WeighMultiFactor, InterceptMultiFactor, NSortMultiFactor,
+    FilteringMultiFactor,
+    WeightingMultiFactor
 )

@@ -1,9 +1,10 @@
-from typing import Union, Any
+from typing import Union, Any, Optional
 
 import numpy as np
 import pandas as pd
 
 from ..basefactor import BaseFactor
+from pqr.table import Table
 from pqr.utils import lag, pct_change
 
 
@@ -38,8 +39,6 @@ class SingleFactor(BaseFactor):
         name
     """
 
-    _values: np.ndarray
-
     def __init__(self,
                  data: Union[np.ndarray, pd.DataFrame],
                  dynamic: bool = False,
@@ -51,24 +50,26 @@ class SingleFactor(BaseFactor):
         Initialize SingleFactor instance.
         """
 
-        # init parent BaseFactor class
-        super().__init__(dynamic, bigger_better, periodicity, name)
+        self._dynamic = dynamic
+        self._bigger_better = bigger_better
+        self._name = name
 
         if isinstance(data, np.ndarray):
-            if data.ndim == 2:
-                # ensure that np.array is 2-dimensional
-                self.values = data
-                self.index = np.arange(data.shape[0])
-                self.columns = np.arange(data.shape[1])
-            else:
-                raise ValueError('data must be 2-dimensional')
+            self.data = Table.from_numpy(
+                data,
+                periodicity,
+                int(self.dynamic),
+                replace_with_nan
+            )
         elif isinstance(data, pd.DataFrame):
-            self.values = data.values
-            self.index = data.index
-            self.columns = data.columns
+            self.data = Table.from_pandas(
+                data,
+                periodicity,
+                int(self.dynamic),
+                replace_with_nan
+            )
         else:
             raise ValueError('data must be np.ndarray or pd.DataFrame')
-        self.values[self.values == replace_with_nan] = np.nan
 
     def transform(self,
                   looking_period: int = 1,
@@ -109,11 +110,23 @@ class SingleFactor(BaseFactor):
 
         if self.dynamic:
             return lag(
-                pct_change(self._values, looking_period),
+                pct_change(self.data.values, looking_period),
                 lag_period + 1
             )
         else:
             return lag(
-                self._values,
+                self.data.values,
                 looking_period + lag_period
             )
+
+    @property
+    def dynamic(self) -> bool:
+        return self._dynamic
+
+    @property
+    def bigger_better(self) -> Optional[bool]:
+        return self._bigger_better
+
+    @property
+    def name(self) -> str:
+        return self._name

@@ -3,10 +3,11 @@ from typing import Tuple, Sequence
 import numpy as np
 
 from .multifactor import MultiFactor
-from ..interfaces import IFilteringFactor
+from ..basefactor import BaseFactor
+from ..interfaces import IFiltering
 
 
-class FilteringMultiFactor(MultiFactor, IFilteringFactor):
+class FilteringMultiFactor(MultiFactor, IFiltering):
     """
     Class for multi-factors used to filter positions. Consists of factors,
     implementing interface of filtering factors.
@@ -22,26 +23,23 @@ class FilteringMultiFactor(MultiFactor, IFilteringFactor):
     ----------
         dynamic
         bigger_better
-        periodicity
         name
         factors
     """
 
-    factors: Tuple[IFilteringFactor, ...]
+    factors: Tuple[IFiltering, ...]
 
     def __init__(self,
-                 factors: Sequence[IFilteringFactor],
-                 name: str = None):
+                 factors: Sequence[BaseFactor],
+                 name: str = ''):
         """
         Initialize FilteringMultiFactor instance.
         """
 
-        if not all([isinstance(factor, IFilteringFactor)
-                    for factor in factors]):
-            raise ValueError('all factors must implement IFilteringFactor')
-
-        # init parent MultiFactor class
-        super().__init__(factors, name)
+        if np.all([isinstance(factor, IFiltering) for factor in factors]):
+            super().__init__(factors, name)
+        else:
+            raise ValueError('all factors must implement IFiltering')
 
     def filter(self, data: np.ndarray) -> np.ndarray:
         """

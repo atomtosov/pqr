@@ -1,9 +1,8 @@
-from typing import Sequence, Tuple
+from typing import Sequence, Tuple, Optional
 
 import numpy as np
 
 from ..basefactor import BaseFactor
-from ..interfaces import IFactor
 
 
 class MultiFactor(BaseFactor):
@@ -21,32 +20,22 @@ class MultiFactor(BaseFactor):
     ----------
         dynamic
         bigger_better
-        periodicity
         name
         factors
     """
 
     def __init__(self,
-                 factors: Sequence[IFactor],
-                 name: str = None):
-        # dynamic if only one factor is dynamic
-        dynamic = any([factor.dynamic for factor in factors])
-        # bigger_better if all factors are bigger_better
-        bigger_better = all([factor.bigger_better for factor in factors])
-        # lower_better if all factors are lower_better
-        lower_better = all([not factor.bigger_better for factor in factors])
+                 factors: Sequence[BaseFactor],
+                 name: str = ''):
+        if isinstance(name, str):
+            self._name = name
+        else:
+            raise ValueError('name must be str')
 
-        # init parent BaseFactor
-        BaseFactor.__init__(
-            self,
-            dynamic,
-            # if not bigger better and not lower_better, than None
-            bigger_better or (False if lower_better else None),
-            factors[0].periodicity.name,
-            name
-        )
-
-        self.factors = factors
+        if np.all([isinstance(factor, BaseFactor) for factor in factors]):
+            self._factors = tuple(factors)
+        else:
+            raise ValueError('all factors must be Factor')
 
     def transform(self,
                   looking_period: int = 1,
@@ -75,17 +64,28 @@ class MultiFactor(BaseFactor):
         """
 
         return np.array(
-            [factor.transform(looking_period, lag_period)
-             for factor in self.factors]
+            [
+                factor.transform(looking_period, lag_period)
+                for factor in self.factors
+            ]
         )
 
     @property
-    def factors(self) -> Tuple[IFactor, ...]:
+    def factors(self) -> Tuple[BaseFactor, ...]:
         return self._factors
 
-    @factors.setter
-    def factors(self, value: Sequence[IFactor]) -> None:
-        if np.all([isinstance(factor, IFactor) for factor in value]):
-            self._factors = tuple(value)
-        else:
-            raise ValueError('all factors must be Factor')
+    @property
+    def dynamic(self) -> bool:
+        return np.any([factor.dynamic for factor in self.factors])
+
+    @property
+    def bigger_better(self) -> Optional[bool]:
+        bigger_better = np.all([factor.bigger_better
+                                for factor in self.factors])
+        lower_better = np.all([not factor.bigger_better
+                               for factor in self.factors])
+        return bigger_better or lower_better or None
+
+    @property
+    def name(self):
+        return self._name

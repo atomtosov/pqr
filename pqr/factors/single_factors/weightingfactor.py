@@ -1,12 +1,10 @@
-from typing import Iterable
-
 import numpy as np
 
 from .singlefactor import SingleFactor
-from ..interfaces import IWeightingFactor
+from ..interfaces import IWeighting
 
 
-class WeightingFactor(SingleFactor, IWeightingFactor):
+class WeightingFactor(SingleFactor, IWeighting):
     """
     Class for factors used to weigh positions.
 
@@ -72,7 +70,7 @@ class WeightingFactor(SingleFactor, IWeightingFactor):
                                       'are not supported yet')
 
 
-class EqualWeights(IWeightingFactor):
+class EqualWeights(IWeighting):
     """
     Class for dummy-weighting. Used to replace WeightingFactor with factor,
     which weigh equally, but provides the same interface.

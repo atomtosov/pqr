@@ -1,3 +1,10 @@
+"""
+    Module, providing single-factors:
+        picking factors (simply factors),
+        filtering factors,
+        weighting factors.
+"""
+
 from .singlefactor import SingleFactor
 
 from .factor import Factor

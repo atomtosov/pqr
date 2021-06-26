@@ -10,7 +10,7 @@ class InterceptMultiFactor(PickingMultiFactor):
 
     Parameters
     ----------
-    factors : sequence of IPickingFactor
+    factors : sequence of IPicking
         Sequence of factors, which implement interface of picking factor.
     weights : sequence of int or float, optional
         Sequence of weights. Must have the same length as factors. By default

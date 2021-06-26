@@ -1,4 +1,10 @@
-from .ifactor import IFactor
-from .ipickingfactor import IPickingFactor
-from .ifilteringfactor import IFilteringFactor
-from .iweightingfactor import IWeightingFactor
+"""
+    Module, providing interfaces for factors:
+        picking,
+        filtering,
+        weighting.
+"""
+
+from .ipicking import IPicking
+from .ifiltering import IFiltering
+from .iweighting import IWeighting
