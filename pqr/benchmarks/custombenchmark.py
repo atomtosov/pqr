@@ -8,10 +8,33 @@ from pqr.factors import EqualWeights
 
 
 class CustomBenchmark(BaseBenchmark):
+    """
+    Class for making custom indices-benchmarks from prices.
+
+    Parameters
+    ----------
+    prices : pd.DataFrame
+        Prices of stocks to be picked. All of available stocks are in the
+        portfolio.
+    weighting_factor : IWeighting, optional
+        Factor to weigh stocks in portfolio (e.g. marker capitalization).
+    name : str
+        Name of custom benchmark.
+
+    Attributes
+    ----------
+    returns
+    cumulative_returns
+    """
+
     def __init__(self,
                  prices: pd.DataFrame,
                  weighting_factor: Optional[IWeighting] = None,
                  name: str = ''):
+        """
+        Initialize CustomBenchmark instance.
+        """
+
         if isinstance(prices, pd.DataFrame):
             self._prices = prices.copy()
         else:
