@@ -7,6 +7,20 @@ from pqr.benchmarks import BaseBenchmark
 
 
 class WMLPortfolio(BasePortfolio, IRelativeInvest):
+    """
+    Class for Winners-minus-Losers (WML) portfolios.
+
+    Attributes
+    ----------
+    positions
+    returns
+    benchmark
+    shift
+    cumulative_returns
+    total_return
+    winners
+    losers
+    """
     def __init__(self):
         self._positions = pd.DataFrame()
         self._returns = pd.Series()
@@ -19,7 +33,20 @@ class WMLPortfolio(BasePortfolio, IRelativeInvest):
     def invest(self,
                winners: BasePortfolio,
                losers: BasePortfolio,
-               benchmark: BaseBenchmark) -> None:
+               benchmark: Optional[BaseBenchmark] = None) -> None:
+        """
+        Simulating theoretical WML-portfolio (all short-sells are available).
+
+        Parameters
+        ----------
+        winners : BasePortfolio
+            Portfolio of "winners" - companies with the best values of factor.
+        losers : BasePortfolio
+            Portfolio of "losers" - companies with the worst values of factor.
+        benchmark : BaseBenchmark, optional
+            Benchmark to compare results of WML-Portfolio and compute metrics.
+        """
+
         if isinstance(benchmark, BaseBenchmark) or benchmark is None:
             self._benchmark = benchmark
         else:

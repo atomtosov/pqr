@@ -20,11 +20,20 @@ class BasePortfolio:
 
     Attributes
     ----------
-    ...
+    positions
+    returns
+    benchmark
+    shift
+    cumulative_returns
+    total_return
     """
 
     positions: pd.DataFrame
     returns: pd.Series
+    benchmark: Optional[BaseBenchmark]
+    shift: int
+    cumulative_returns: pd.Series
+    total_return: Union[int, float]
 
     def __repr__(self) -> str:
         return f'{self.__class__.__name__}({self._name})'

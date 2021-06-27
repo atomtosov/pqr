@@ -16,7 +16,28 @@ from pqr.benchmarks import BaseBenchmark
 
 
 class IntervalPortfolio(BasePortfolio, IRelativeInvest):
+    """
+    Class for portfolios, based on picking stocks, falling within some interval
+    (quantiles, thresholds or top).
+
+    Parameters
+    ----------
+    interval : Interval
+        Interval, used to pick stocks by factor values.
+
+    Attributes
+    ----------
+    positions
+    returns
+    benchmark
+    shift
+    cumulative_returns
+    total_return
+    """
     def __init__(self, interval: Interval):
+        """
+        Initialize IntervalPortfolio instance.
+        """
         self._positions = pd.DataFrame()
         self._returns = pd.Series()
         self._benchmark = None
@@ -30,7 +51,7 @@ class IntervalPortfolio(BasePortfolio, IRelativeInvest):
 
     @property
     def returns(self) -> pd.Series:
-        return self._returns.sum(axis=1)
+        return self._returns
 
     @property
     def benchmark(self) -> Optional['BaseBenchmark']:
@@ -53,6 +74,40 @@ class IntervalPortfolio(BasePortfolio, IRelativeInvest):
                filtering_factor: Optional[IFiltering] = None,
                weighting_factor: Optional[IWeighting] = None,
                benchmark: Optional[BaseBenchmark] = None) -> None:
+        """
+        Invest relatively in stocks by factor.
+
+        At first, stock universe is filtered, than portfolio is filled from it
+        by choices of factor.
+
+        Parameters
+        ----------
+        prices : pd.DataFrame
+            Prices of stock universe, from which stocks are picked into
+            portfolio.
+        factor : IPicking
+            Factor, representing choice of stocks from stock universe. Must
+            have data for the same stock universe.
+        looking_period : int, default=1
+            Looking period to transform factor values.
+        lag_period : int, default=0
+            Lag period to transform factor values.
+        holding_period : int
+            Holding period
+        filtering_factor : IFiltering, optional
+            Factor, filtering stock universe before picking factors. (e.g.
+            liquidity). If not given, prices are not filtered at all.
+        weighting_factor : IWeighting, optional
+            Factor, weighting positions. If not given, simple equal weights are
+            used.
+        benchmark : BaseBenchmark, optional
+
+        Raises
+        ------
+        TypeError
+            Given benchmark is not instance of BaseBenchmark.
+        """
+
         if filtering_factor is None:
             filtering_factor = NoFilter()
         if weighting_factor is None:
@@ -78,7 +133,7 @@ class IntervalPortfolio(BasePortfolio, IRelativeInvest):
         # calculate returns
         self._returns = (
                 weighted_positions * prices.pct_change().shift(-1)
-        ).shift()
+        ).shift().sum(axis=1)
 
         if isinstance(benchmark, BaseBenchmark) or benchmark is None:
             self._benchmark = benchmark
