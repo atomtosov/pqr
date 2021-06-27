@@ -95,7 +95,7 @@ class InterceptMultiFactor(PickingMultiFactor):
             if choice is None:
                 choice = pick
             else:
-                choice *= pick
+                choice &= pick
         data = (data * choice).astype(float)
         data[data == 0] = np.nan
         return ~np.isnan(data)

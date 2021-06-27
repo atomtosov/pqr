@@ -1,43 +1,41 @@
-from abc import ABC, abstractmethod
+from abc import abstractmethod
 
 import matplotlib.pyplot as plt
 import numpy as np
-from pqr.utils import HasNameMixin, HasIndexMixin
+import pandas as pd
 
 
-class BaseBenchmark(ABC, HasNameMixin, HasIndexMixin):
-    def __init__(self, name: str = None):
-        HasNameMixin.__init__(self, name)
-        HasIndexMixin.__init__(self)
+class BaseBenchmark:
+    def __repr__(self) -> str:
+        return f'{self.__class__.__name__}({self._name})'
 
+    @property
     @abstractmethod
-    def _calc_returns(self) -> np.ndarray:
+    def returns(self) -> pd.Series:
         ...
 
     @property
-    def returns(self) -> np.ndarray:
-        return self._calc_returns()
+    @abstractmethod
+    def _name(self) -> str:
+        ...
 
-    def calc_cumulative_returns(self, shift: int = 0) -> np.ndarray:
+    def calc_cumulative_returns(self, shift: int = 0) -> pd.Series:
         if not isinstance(shift, int) or shift < 0:
             raise ValueError('shift must be int > 0')
-        returns = self._calc_returns()
-        returns[:shift+1] = np.nan
-        return np.nancumprod(returns + 1) - 1
+
+        returns = self.returns
+        returns[:shift + 1] = np.nan
+        return (returns + 1).cumprod() - 1
 
     @property
     def cumulative_returns(self):
         return self.calc_cumulative_returns()
 
-    @property
-    def total_return(self):
-        return self.cumulative_returns[-1] * 100
-
     def plot_cumulative_returns(self, shift: int = 0):
-        if not isinstance(shift, int) or shift < 0:
-            raise ValueError('shift must be int > 0')
-        plt.plot(
-            self._index,
-            self.calc_cumulative_returns(shift),
-            label=repr(self)
-        )
+        if not isinstance(shift, int):
+            raise TypeError('shift must be int')
+        elif shift < 0:
+            raise ValueError('shift must be >= 0')
+
+        cum_returns = self.calc_cumulative_returns(shift)
+        plt.plot(cum_returns.index, cum_returns.values, label=repr(self))

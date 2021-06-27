@@ -1,55 +1,61 @@
 from abc import abstractmethod
 from collections import namedtuple
-from typing import Union, Dict
+from typing import Union, Dict, Optional
 
 import numpy as np
 import matplotlib.pyplot as plt
+import pandas as pd
 import statsmodels.api as sm
 
 from pqr.benchmarks import BaseBenchmark
-from pqr.utils import HasNameMixin, HasIndexMixin, DataPeriodicity
 
 
 Alpha = namedtuple('Alpha', ['coef', 'p_value'])
 Beta = namedtuple('Beta', ['coef', 'p_value'])
 
 
-class BasePortfolio(HasNameMixin, HasIndexMixin):
-    _positions: np.ndarray
-    _returns: np.ndarray
-    _benchmark: Union[None, BaseBenchmark]
+class BasePortfolio:
+    """
+    Abstract base class for portfolios of stocks.
 
-    _shift: int
-    _annualization_rate: Union[int, float]
+    Attributes
+    ----------
+    ...
+    """
 
-    def __init__(self,
-                 name: str = None):
-        HasNameMixin.__init__(self, name)
-        HasIndexMixin.__init__(self)
+    positions: pd.DataFrame
+    returns: pd.Series
 
-        self._positions = np.array([])
-        self._returns = np.array([])
-        self._benchmark = None
+    def __repr__(self) -> str:
+        return f'{self.__class__.__name__}({self._name})'
 
-        self._shift = 0
-        self._annualization_rate = np.sqrt(
-            getattr(DataPeriodicity, 'monthly').value
-        )
-
+    @property
     @abstractmethod
-    def construct(self, *args, **kwargs) -> None:
+    def positions(self) -> pd.DataFrame:
         ...
 
     @property
-    def positions(self) -> np.ndarray:
-        return self._positions
+    @abstractmethod
+    def returns(self) -> pd.Series:
+        ...
 
     @property
-    def returns(self) -> np.ndarray:
-        return np.nansum(self._returns, axis=1)
+    @abstractmethod
+    def benchmark(self) -> Optional[BaseBenchmark]:
+        ...
 
     @property
-    def cumulative_returns(self) -> np.ndarray:
+    @abstractmethod
+    def shift(self) -> int:
+        ...
+
+    @property
+    @abstractmethod
+    def _name(self) -> str:
+        ...
+
+    @property
+    def cumulative_returns(self) -> pd.Series:
         return np.nancumprod(self.returns + 1) - 1
 
     @property
@@ -57,26 +63,26 @@ class BasePortfolio(HasNameMixin, HasIndexMixin):
         return self.cumulative_returns[-1]
 
     @property
-    def alpha(self) -> Union[Alpha, None]:
-        if self._benchmark is None:
+    def alpha(self) -> Optional[Alpha]:
+        if self.benchmark is None:
             return None
         x = sm.add_constant(
-            np.nan_to_num(self._benchmark.returns[self._shift + 1:])
+            np.nan_to_num(self.benchmark.returns[self.shift+1:])
         )
-        est = sm.OLS(self.returns[self._shift + 1:], x).fit()
+        est = sm.OLS(self.returns[self.shift+1:], x).fit()
         return Alpha(
             coef=est.params[0],
             p_value=est.pvalues[0]
         )
 
     @property
-    def beta(self) -> Union[Beta, None]:
-        if self._benchmark is None:
+    def beta(self) -> Optional[Beta]:
+        if self.benchmark is None:
             return None
         x = sm.add_constant(
-            np.nan_to_num(self._benchmark.returns[self._shift + 1:])
+            np.nan_to_num(self.benchmark.returns[self.shift+1:])
         )
-        est = sm.OLS(self.returns[self._shift + 1:], x).fit()
+        est = sm.OLS(self.returns[self.shift+1:], x).fit()
         return Beta(
             coef=est.params[1],
             p_value=est.pvalues[1]
@@ -84,30 +90,30 @@ class BasePortfolio(HasNameMixin, HasIndexMixin):
 
     @property
     def sharpe(self) -> Union[int, float]:
-        return self.returns.mean() / self.returns.std() * \
-               self._annualization_rate
+        # TODO: add annualization
+        return self.returns.mean() / self.returns.std()
 
     @property
     def mean_return(self) -> Union[int, float]:
         return self.returns.mean()
 
     @property
-    def excessive_return(self) -> Union[int, float, None]:
-        if self._benchmark is None:
+    def excessive_return(self) -> Optional[Union[int, float]]:
+        if self.benchmark is None:
             return None
-        return self.mean_return - np.nanmean(self._benchmark.returns)
+        return self.mean_return - np.nanmean(self.benchmark.returns)
 
     @property
     def mean_volatility(self) -> Union[int, float]:
         return self.returns.std()
 
     @property
-    def benchmark_correlation(self) -> Union[int, float, None]:
-        if self._benchmark is None:
+    def benchmark_correlation(self) -> Optional[Union[int, float]]:
+        if self.benchmark is None:
             return None
         return np.corrcoef(
             self.returns,
-            np.nan_to_num(self._benchmark.returns)
+            np.nan_to_num(self.benchmark.returns)
         )[0, 1]
 
     @property
@@ -115,7 +121,7 @@ class BasePortfolio(HasNameMixin, HasIndexMixin):
         return (self.returns > 0).sum() / np.size(self.returns)
 
     @property
-    def max_drawdown(self):
+    def max_drawdown(self) -> Union[int, float]:
         return (
                 self.cumulative_returns -
                 np.maximum.accumulate(self.cumulative_returns)
@@ -144,7 +150,8 @@ class BasePortfolio(HasNameMixin, HasIndexMixin):
         }
 
     def plot_cumulative_returns(self, add_benchmark: bool = True):
-        plt.plot(self._index, self.cumulative_returns, label=repr(self))
-        if add_benchmark and self._benchmark is not None:
-            self._benchmark.plot_cumulative_returns(self._shift)
-
+        plt.plot(self.returns.index,
+                 self.cumulative_returns,
+                 label=repr(self))
+        if add_benchmark and self.benchmark is not None:
+            self.benchmark.plot_cumulative_returns()

@@ -1,58 +1,78 @@
-from typing import Union, List, Iterable, Dict, Tuple
+from typing import Optional, Iterable, Dict, Tuple, List
 
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
-from pqr.factors import Factor, FilteringFactor, WeightingFactor
-from pqr.multi_factors import MultiFactor
+from pqr.factors.interfaces import (
+    IPicking,
+    IFiltering,
+    IWeighting
+)
 from pqr.portfolios import BasePortfolio, QuantilePortfolio, WMLPortfolio
+from pqr.intervals import Quantiles
 from pqr.benchmarks import BaseBenchmark
-from pqr.utils import HasNameMixin, make_intervals, Quantiles
+from pqr.utils import make_intervals
 
 
-class FactorModel(HasNameMixin):
-    _looking_period: int
-    _lag_period: int
-    _holding_period: int
+class FactorModel:
+    looking_period: int
+    lag_period: int
+    holding_period: int
 
-    _portfolios: List[BasePortfolio]
+    portfolios: Tuple[BasePortfolio, ...]
 
     def __init__(self,
                  looking_period: int = 1,
                  lag_period: int = 0,
                  holding_period: int = 1):
-        super().__init__(f'{looking_period}, {lag_period}, {holding_period}')
+        if not isinstance(looking_period, int):
+            raise TypeError('looking_period must be int')
+        elif looking_period < 1:
+            raise ValueError('looking_period must be >= 1')
+        else:
+            self._looking_period = looking_period
 
-        self.looking_period = looking_period
-        self.lag_period = lag_period
-        self.holding_period = holding_period
+        if not isinstance(lag_period, int):
+            raise TypeError('lag_period must be int')
+        elif lag_period < 0:
+            raise ValueError('lag_period must be >= 0')
+        else:
+            self._lag_period = lag_period
 
-        self._portfolios = []
+        if not isinstance(holding_period, int):
+            raise TypeError('holding_period must be int')
+        elif holding_period < 1:
+            raise ValueError('holding_period must be >= 1')
+        else:
+            self._holding_period = holding_period
+
+        self._portfolios = tuple()
+
+    def __repr__(self) -> str:
+        return f'{self.__class__.__name__}(' \
+               f'{self.looking_period}, ' \
+               f'{self.lag_period}, ' \
+               f'{self.holding_period}' \
+               f')'
 
     def fit(self,
-            prices: Union[np.ndarray, pd.DataFrame],
-            factor: Union[Factor, MultiFactor],
-            filtering_factor: FilteringFactor = None,
-            weighting_factor: WeightingFactor = None,
-            benchmark: BaseBenchmark = None,
-            budget: Union[int, float] = None,
-            fee_rate: Union[int, float] = None,
-            fee_fixed: Union[int, float] = None,
+            prices: pd.DataFrame,
+            factor: IPicking,
+            filtering_factor: Optional[IFiltering] = None,
+            weighting_factor: Optional[IWeighting] = None,
+            benchmark: Optional[BaseBenchmark] = None,
             n_quantiles: int = 3,
             add_wml: bool = False):
-        if not isinstance(n_quantiles, int) or n_quantiles <= 0:
-            raise ValueError('n_quantiles must be int > 0')
-        quantiles = [
-            Quantiles(*pair) for pair
-            in make_intervals(np.linspace(0, 1, n_quantiles+1))
-        ]
-        self._portfolios = [
-            QuantilePortfolio(q, budget, fee_rate, fee_fixed)
-            for q in quantiles
-        ]
-        for portfolio in self._portfolios:
-            portfolio.construct(
+        if not isinstance(n_quantiles, int):
+            raise TypeError('n_quantiles must be int')
+        elif n_quantiles <= 0:
+            raise ValueError('n_quantiles must be > 0')
+
+        quantiles = self._get_quantiles(n_quantiles)
+        portfolios = [QuantilePortfolio(q) for q in quantiles]
+        for portfolio in portfolios:
+            portfolio.invest(
                 prices,
                 factor,
                 self.looking_period,
@@ -62,17 +82,20 @@ class FactorModel(HasNameMixin):
                 weighting_factor,
                 benchmark
             )
+
         if add_wml:
             wml = WMLPortfolio()
             if factor.bigger_better or factor.bigger_better is None:
-                wml.construct(winners=self._portfolios[-1],
-                              losers=self._portfolios[0],
-                              benchmark=benchmark)
+                wml.invest(winners=portfolios[-1],
+                           losers=portfolios[0],
+                           benchmark=benchmark)
             else:
-                wml.construct(winners=self._portfolios[0],
-                              losers=self._portfolios[-1],
-                              benchmark=benchmark)
-            self._portfolios.append(wml)
+                wml.invest(winners=portfolios[0],
+                           losers=portfolios[-1],
+                           benchmark=benchmark)
+            portfolios.append(wml)
+
+        self._portfolios = tuple(portfolios)
 
     def compare_portfolios(self, plot: bool = True):
         stats = {}
@@ -85,21 +108,19 @@ class FactorModel(HasNameMixin):
                 )
         if plot:
             plt.legend()
-            plt.suptitle('Portfolio Cumulative Returns', fontsize=25)
+            plt.suptitle('MoneyPortfolio Cumulative Returns', fontsize=25)
         return pd.DataFrame(stats).round(2)
 
-    def grid_search(self,
+    @classmethod
+    def grid_search(cls,
                     looking_periods: Iterable[int],
                     lag_periods: Iterable[int],
                     holding_periods: Iterable[int],
-                    prices: Union[np.ndarray, pd.DataFrame],
-                    factor: Union[Factor, MultiFactor],
-                    filtering_factor: FilteringFactor = None,
-                    weighting_factor: WeightingFactor = None,
-                    benchmark: BaseBenchmark = None,
-                    budget: Union[int, float] = None,
-                    fee_rate: Union[int, float] = None,
-                    fee_fixed: Union[int, float] = None,
+                    prices: pd.DataFrame,
+                    factor: IPicking,
+                    filtering_factor: Optional[IFiltering] = None,
+                    weighting_factor: Optional[IWeighting] = None,
+                    benchmark: Optional[BaseBenchmark] = None,
                     n_quantiles: int = 3,
                     add_wml: bool = False) -> Dict[Tuple[int, int, int],
                                                    pd.DataFrame]:
@@ -107,58 +128,37 @@ class FactorModel(HasNameMixin):
         for looking_period in looking_periods:
             for lag_period in lag_periods:
                 for holding_period in holding_periods:
-                    self.looking_period = looking_period
-                    self.lag_period = lag_period
-                    self.holding_period = holding_period
-                    self.fit(
+                    fm = cls(looking_period, lag_period, holding_period)
+                    fm.fit(
                         prices,
                         factor,
                         filtering_factor,
                         weighting_factor,
                         benchmark,
-                        budget,
-                        fee_rate,
-                        fee_fixed,
                         n_quantiles,
                         add_wml
                     )
                     results[(looking_period, lag_period, holding_period)] = \
-                        self.compare_portfolios(plot=False)
+                        fm.compare_portfolios(plot=False)
         return results
 
-    @property
-    def portfolios(self) -> List[BasePortfolio]:
-        return self._portfolios
+    @staticmethod
+    def _get_quantiles(n) -> List[Quantiles]:
+        return [Quantiles(*pair)
+                for pair in make_intervals(np.linspace(0, 1, n+1))]
 
     @property
     def looking_period(self) -> int:
         return self._looking_period
 
-    @looking_period.setter
-    def looking_period(self, value: int) -> None:
-        if isinstance(value, int) and value >= 1:
-            self._looking_period = value
-        else:
-            raise ValueError('looking_period must be int >= 1')
-
     @property
     def lag_period(self) -> int:
         return self._lag_period
-
-    @lag_period.setter
-    def lag_period(self, value: int):
-        if isinstance(value, int) and value >= 0:
-            self._lag_period = value
-        else:
-            raise ValueError('lag_period must be int >= 0')
 
     @property
     def holding_period(self) -> int:
         return self._holding_period
 
-    @holding_period.setter
-    def holding_period(self, value: int) -> None:
-        if isinstance(value, int) and value >= 1:
-            self._holding_period = value
-        else:
-            raise ValueError('holding_period must be int >= 1')
+    @property
+    def portfolios(self) -> Tuple[BasePortfolio, ...]:
+        return self._portfolios

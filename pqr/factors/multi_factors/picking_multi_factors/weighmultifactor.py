@@ -85,7 +85,9 @@ class WeighMultiFactor(PickingMultiFactor):
                 self.transform(looking_period, lag_period)
                 * self.weights[:, np.newaxis, np.newaxis],
                 axis=0
-            )
+            ),
+            index=data.index,
+            columns=data.columns
         )
         # exclude values which are not available in data (e.g. after filtering)
         values[data.isna()] = np.nan

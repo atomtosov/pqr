@@ -1,41 +1,41 @@
-from typing import Union
+from typing import Optional
 
-import numpy as np
 import pandas as pd
 
 from .basebenchmark import BaseBenchmark
-from pqr.factors import WeightingFactor, EqualWeights
-from pqr.utils import pct_change
+from pqr.factors.interfaces import IWeighting
+from pqr.factors import EqualWeights
 
 
 class CustomBenchmark(BaseBenchmark):
-    def __init__(
-            self,
-            data: Union[np.ndarray, pd.DataFrame],
-            weighting_factor: WeightingFactor = None,
-            name: str = None
-    ):
-        super().__init__(name)
-
-        if isinstance(data, np.ndarray):
-            if data.ndim != 2:
-                raise ValueError('data must be 2-dimensional')
-            self.index = np.arange(data.shape[0])
-            self._prices = data
-        elif isinstance(data, pd.DataFrame):
-            self.index = np.array(data.index)
-            self._prices = data.values
+    def __init__(self,
+                 prices: pd.DataFrame,
+                 weighting_factor: Optional[IWeighting] = None,
+                 name: str = ''):
+        if isinstance(prices, pd.DataFrame):
+            self._prices = prices.copy()
         else:
-            raise ValueError('data must be np.ndarray or pd.DataFrame')
+            raise ValueError('data must be pd.DataFrame')
 
-        if weighting_factor is None:
-            weighting_factor = EqualWeights(self._prices.shape)
+        if isinstance(weighting_factor, IWeighting):
+            self._weighting_factor = weighting_factor
+        elif weighting_factor is None:
+            self._weighting_factor = EqualWeights()
+        else:
+            raise TypeError('weighting_factor must implement IWeighting')
 
-        self._weighting_factor = weighting_factor
+        if isinstance(name, str):
+            self.__name = name
+        else:
+            raise TypeError('name must be str')
 
-    def _calc_returns(self) -> np.ndarray:
-        return np.nansum(
-            pct_change(self._prices) *
-            self._weighting_factor.weigh(self._prices),
-            axis=1
-        )
+    @property
+    def returns(self) -> pd.Series:
+        return (
+                self._prices.pct_change()
+                * self._weighting_factor.weigh(self._prices)
+        ).sum(axis=1)
+
+    @property
+    def _name(self) -> str:
+        return self.__name
