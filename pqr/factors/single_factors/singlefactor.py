@@ -1,11 +1,8 @@
-from typing import Union, Any, Optional
+from typing import Optional
 
-import numpy as np
 import pandas as pd
 
 from ..basefactor import BaseFactor
-from pqr.table import Table
-from pqr.utils import lag, pct_change
 
 
 class SingleFactor(BaseFactor):
@@ -14,7 +11,7 @@ class SingleFactor(BaseFactor):
 
     Parameters
     ----------
-    data : np.ndarray, pd.DataFrame
+    data : pd.DataFrame
         Matrix with values of factor.
     dynamic : bool, default=False
         Whether factor values should be used to make decisions in absolute form
@@ -23,11 +20,6 @@ class SingleFactor(BaseFactor):
         Whether more factor value, better company or less factor value better
         company. If it equals None, cannot be defined correctly (e.g. intercept
         multi-factor).
-    periodicity : str, default='monthly'
-        Discreteness of factor with respect to one year (e.g. 'monthly' equals
-        to 12, because there are 12 trading months in 1 year).
-    replace_with_nan: Any, default=None
-        Value to be replaced with np.nan in data.
     name : str, optional
         Name of factor.
 
@@ -35,45 +27,41 @@ class SingleFactor(BaseFactor):
     ----------
         dynamic
         bigger_better
-        periodicity
         name
     """
 
     def __init__(self,
-                 data: Union[np.ndarray, pd.DataFrame],
+                 data: pd.DataFrame,
                  dynamic: bool = False,
                  bigger_better: bool = True,
-                 periodicity: str = 'monthly',
-                 replace_with_nan: Any = None,
                  name: str = ''):
         """
         Initialize SingleFactor instance.
         """
 
-        self._dynamic = dynamic
-        self._bigger_better = bigger_better
-        self._name = name
-
-        if isinstance(data, np.ndarray):
-            self.data = Table.from_numpy(
-                data,
-                periodicity,
-                int(self.dynamic),
-                replace_with_nan
-            )
-        elif isinstance(data, pd.DataFrame):
-            self.data = Table.from_pandas(
-                data,
-                periodicity,
-                int(self.dynamic),
-                replace_with_nan
-            )
+        if isinstance(data, pd.DataFrame):
+            self._data = data.copy()
         else:
-            raise ValueError('data must be np.ndarray or pd.DataFrame')
+            raise TypeError('data must be pd.DataFrame')
+
+        if isinstance(dynamic, bool):
+            self._dynamic = dynamic
+        else:
+            raise TypeError('dynamic must be bool')
+
+        if isinstance(bigger_better, bool):
+            self._bigger_better = bigger_better
+        else:
+            raise TypeError('bigger_better must be int')
+
+        if isinstance(name, str):
+            self._name = name
+        else:
+            raise TypeError('name must be str')
 
     def transform(self,
                   looking_period: int = 1,
-                  lag_period: int = 0) -> np.ndarray:
+                  lag_period: int = 0) -> pd.DataFrame:
         """
         Transform factor values into appropriate for decision-making format.
 
@@ -109,15 +97,9 @@ class SingleFactor(BaseFactor):
             raise ValueError('lag_period must be int >= 0')
 
         if self.dynamic:
-            return lag(
-                pct_change(self.data.values, looking_period),
-                lag_period + 1
-            )
+            return self._data.pct_change(looking_period).shift(lag_period + 1)
         else:
-            return lag(
-                self.data.values,
-                looking_period + lag_period
-            )
+            return self._data.shift(looking_period + lag_period)
 
     @property
     def dynamic(self) -> bool:

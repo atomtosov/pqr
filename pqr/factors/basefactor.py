@@ -2,7 +2,7 @@ from abc import abstractmethod
 from typing import Optional
 
 
-import numpy as np
+import pandas as pd
 
 
 class BaseFactor:
@@ -32,7 +32,7 @@ class BaseFactor:
     @abstractmethod
     def transform(self,
                   looking_period: int,
-                  lag_period: int) -> np.ndarray:
+                  lag_period: int) -> pd.DataFrame:
         """
         Transform factor values into appropriate for decision-making format.
 

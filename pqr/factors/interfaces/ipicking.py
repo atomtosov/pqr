@@ -1,6 +1,6 @@
 from abc import abstractmethod
 
-import numpy as np
+import pandas as pd
 
 from pqr.intervals import Interval
 
@@ -12,8 +12,8 @@ class IPicking:
 
     @abstractmethod
     def pick(self,
-             data: np.ndarray,
+             data: pd.DataFrame,
              interval: Interval,
              looking_period: int,
-             lag_period: int) -> np.ndarray:
+             lag_period: int) -> pd.DataFrame:
         ...

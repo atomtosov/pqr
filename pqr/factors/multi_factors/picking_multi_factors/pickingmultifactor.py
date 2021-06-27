@@ -3,9 +3,9 @@ from typing import Sequence, Optional, Union, Tuple
 
 import numpy as np
 
-from .multifactor import MultiFactor
-from ..basefactor import BaseFactor
-from ..interfaces import IPicking
+from ..multifactor import MultiFactor
+from ...basefactor import BaseFactor
+from ...interfaces import IPicking
 
 
 class PickingMultiFactor(MultiFactor, ABC, IPicking):
@@ -49,7 +49,7 @@ class PickingMultiFactor(MultiFactor, ABC, IPicking):
         if np.all([isinstance(factor, IPicking) for factor in factors]):
             super().__init__(factors, name)
         else:
-            raise ValueError('all factors must implement IPicking')
+            raise TypeError('all factors must implement IPicking')
 
         # TODO: check weights
         self._weights = np.array(weights)

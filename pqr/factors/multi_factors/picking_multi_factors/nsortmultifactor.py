@@ -1,12 +1,13 @@
 import numpy as np
+import pandas as pd
 
 from .pickingmultifactor import PickingMultiFactor
-from pqr.utils import Quantiles, epsilon
+from pqr.intervals import Quantiles
 
 
-class WeighMultiFactor(PickingMultiFactor):
+class NSortMultiFactor(PickingMultiFactor):
     """
-    Class for multi-factors to pick stocks by linearly weighting factors.
+    Class for multi-factors to pick stocks by intercepting picks of factors.
 
     Parameters
     ----------
@@ -34,16 +35,19 @@ class WeighMultiFactor(PickingMultiFactor):
     """
 
     def pick(self,
-             data: np.ndarray,
+             data: pd.DataFrame,
              interval: Quantiles,
              looking_period: int = 1,
-             lag_period: int = 0) -> np.ndarray:
+             lag_period: int = 0) -> pd.DataFrame:
         """
         Pick stocks from data, using some interval.
 
         Provide the same interface as Factor.pick().
 
-        Picking stocks works like for simple single factor.
+        Picking stocks is based on iterative choice of factors. On every
+        iteration unpicked choices are deleting from stock universe and this
+        data are given to next factor to pick. So, after the last iteration
+        choice is ready.
 
         Parameters
         ----------
@@ -78,21 +82,15 @@ class WeighMultiFactor(PickingMultiFactor):
         if not isinstance(interval, Quantiles):
             raise ValueError('interval must be Quantiles')
 
-        values = np.nansum(
-            self.transform(looking_period, lag_period)
-            * self.weights[:, np.newaxis, np.newaxis],
-            axis=0
-        )
-        # exclude values which are not available in data (e.g. after filtering)
-        values[np.isnan(data)] = np.nan
-
-        lower_threshold = np.nanquantile(values, interval.lower, axis=1)
-        upper_threshold = np.nanquantile(values, interval.upper, axis=1)
-        # to include stock with highest factor value
-        if interval.upper == 1:
-            upper_threshold += epsilon
-        choice = (lower_threshold[:, np.newaxis] <= values) & \
-                 (values < upper_threshold[:, np.newaxis])
-        data = (data * choice).astype(float)
-        data[data == 0] = np.nan
-        return ~np.isnan(data)
+        different_factors = self.bigger_better is None
+        for factor in self.factors:
+            # update data by picking stocks by interval every time
+            data = data * factor.pick(
+                data,
+                interval if (not different_factors or factor.bigger_better)
+                # mirroring quantiles
+                else Quantiles(1 - interval.upper, 1 - interval.lower)
+            )
+            data = data.astype(float)
+            data[data == 0] = np.nan
+        return ~data.isna()

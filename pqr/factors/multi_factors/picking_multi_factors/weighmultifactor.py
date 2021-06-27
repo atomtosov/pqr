@@ -1,12 +1,14 @@
 import numpy as np
+import pandas as pd
 
 from .pickingmultifactor import PickingMultiFactor
-from pqr.utils import Quantiles
+from pqr.intervals import Quantiles
+from pqr.utils import epsilon
 
 
-class NSortMultiFactor(PickingMultiFactor):
+class WeighMultiFactor(PickingMultiFactor):
     """
-    Class for multi-factors to pick stocks by intercepting picks of factors.
+    Class for multi-factors to pick stocks by linearly weighting factors.
 
     Parameters
     ----------
@@ -34,23 +36,20 @@ class NSortMultiFactor(PickingMultiFactor):
     """
 
     def pick(self,
-             data: np.ndarray,
+             data: pd.DataFrame,
              interval: Quantiles,
              looking_period: int = 1,
-             lag_period: int = 0) -> np.ndarray:
+             lag_period: int = 0) -> pd.DataFrame:
         """
         Pick stocks from data, using some interval.
 
         Provide the same interface as Factor.pick().
 
-        Picking stocks is based on iterative choice of factors. On every
-        iteration unpicked choices are deleting from stock universe and this
-        data are given to next factor to pick. So, after the last iteration
-        choice is ready.
+        Picking stocks works like for simple single factor.
 
         Parameters
         ----------
-        data : np.ndarray
+        data : pd.DataFrame
             Data, from which stocks are picked. If some values are missed in
             data but exist in factor values, they are excluded from factor
             values too to prevent situations, when stock cannot be traded, but
@@ -81,15 +80,23 @@ class NSortMultiFactor(PickingMultiFactor):
         if not isinstance(interval, Quantiles):
             raise ValueError('interval must be Quantiles')
 
-        different_factors = self.bigger_better is None
-        for factor in self.factors:
-            # update data by picking stocks by interval every time
-            data = data * factor.pick(
-                data,
-                interval if (not different_factors or factor.bigger_better)
-                # mirroring quantiles
-                else Quantiles(1 - interval.upper, 1 - interval.lower)
+        values = pd.DataFrame(
+            np.nansum(
+                self.transform(looking_period, lag_period)
+                * self.weights[:, np.newaxis, np.newaxis],
+                axis=0
             )
-            data = data.astype(float)
-            data[data == 0] = np.nan
-        return ~np.isnan(data)
+        )
+        # exclude values which are not available in data (e.g. after filtering)
+        values[data.isna()] = np.nan
+
+        lower_threshold = values.quantile(interval.lower, axis=1)
+        upper_threshold = values.quantile(interval.upper, axis=1)
+        # to include stock with highest factor value
+        if interval.upper == 1:
+            upper_threshold += epsilon
+        choice = (lower_threshold.values[:, np.newaxis] <= values) & \
+                 (values < upper_threshold.values[:, np.newaxis])
+        data = (data * choice).astype(float)
+        data[data == 0] = np.nan
+        return ~data.isna()

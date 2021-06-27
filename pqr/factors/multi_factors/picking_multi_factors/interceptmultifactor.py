@@ -1,7 +1,8 @@
 import numpy as np
+import pandas as pd
 
 from .pickingmultifactor import PickingMultiFactor
-from pqr.utils import Quantiles
+from pqr.intervals import Quantiles
 
 
 class InterceptMultiFactor(PickingMultiFactor):
@@ -22,7 +23,6 @@ class InterceptMultiFactor(PickingMultiFactor):
     ----------
         dynamic
         bigger_better
-        periodicity
         name
         factors
         weights
@@ -34,14 +34,14 @@ class InterceptMultiFactor(PickingMultiFactor):
     """
 
     def pick(self,
-             data: np.ndarray,
+             data: pd.DataFrame,
              interval: Quantiles,
              looking_period: int = 1,
-             lag_period: int = 0) -> np.ndarray:
+             lag_period: int = 0) -> pd.DataFrame:
         """
         Pick stocks from data, using some interval.
 
-        Provide the same interface as Factor.pick().
+        Provides the same interface as Factor.pick().
 
         Picking stocks is based on choices of every factor by the same data and
         the same interval (if factors are different, interval is mirrored).
@@ -49,7 +49,7 @@ class InterceptMultiFactor(PickingMultiFactor):
 
         Parameters
         ----------
-        data : np.ndarray
+        data : pd.DataFrame
             Data, from which stocks are picked. If some values are missed in
             data but exist in factor values, they are excluded from factor
             values too to prevent situations, when stock cannot be traded, but

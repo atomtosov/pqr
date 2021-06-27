@@ -5,9 +5,11 @@
         weighting factors.
 """
 
-from .weighmultifactor import WeighMultiFactor
-from .interceptmultifactor import InterceptMultiFactor
-from .nsortmultifactor import NSortMultiFactor
+from .picking_multi_factors import (
+    WeighMultiFactor,
+    InterceptMultiFactor,
+    NSortMultiFactor
+)
 
 from .filteringmultifactor import FilteringMultiFactor
 from .weightingmultifactor import WeightingMultiFactor

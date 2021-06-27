@@ -1,6 +1,6 @@
 from abc import abstractmethod
 
-import numpy as np
+import pandas as pd
 
 
 class IWeighting:
@@ -9,5 +9,5 @@ class IWeighting:
     """
 
     @abstractmethod
-    def weigh(self, data: np.ndarray) -> np.ndarray:
+    def weigh(self, data: pd.DataFrame) -> pd.DataFrame:
         ...

@@ -1,6 +1,7 @@
 from typing import Tuple, Sequence
 
 import numpy as np
+import pandas as pd
 
 from .multifactor import MultiFactor
 from ..basefactor import BaseFactor
@@ -39,15 +40,15 @@ class FilteringMultiFactor(MultiFactor, IFiltering):
         if np.all([isinstance(factor, IFiltering) for factor in factors]):
             super().__init__(factors, name)
         else:
-            raise ValueError('all factors must implement IFiltering')
+            raise TypeError('all factors must implement IFiltering')
 
-    def filter(self, data: np.ndarray) -> np.ndarray:
+    def filter(self, data: pd.DataFrame) -> pd.DataFrame:
         """
         Filter values in given data by factors.
 
         Parameters
         ----------
-        data : np.ndarray
+        data : pd.DataFrame
             Data to be filtered.
 
         Returns

@@ -1,6 +1,6 @@
 from abc import abstractmethod
 
-import numpy as np
+import pandas as pd
 
 
 class IFiltering:
@@ -9,5 +9,5 @@ class IFiltering:
     """
 
     @abstractmethod
-    def filter(self, data: np.ndarray) -> np.ndarray:
+    def filter(self, data: pd.DataFrame) -> pd.DataFrame:
         ...

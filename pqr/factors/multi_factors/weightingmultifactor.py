@@ -1,6 +1,7 @@
 from typing import Tuple, Sequence
 
 import numpy as np
+import pandas as pd
 
 from .multifactor import MultiFactor
 from ..basefactor import BaseFactor
@@ -36,19 +37,19 @@ class WeightingMultiFactor(MultiFactor, IWeighting):
         Initialize WeightingMultiFactor instance.
         """
 
-        # check that all given factors implements IWeightingFactor
+        # check that all given factors implements IWeighting
         if np.all([isinstance(factor, IWeighting) for factor in factors]):
             super().__init__(factors, name)
         else:
-            raise ValueError('all factors must implement IWeightingFactor')
+            raise TypeError('all factors must implement IWeighting')
 
-    def weigh(self, data: np.ndarray) -> np.ndarray:
+    def weigh(self, data: pd.DataFrame) -> pd.DataFrame:
         """
         Weigh values in given data by factors.
 
         Parameters
         ----------
-        data : np.ndarray
+        data : pd.DataFrame
             Data to be weighted. Expected positions (matrix with True/False or
             1/0), but not obligatory.
 

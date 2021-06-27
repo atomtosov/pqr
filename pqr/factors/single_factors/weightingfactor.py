@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 
 from .singlefactor import SingleFactor
 from ..interfaces import IWeighting
@@ -19,11 +20,6 @@ class WeightingFactor(SingleFactor, IWeighting):
         Whether more factor value, better company or less factor value better
         company. If it equals None, cannot be defined correctly (e.g. intercept
         multi-factor).
-    periodicity : str, default='monthly'
-        Discreteness of factor with respect to one year (e.g. 'monthly' equals
-        to 12, because there are 12 trading months in 1 year).
-    replace_with_nan: Any, default=None
-        Value to be replaced with np.nan in data.
     name : str, optional
         Name of factor.
 
@@ -31,17 +27,16 @@ class WeightingFactor(SingleFactor, IWeighting):
     ----------
         dynamic
         bigger_better
-        periodicity
         name
     """
 
-    def weigh(self, data: np.ndarray) -> np.ndarray:
+    def weigh(self, data: pd.DataFrame) -> pd.DataFrame:
         """
         Weigh values in given data by factor values.
 
         Parameters
         ----------
-        data : np.ndarray
+        data : pd.DataFrame
             Data to be weighted. Expected positions (matrix with True/False or
             1/0), but not obligatory.
 
@@ -64,7 +59,7 @@ class WeightingFactor(SingleFactor, IWeighting):
         values = self.transform(looking_period=1, lag_period=0)
         if self.bigger_better:
             weights = values * data
-            return weights / np.nansum(weights, axis=1)[:, np.newaxis]
+            return weights / weights.sum(axis=1).values[:, np.newaxis]
         else:
             raise NotImplementedError('lower_better factors '
                                       'are not supported yet')
@@ -76,5 +71,5 @@ class EqualWeights(IWeighting):
     which weigh equally, but provides the same interface.
     """
 
-    def weigh(self, data: np.ndarray) -> np.ndarray:
-        return data / np.nansum(data, axis=1)[:, np.newaxis]
+    def weigh(self, data: pd.DataFrame) -> pd.DataFrame:
+        return data / data.sum(axis=1).values[:, np.newaxis]

@@ -1,8 +1,10 @@
 import numpy as np
+import pandas as pd
 
 from .singlefactor import SingleFactor
 from ..interfaces import IPicking
-from pqr.utils import epsilon, Interval, Quantiles, Thresholds
+from pqr.intervals import Interval, Quantiles, Thresholds
+from pqr.utils import epsilon
 
 
 class Factor(SingleFactor, IPicking):
@@ -11,7 +13,7 @@ class Factor(SingleFactor, IPicking):
 
     Parameters
     ----------
-    data : np.ndarray, pd.DataFrame
+    data : pd.DataFrame
         Matrix with values of factor.
     dynamic : bool, default=False
         Whether factor values should be used to make decisions in absolute form
@@ -20,11 +22,6 @@ class Factor(SingleFactor, IPicking):
         Whether more factor value, better company or less factor value better
         company. If it equals None, cannot be defined correctly (e.g. intercept
         multi-factor).
-    periodicity : str, default='monthly'
-        Discreteness of factor with respect to one year (e.g. 'monthly' equals
-        to 12, because there are 12 trading months in 1 year).
-    replace_with_nan: Any, default=None
-        Value to be replaced with np.nan in data.
     name : str, optional
         Name of factor.
 
@@ -32,21 +29,20 @@ class Factor(SingleFactor, IPicking):
     ----------
         dynamic
         bigger_better
-        periodicity
         name
     """
 
     def pick(self,
-             data: np.ndarray,
+             data: pd.DataFrame,
              interval: Interval,
              looking_period: int = 1,
-             lag_period: int = 0) -> np.ndarray:
+             lag_period: int = 0) -> pd.DataFrame:
         """
         Pick stocks from data, using some interval.
 
         Parameters
         ----------
-        data : np.ndarray
+        data : pd.DataFrame
             Data, from which stocks are picked. If some values are missed in
             data but exist in factor values, they are excluded from factor
             values too to prevent situations, when stock cannot be traded, but
@@ -77,23 +73,23 @@ class Factor(SingleFactor, IPicking):
 
         values = self.transform(looking_period, lag_period)
         # exclude values which are not available in data (e.g. after filtering)
-        values[np.isnan(data)] = np.nan
+        values[data.isna()] = np.nan
 
         if isinstance(interval, Quantiles):
-            lower_threshold = np.nanquantile(values, interval.lower, axis=1)
-            upper_threshold = np.nanquantile(values, interval.upper, axis=1)
+            lower_threshold = values.quantile(interval.lower, axis=1)
+            upper_threshold = values.quantile(interval.upper, axis=1)
             # to include stock with highest factor value
             if interval.upper == 1:
                 upper_threshold += epsilon
-            choice = (lower_threshold[:, np.newaxis] <= values) & \
-                     (values < upper_threshold[:, np.newaxis])
+            choice = (lower_threshold.values[:, np.newaxis] <= values) & \
+                     (values < upper_threshold.values[:, np.newaxis])
             data = (data * choice).astype(float)
             data[data == 0] = np.nan
-            return ~np.isnan(data)
+            return ~data.isna()
         elif isinstance(interval, Thresholds):
             choice = (interval.lower <= values) & (values < interval.upper)
             data = (data * choice).astype(float)
             data[data == 0] = np.nan
-            return ~np.isnan(data)
+            return ~data.isna()
         else:
             raise ValueError('interval must be Quantiles or Thresholds')

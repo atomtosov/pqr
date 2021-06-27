@@ -5,7 +5,7 @@ import pandas as pd
 
 from .singlefactor import SingleFactor
 from ..interfaces import IFiltering
-from pqr.utils import Thresholds
+from pqr.intervals import Thresholds
 
 
 class FilteringFactor(SingleFactor, IFiltering):
@@ -14,7 +14,7 @@ class FilteringFactor(SingleFactor, IFiltering):
 
     Parameters
     ----------
-    data : np.ndarray, pd.DataFrame
+    data : pd.DataFrame
         Matrix with values of factor.
     dynamic : bool, default=False
         Whether factor values should be used to make decisions in absolute form
@@ -23,11 +23,6 @@ class FilteringFactor(SingleFactor, IFiltering):
         Whether more factor value, better company or less factor value better
         company. If it equals None, cannot be defined correctly (e.g. intercept
         multi-factor).
-    periodicity : str, default='monthly'
-        Discreteness of factor with respect to one year (e.g. 'monthly' equals
-        to 12, because there are 12 trading months in 1 year).
-    replace_with_nan: Any, default=None
-        Value to be replaced with np.nan in data.
     name : str, optional
         Name of factor.
     min_threshold : int, float, default=-np.inf
@@ -39,20 +34,17 @@ class FilteringFactor(SingleFactor, IFiltering):
     ----------
         dynamic
         bigger_better
-        periodicity
         name
         thresholds
     """
 
-    _thresholds: Thresholds
+    thresholds: Thresholds
 
     def __init__(self,
-                 data: Union[np.ndarray, pd.DataFrame],
+                 data: pd.DataFrame,
                  dynamic: bool = False,
                  bigger_better: bool = True,
-                 periodicity: str = 'monthly',
-                 replace_with_nan: Any = None,
-                 name: str = None,
+                 name: str = '',
                  min_threshold: Union[int, float] = -np.inf,
                  max_threshold: Union[int, float] = np.inf):
         """
@@ -64,20 +56,18 @@ class FilteringFactor(SingleFactor, IFiltering):
             data,
             dynamic,
             bigger_better,
-            periodicity,
-            replace_with_nan,
             name
         )
 
-        self.thresholds = Thresholds(min_threshold, max_threshold)
+        self._thresholds = Thresholds(min_threshold, max_threshold)
 
-    def filter(self, data: np.ndarray) -> np.ndarray:
+    def filter(self, data: pd.DataFrame) -> pd.DataFrame:
         """
         Filter stock universe by thresholds for factor values.
 
         Parameters
         ----------
-        data : np.ndarray
+        data : pd.DataFrame
             Data to be filtered by factor values. Expected to get stock prices,
             but it isn't obligatory.
 
@@ -105,13 +95,6 @@ class FilteringFactor(SingleFactor, IFiltering):
     def thresholds(self) -> Thresholds:
         return self._thresholds
 
-    @thresholds.setter
-    def thresholds(self, value: Thresholds):
-        if isinstance(value, Thresholds):
-            self._thresholds = value
-        else:
-            raise ValueError('thresholds must be Thresholds')
-
 
 class NoFilter(IFiltering):
     """
@@ -119,5 +102,5 @@ class NoFilter(IFiltering):
     which doesn't filter anything, but provides the same interface.
     """
 
-    def filter(self, data: np.ndarray) -> np.ndarray:
+    def filter(self, data: pd.DataFrame) -> pd.DataFrame:
         return data
