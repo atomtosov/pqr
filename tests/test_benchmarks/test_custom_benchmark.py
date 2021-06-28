@@ -7,7 +7,6 @@ from pqr.benchmarks import CustomBenchmark
 @pytest.mark.parametrize(
     'prices, weighting_factor, answer',
     (
-        ...
     )
 )
 def test_benchmark_returns(
