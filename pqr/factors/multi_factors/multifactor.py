@@ -1,6 +1,7 @@
 from typing import Sequence, Tuple, Optional
 
 import numpy as np
+import pandas as pd
 
 from ..basefactor import BaseFactor
 
@@ -39,7 +40,7 @@ class MultiFactor(BaseFactor):
 
     def transform(self,
                   looking_period: int = 1,
-                  lag_period: int = 0) -> np.ndarray:
+                  lag_period: int = 0) -> Tuple[pd.DataFrame, ...]:
         """
         Transform factor values into appropriate for decision-making format.
 
@@ -63,7 +64,7 @@ class MultiFactor(BaseFactor):
             For dynamic factors one more line is equal to np.nan (see above).
         """
 
-        return np.array(
+        return tuple(
             [
                 factor.transform(looking_period, lag_period)
                 for factor in self.factors

@@ -4,7 +4,6 @@ import pandas as pd
 from .singlefactor import SingleFactor
 from ..interfaces import IPicking
 from pqr.intervals import Interval, Quantiles, Thresholds
-from pqr.utils import epsilon
 
 
 class Factor(SingleFactor, IPicking):
@@ -79,10 +78,8 @@ class Factor(SingleFactor, IPicking):
             lower_threshold = values.quantile(interval.lower, axis=1)
             upper_threshold = values.quantile(interval.upper, axis=1)
             # to include stock with highest factor value
-            if interval.upper == 1:
-                upper_threshold += epsilon
             choice = (lower_threshold.values[:, np.newaxis] <= values) & \
-                     (values < upper_threshold.values[:, np.newaxis])
+                     (values <= upper_threshold.values[:, np.newaxis])
             data = (data * choice).astype(float)
             data[data == 0] = np.nan
             return ~data.isna()

@@ -3,7 +3,6 @@ import pandas as pd
 
 from .pickingmultifactor import PickingMultiFactor
 from pqr.intervals import Quantiles
-from pqr.utils import epsilon
 
 
 class WeighMultiFactor(PickingMultiFactor):
@@ -82,7 +81,7 @@ class WeighMultiFactor(PickingMultiFactor):
 
         values = pd.DataFrame(
             np.nansum(
-                self.transform(looking_period, lag_period)
+                np.array(self.transform(looking_period, lag_period))
                 * self.weights[:, np.newaxis, np.newaxis],
                 axis=0
             ),
@@ -94,11 +93,9 @@ class WeighMultiFactor(PickingMultiFactor):
 
         lower_threshold = values.quantile(interval.lower, axis=1)
         upper_threshold = values.quantile(interval.upper, axis=1)
-        # to include stock with highest factor value
-        if interval.upper == 1:
-            upper_threshold += epsilon
         choice = (lower_threshold.values[:, np.newaxis] <= values) & \
-                 (values < upper_threshold.values[:, np.newaxis])
+                 (values <= upper_threshold.values[:, np.newaxis])
+
         data = (data * choice).astype(float)
         data[data == 0] = np.nan
         return ~data.isna()
