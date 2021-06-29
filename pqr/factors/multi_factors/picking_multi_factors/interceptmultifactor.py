@@ -1,4 +1,3 @@
-import numpy as np
 import pandas as pd
 
 from .pickingmultifactor import PickingMultiFactor
@@ -93,9 +92,9 @@ class InterceptMultiFactor(PickingMultiFactor):
             if choice is None:
                 choice = pick.values
             else:
-                choice &= pick.values
+                choice *= pick.values
         return pd.DataFrame(
             choice,
             index=data.index,
             columns=data.columns
-        )
+        ).astype(float)

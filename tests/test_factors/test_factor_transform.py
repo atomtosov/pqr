@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from pqr.factors import Factor, WeighMultiFactor
+from pqr.factors import PickingFactor, WeighMultiFactor
 
 
 @pytest.mark.parametrize(
@@ -111,7 +111,7 @@ def test_single_factor_transform(
 ):
     assert np.all(
         np.nan_to_num(
-            Factor(data, dynamic).transform(looking_period, lag_period)
+            PickingFactor(data, dynamic).transform(looking_period, lag_period)
         ) == np.nan_to_num(answer)
     )
 
@@ -122,14 +122,14 @@ def test_single_factor_transform(
         # test 1: 2 static factors, looking=1, lag=0
         [
             [
-                Factor(pd.DataFrame([[1, 2, 3, 4],
-                                     [2, 3, 4, 5],
-                                     [5, 5, 7, 8],
-                                     [10, 20, 31, -1]]), False),
-                Factor(pd.DataFrame([[2, 3, 4, 5],
-                                     [6, 17, 25, 41],
-                                     [8, 19, -1, 5],
-                                     [5, 5, 7, 8]]), False),
+                PickingFactor(pd.DataFrame([[1, 2, 3, 4],
+                                            [2, 3, 4, 5],
+                                            [5, 5, 7, 8],
+                                            [10, 20, 31, -1]]), False),
+                PickingFactor(pd.DataFrame([[2, 3, 4, 5],
+                                            [6, 17, 25, 41],
+                                            [8, 19, -1, 5],
+                                            [5, 5, 7, 8]]), False),
             ],
             1,
             0,
@@ -147,14 +147,14 @@ def test_single_factor_transform(
         # test 2: 2 dynamic factors, looking=2, lag=0
         [
             [
-                Factor(pd.DataFrame([[1, 2, 3, 4],
-                                     [2, 3, 4, 5],
-                                     [5, 5, 7, 8],
-                                     [10, 20, 31, -1]]), True),
-                Factor(pd.DataFrame([[2, 3, 4, 5],
-                                     [6, 17, 25, 41],
-                                     [8, 19, -1, 5],
-                                     [5, 5, 7, 8]]), True),
+                PickingFactor(pd.DataFrame([[1, 2, 3, 4],
+                                            [2, 3, 4, 5],
+                                            [5, 5, 7, 8],
+                                            [10, 20, 31, -1]]), True),
+                PickingFactor(pd.DataFrame([[2, 3, 4, 5],
+                                            [6, 17, 25, 41],
+                                            [8, 19, -1, 5],
+                                            [5, 5, 7, 8]]), True),
             ],
             2,
             0,
@@ -172,14 +172,14 @@ def test_single_factor_transform(
         # test 3: dynamic & static factors, looking=2, lag=0
         [
             [
-                Factor(pd.DataFrame([[1, 2, 3, 4],
-                                     [2, 3, 4, 5],
-                                     [5, 5, 7, 8],
-                                     [10, 20, 31, -1]]), False),
-                Factor(pd.DataFrame([[2, 3, 4, 5],
-                                     [6, 17, 25, 41],
-                                     [8, 19, -1, 5],
-                                     [5, 5, 7, 8]]), True),
+                PickingFactor(pd.DataFrame([[1, 2, 3, 4],
+                                            [2, 3, 4, 5],
+                                            [5, 5, 7, 8],
+                                            [10, 20, 31, -1]]), False),
+                PickingFactor(pd.DataFrame([[2, 3, 4, 5],
+                                            [6, 17, 25, 41],
+                                            [8, 19, -1, 5],
+                                            [5, 5, 7, 8]]), True),
             ],
             2,
             0,

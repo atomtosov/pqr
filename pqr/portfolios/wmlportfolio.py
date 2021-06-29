@@ -2,11 +2,11 @@ from typing import Optional
 import pandas as pd
 
 from .baseportfolio import BasePortfolio
-from .interfaces import IRelativeInvest
-from pqr.benchmarks import BaseBenchmark
+from .interfaces import IWMLPortfolio, IPortfolio
+from pqr.benchmarks.interfaces import IBenchmark
 
 
-class WMLPortfolio(BasePortfolio, IRelativeInvest):
+class WMLPortfolio(BasePortfolio, IWMLPortfolio):
     """
     Class for Winners-minus-Losers (WML) portfolios.
 
@@ -21,6 +21,7 @@ class WMLPortfolio(BasePortfolio, IRelativeInvest):
     winners
     losers
     """
+
     def __init__(self):
         self._positions = pd.DataFrame()
         self._returns = pd.Series()
@@ -31,9 +32,9 @@ class WMLPortfolio(BasePortfolio, IRelativeInvest):
         self._losers = None
 
     def invest(self,
-               winners: BasePortfolio,
-               losers: BasePortfolio,
-               benchmark: Optional[BaseBenchmark] = None) -> None:
+               winners: IPortfolio,
+               losers: IPortfolio,
+               benchmark: Optional[IBenchmark] = None) -> None:
         """
         Simulating theoretical WML-portfolio (all short-sells are available).
 
@@ -47,7 +48,7 @@ class WMLPortfolio(BasePortfolio, IRelativeInvest):
             Benchmark to compare results of WML-Portfolio and compute metrics.
         """
 
-        if isinstance(benchmark, BaseBenchmark) or benchmark is None:
+        if isinstance(benchmark, IBenchmark) or benchmark is None:
             self._benchmark = benchmark
         else:
             raise TypeError('benchmark must implement IBenchmark')
@@ -64,7 +65,7 @@ class WMLPortfolio(BasePortfolio, IRelativeInvest):
         return self.winners.returns - self.losers.returns
 
     @property
-    def benchmark(self) -> Optional['BaseBenchmark']:
+    def benchmark(self) -> Optional[IBenchmark]:
         return self._benchmark
 
     @property
@@ -76,9 +77,9 @@ class WMLPortfolio(BasePortfolio, IRelativeInvest):
         return ''
 
     @property
-    def winners(self) -> BasePortfolio:
+    def winners(self) -> IPortfolio:
         return self._winners
 
     @property
-    def losers(self) -> BasePortfolio:
+    def losers(self) -> IPortfolio:
         return self._losers

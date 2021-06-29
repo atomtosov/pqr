@@ -93,4 +93,4 @@ class WeighMultiFactor(PickingMultiFactor):
             choice,
             index=data.index,
             columns=data.columns
-        )
+        ).astype(float)

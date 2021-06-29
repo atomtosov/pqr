@@ -54,8 +54,6 @@ class WeightingFactor(SingleFactor, IWeighting):
             Given data doesn't match in shape with factor values.
         """
 
-        # TODO: check data
-
         factor = self.transform(looking_period=1, lag_period=0)
         if self.bigger_better:
             weights = factor.values * data.values
@@ -76,8 +74,10 @@ class EqualWeights(IWeighting):
     """
 
     def weigh(self, data: pd.DataFrame) -> pd.DataFrame:
+        weights = np.ones(data.shape, dtype=float)
+        weights[np.isnan(data)] = np.nan
         return pd.DataFrame(
-            data.values / np.nansum(data.values, axis=1)[:, np.newaxis],
+            weights / np.nansum(weights, axis=1)[:, np.newaxis],
             index=data.index,
             columns=data.columns
         )

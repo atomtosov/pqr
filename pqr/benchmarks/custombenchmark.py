@@ -1,4 +1,5 @@
 from typing import Optional
+from functools import lru_cache
 
 import pandas as pd
 
@@ -52,6 +53,7 @@ class CustomBenchmark(BaseBenchmark):
             raise TypeError('name must be str')
 
     @property
+    @lru_cache
     def returns(self) -> pd.Series:
         return (
                 self._weighting_factor.weigh(self._prices)

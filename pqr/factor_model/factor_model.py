@@ -1,18 +1,16 @@
-from typing import Optional, Iterable, Dict, Tuple, List
+from typing import Optional, Iterable, Dict, Tuple, List, Union
 
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
-from pqr.factors.interfaces import (
-    IPicking,
-    IFiltering,
-    IWeighting
-)
-from pqr.portfolios import BasePortfolio, QuantilePortfolio, WMLPortfolio
+from pqr.factors.interfaces import IPicking, IFiltering, IWeighting
+from pqr.portfolios.interfaces import IPortfolio, IWMLPortfolio
+from pqr.benchmarks.interfaces import IBenchmark
+
+from pqr.portfolios import Portfolio, WMLPortfolio
+from pqr.benchmarks import CustomBenchmark
 from pqr.intervals import Quantiles
-from pqr.benchmarks import BaseBenchmark
-from pqr.utils import make_intervals
 
 
 class FactorModel:
@@ -20,7 +18,7 @@ class FactorModel:
     lag_period: int
     holding_period: int
 
-    portfolios: Tuple[BasePortfolio, ...]
+    portfolios: Tuple[Union[IPortfolio, IWMLPortfolio], ...]
 
     def __init__(self,
                  looking_period: int = 1,
@@ -58,10 +56,10 @@ class FactorModel:
 
     def fit(self,
             prices: pd.DataFrame,
-            factor: IPicking,
+            picking_factor: IPicking,
             filtering_factor: Optional[IFiltering] = None,
             weighting_factor: Optional[IWeighting] = None,
-            benchmark: Optional[BaseBenchmark] = None,
+            benchmark: Optional[IBenchmark] = None,
             n_quantiles: int = 3,
             add_wml: bool = False):
         if not isinstance(n_quantiles, int):
@@ -69,12 +67,15 @@ class FactorModel:
         elif n_quantiles <= 0:
             raise ValueError('n_quantiles must be > 0')
 
+        if benchmark is None:
+            benchmark = CustomBenchmark(prices)
+
         quantiles = self._get_quantiles(n_quantiles)
-        portfolios = [QuantilePortfolio(q) for q in quantiles]
+        portfolios = [Portfolio(q) for q in quantiles]
         for portfolio in portfolios:
             portfolio.invest(
                 prices,
-                factor,
+                picking_factor,
                 self.looking_period,
                 self.lag_period,
                 self.holding_period,
@@ -85,7 +86,8 @@ class FactorModel:
 
         if add_wml:
             wml = WMLPortfolio()
-            if factor.bigger_better or factor.bigger_better is None:
+            if picking_factor.bigger_better \
+                    or picking_factor.bigger_better is None:
                 wml.invest(winners=portfolios[-1],
                            losers=portfolios[0],
                            benchmark=benchmark)
@@ -97,7 +99,7 @@ class FactorModel:
 
         self._portfolios = tuple(portfolios)
 
-    def compare_portfolios(self, plot: bool = True):
+    def compare_portfolios(self, plot: bool = True) -> pd.DataFrame:
         stats = {}
         plt.figure(figsize=(16, 9))
         for i, portfolio in enumerate(self.portfolios):
@@ -108,7 +110,7 @@ class FactorModel:
                 )
         if plot:
             plt.legend()
-            plt.suptitle('MoneyPortfolio Cumulative Returns', fontsize=25)
+            plt.suptitle('Portfolio Cumulative Returns', fontsize=25)
         return pd.DataFrame(stats).round(2)
 
     @classmethod
@@ -117,10 +119,10 @@ class FactorModel:
                     lag_periods: Iterable[int],
                     holding_periods: Iterable[int],
                     prices: pd.DataFrame,
-                    factor: IPicking,
+                    picking_factor: IPicking,
                     filtering_factor: Optional[IFiltering] = None,
                     weighting_factor: Optional[IWeighting] = None,
-                    benchmark: Optional[BaseBenchmark] = None,
+                    benchmark: Optional[IBenchmark] = None,
                     n_quantiles: int = 3,
                     add_wml: bool = False) -> Dict[Tuple[int, int, int],
                                                    pd.DataFrame]:
@@ -131,7 +133,7 @@ class FactorModel:
                     fm = cls(looking_period, lag_period, holding_period)
                     fm.fit(
                         prices,
-                        factor,
+                        picking_factor,
                         filtering_factor,
                         weighting_factor,
                         benchmark,
@@ -143,9 +145,17 @@ class FactorModel:
         return results
 
     @staticmethod
-    def _get_quantiles(n) -> List[Quantiles]:
+    def _make_intervals(array: np.ndarray):
+        assert array.ndim == 1, 'array must be 1-dimensional'
+        n = np.size(array) - 1
+        return np.take(
+            array,
+            np.arange(n * 2).reshape((n, -1)) - np.indices((n, 2))[0]
+        )
+
+    def _get_quantiles(self, n) -> List[Quantiles]:
         return [Quantiles(*pair)
-                for pair in make_intervals(np.linspace(0, 1, n+1))]
+                for pair in self._make_intervals(np.linspace(0, 1, n+1))]
 
     @property
     def looking_period(self) -> int:
@@ -160,5 +170,5 @@ class FactorModel:
         return self._holding_period
 
     @property
-    def portfolios(self) -> Tuple[BasePortfolio, ...]:
+    def portfolios(self) -> Tuple[Union[IPortfolio, IWMLPortfolio], ...]:
         return self._portfolios

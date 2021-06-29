@@ -2,7 +2,7 @@ import pytest
 import numpy as np
 import pandas as pd
 
-from pqr.factors import Factor
+from pqr.factors import PickingFactor
 from pqr.intervals import Quantiles
 
 
@@ -11,10 +11,10 @@ from pqr.intervals import Quantiles
     (
         # test 1: static single factor(1, 0), q(0, 1/3)
         [
-            Factor(pd.DataFrame([[1, 2, 3, 4],
-                                 [2, 3, 4, 5],
-                                 [5, 5, 7, 8],
-                                 [10, 20, 31, -1]]), False),
+            PickingFactor(pd.DataFrame([[1, 2, 3, 4],
+                                        [2, 3, 4, 5],
+                                        [5, 5, 7, 8],
+                                        [10, 20, 31, -1]]), False),
             pd.DataFrame([[1, 2, np.nan, 4],
                           [2, np.nan, np.nan, 5],
                           [4, 5, np.nan, 8],
@@ -29,10 +29,10 @@ from pqr.intervals import Quantiles
         ],
         # test 2: dynamic single factor(2, 0), q(0, 1/3)
 [
-            Factor(pd.DataFrame([[1, 2, 3, 4],
-                                 [2, 3, 4, 5],
-                                 [5, 5, 7, 8],
-                                 [10, 20, 31, -1]]), True),
+            PickingFactor(pd.DataFrame([[1, 2, 3, 4],
+                                        [2, 3, 4, 5],
+                                        [5, 5, 7, 8],
+                                        [10, 20, 31, -1]]), True),
             pd.DataFrame([[1, 2, np.nan, 4],
                           [2, np.nan, np.nan, 5],
                           [4, 5, np.nan, 8],

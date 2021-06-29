@@ -89,5 +89,5 @@ class NSortMultiFactor(PickingMultiFactor):
                 interval if (not different_factors or factor.bigger_better)
                 else interval.mirror()
             )
-            data.values[~choice] = np.nan
-        return data
+            data.values[choice.values == 0] = np.nan
+        return data.astype(float)

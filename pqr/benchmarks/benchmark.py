@@ -1,3 +1,5 @@
+from functools import lru_cache
+
 import pandas as pd
 
 from .basebenchmark import BaseBenchmark
@@ -34,6 +36,7 @@ class Benchmark(BaseBenchmark):
         self.__name = name
 
     @property
+    @lru_cache
     def returns(self) -> pd.Series:
         return self._values.pct_change()
 

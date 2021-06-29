@@ -1,9 +1,9 @@
-from typing import Iterable, List
+from typing import List
 
 import pandas as pd
 
 
-def correct_matrices(matrices: Iterable[pd.DataFrame]) -> List[pd.DataFrame]:
+def correct_matrices(*matrices: pd.DataFrame) -> List[pd.DataFrame]:
     # collect all
     all_columns = set()
     all_indices = set()

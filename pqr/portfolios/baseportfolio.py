@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import statsmodels.api as sm
 
-from pqr.benchmarks import BaseBenchmark
+from pqr.benchmarks.interfaces import IBenchmark
 
 
 Alpha = namedtuple('Alpha', ['coef', 'p_value'])
@@ -30,7 +30,7 @@ class BasePortfolio:
 
     positions: pd.DataFrame
     returns: pd.Series
-    benchmark: Optional[BaseBenchmark]
+    benchmark: Optional[IBenchmark]
     shift: int
     cumulative_returns: pd.Series
     total_return: Union[int, float]
@@ -50,7 +50,7 @@ class BasePortfolio:
 
     @property
     @abstractmethod
-    def benchmark(self) -> Optional[BaseBenchmark]:
+    def benchmark(self) -> Optional[IBenchmark]:
         ...
 
     @property

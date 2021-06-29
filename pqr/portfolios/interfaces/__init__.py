@@ -4,5 +4,5 @@ Module, providing interfaces for portfolios:
     money (practical).
 """
 
-from .irelativeinvest import IRelativeInvest
-from .imoneyinvest import IMoneyInvest
+from .iwmlportfolio import IWMLPortfolio
+from .iportfolio import IPortfolio

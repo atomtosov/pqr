@@ -33,3 +33,6 @@ class Quantiles(Interval):
         super().__init__(lower, upper)
         if not (0 <= self.lower <= 1 and 0 <= self.upper <= 1):
             raise ValueError('quantiles must be in range [0, 1]')
+
+    def mirror(self) -> 'Quantiles':
+        return Quantiles(1 - self.upper, 1 - self.lower)

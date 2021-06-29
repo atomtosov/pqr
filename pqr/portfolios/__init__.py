@@ -5,11 +5,5 @@ Module, providing portfolios:
 """
 
 from .baseportfolio import BasePortfolio
-
-from .interval_portfolios import (
-    QuantilePortfolio,
-    ThresholdPortfolio,
-    TopNPortfolio
-)
-
+from .portfolio import Portfolio
 from .wmlportfolio import WMLPortfolio

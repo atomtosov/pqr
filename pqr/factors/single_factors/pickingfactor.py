@@ -107,4 +107,4 @@ class PickingFactor(SingleFactor, IPicking):
             & (factor.values <= upper_threshold),
             index=data.index,
             columns=data.columns
-        )
+        ).astype(float)

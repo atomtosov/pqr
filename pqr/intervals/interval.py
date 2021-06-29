@@ -42,8 +42,12 @@ class Interval:
             raise ValueError('lower interval boarder must be <= upper')
 
     def __repr__(self) -> str:
-        return f'{self.__class__.__name__}(lower={self.lower}, ' \
-               f'upper={self.upper})'
+        lower_str = f'{self.lower:.2f}' if isinstance(self.lower, float) \
+            else str(self.lower)
+        upper_str = f'{self.upper:.2f}' if isinstance(self.upper, float) \
+            else str(self.upper)
+
+        return f'{self.__class__.__name__}({lower_str}, {upper_str})'
 
     @property
     def lower(self) -> Union[int, float]:
