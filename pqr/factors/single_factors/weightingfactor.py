@@ -56,10 +56,14 @@ class WeightingFactor(SingleFactor, IWeighting):
 
         # TODO: check data
 
-        values = self.transform(looking_period=1, lag_period=0)
+        factor = self.transform(looking_period=1, lag_period=0)
         if self.bigger_better:
-            weights = values * data
-            return weights / weights.sum(axis=1).values[:, np.newaxis]
+            weights = factor.values * data.values
+            return pd.DataFrame(
+                weights / np.nansum(weights, axis=1)[:, np.newaxis],
+                index=data.index,
+                columns=data.columns
+            )
         else:
             raise NotImplementedError('lower_better factors '
                                       'are not supported yet')
@@ -72,4 +76,8 @@ class EqualWeights(IWeighting):
     """
 
     def weigh(self, data: pd.DataFrame) -> pd.DataFrame:
-        return data / data.sum(axis=1).values[:, np.newaxis]
+        return pd.DataFrame(
+            data.values / np.nansum(data.values, axis=1)[:, np.newaxis],
+            index=data.index,
+            columns=data.columns
+        )

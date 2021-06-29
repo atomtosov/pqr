@@ -6,7 +6,7 @@
 """
 
 from .single_factors import (
-    Factor,
+    PickingFactor,
     FilteringFactor, NoFilter,
     WeightingFactor, EqualWeights
 )

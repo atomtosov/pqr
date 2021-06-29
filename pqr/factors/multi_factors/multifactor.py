@@ -29,14 +29,14 @@ class MultiFactor(BaseFactor):
                  factors: Sequence[BaseFactor],
                  name: str = ''):
         if isinstance(name, str):
-            self._name = name
+            self.__name = name
         else:
             raise ValueError('name must be str')
 
         if np.all([isinstance(factor, BaseFactor) for factor in factors]):
             self._factors = tuple(factors)
         else:
-            raise ValueError('all factors must be Factor')
+            raise ValueError('all factors must be PickingFactor')
 
     def transform(self,
                   looking_period: int = 1,
@@ -88,5 +88,5 @@ class MultiFactor(BaseFactor):
         return bigger_better or lower_better or None
 
     @property
-    def name(self):
-        return self._name
+    def _name(self):
+        return self.__name

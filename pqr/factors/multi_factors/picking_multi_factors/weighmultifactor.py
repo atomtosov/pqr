@@ -42,7 +42,7 @@ class WeighMultiFactor(PickingMultiFactor):
         """
         Pick stocks from data, using some interval.
 
-        Provide the same interface as Factor.pick().
+        Provide the same interface as PickingFactor.pick().
 
         Picking stocks works like for simple single factor.
 
@@ -74,28 +74,23 @@ class WeighMultiFactor(PickingMultiFactor):
             stocks.
         """
 
-        # TODO: check data
-
         if not isinstance(interval, Quantiles):
             raise ValueError('interval must be Quantiles')
 
-        values = pd.DataFrame(
-            np.nansum(
-                np.array(self.transform(looking_period, lag_period))
-                * self.weights[:, np.newaxis, np.newaxis],
-                axis=0
-            ),
+        factor = np.nansum(
+            np.array(self.transform(looking_period, lag_period))
+            * self.weights[:, np.newaxis, np.newaxis],
+            axis=0
+        )
+        # exclude values which are not available in data (e.g. after filtering)
+        factor[np.isnan(data.values)] = np.nan
+
+        lower_threshold = np.nanquantile(factor, interval.lower, axis=1)
+        upper_threshold = np.nanquantile(factor, interval.upper, axis=1)
+        choice = (lower_threshold[:, np.newaxis] <= factor) & \
+                 (factor <= upper_threshold[:, np.newaxis])
+        return pd.DataFrame(
+            choice,
             index=data.index,
             columns=data.columns
         )
-        # exclude values which are not available in data (e.g. after filtering)
-        values[data.isna()] = np.nan
-
-        lower_threshold = values.quantile(interval.lower, axis=1)
-        upper_threshold = values.quantile(interval.upper, axis=1)
-        choice = (lower_threshold.values[:, np.newaxis] <= values) & \
-                 (values <= upper_threshold.values[:, np.newaxis])
-
-        data = (data * choice).astype(float)
-        data[data == 0] = np.nan
-        return ~data.isna()

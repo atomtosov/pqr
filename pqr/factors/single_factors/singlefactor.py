@@ -55,7 +55,7 @@ class SingleFactor(BaseFactor):
             raise TypeError('bigger_better must be int')
 
         if isinstance(name, str):
-            self._name = name
+            self.__name = name
         else:
             raise TypeError('name must be str')
 
@@ -110,5 +110,5 @@ class SingleFactor(BaseFactor):
         return self._bigger_better
 
     @property
-    def name(self) -> str:
-        return self._name
+    def _name(self) -> str:
+        return self.__name

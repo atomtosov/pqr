@@ -7,6 +7,6 @@
 
 from .singlefactor import SingleFactor
 
-from .factor import Factor
+from .pickingfactor import PickingFactor
 from .filteringfactor import FilteringFactor, NoFilter
 from .weightingfactor import WeightingFactor, EqualWeights

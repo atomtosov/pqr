@@ -37,7 +37,6 @@ class WeightingMultiFactor(MultiFactor, IWeighting):
         Initialize WeightingMultiFactor instance.
         """
 
-        # check that all given factors implements IWeighting
         if np.all([isinstance(factor, IWeighting) for factor in factors]):
             super().__init__(factors, name)
         else:

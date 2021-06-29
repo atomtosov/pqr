@@ -41,7 +41,7 @@ class InterceptMultiFactor(PickingMultiFactor):
         """
         Pick stocks from data, using some interval.
 
-        Provides the same interface as Factor.pick().
+        Provides the same interface as PickingFactor.pick().
 
         Picking stocks is based on choices of every factor by the same data and
         the same interval (if factors are different, interval is mirrored).
@@ -75,8 +75,6 @@ class InterceptMultiFactor(PickingMultiFactor):
             stocks.
         """
 
-        # TODO: check data
-
         if not isinstance(interval, Quantiles):
             raise ValueError('interval must be Quantiles')
 
@@ -88,14 +86,16 @@ class InterceptMultiFactor(PickingMultiFactor):
                 data,
                 # mirroring quantiles
                 interval if (not different_factors or factor.bigger_better)
-                else Quantiles(1 - interval.upper, 1 - interval.lower),
+                else interval.mirror(),
                 looking_period,
                 lag_period
             )
             if choice is None:
-                choice = pick
+                choice = pick.values
             else:
-                choice &= pick
-        data = (data * choice).astype(float)
-        data[data == 0] = np.nan
-        return ~np.isnan(data)
+                choice &= pick.values
+        return pd.DataFrame(
+            choice,
+            index=data.index,
+            columns=data.columns
+        )

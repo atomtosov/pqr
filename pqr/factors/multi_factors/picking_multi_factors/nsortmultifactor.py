@@ -42,7 +42,7 @@ class NSortMultiFactor(PickingMultiFactor):
         """
         Pick stocks from data, using some interval.
 
-        Provide the same interface as Factor.pick().
+        Provide the same interface as PickingFactor.pick().
 
         Picking stocks is based on iterative choice of factors. On every
         iteration unpicked choices are deleting from stock universe and this
@@ -77,20 +77,17 @@ class NSortMultiFactor(PickingMultiFactor):
             stocks.
         """
 
-        # TODO: check data
-
         if not isinstance(interval, Quantiles):
             raise ValueError('interval must be Quantiles')
 
         different_factors = self.bigger_better is None
+        data = data.copy()
         for factor in self.factors:
             # update data by picking stocks by interval every time
-            data = data * factor.pick(
+            choice = factor.pick(
                 data,
                 interval if (not different_factors or factor.bigger_better)
-                # mirroring quantiles
-                else Quantiles(1 - interval.upper, 1 - interval.lower)
+                else interval.mirror()
             )
-            data = data.astype(float)
-            data[data == 0] = np.nan
-        return ~data.isna()
+            data.values[~choice] = np.nan
+        return data

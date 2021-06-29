@@ -1,4 +1,4 @@
-from typing import Union, Any, Iterable
+from typing import Union
 
 import numpy as np
 import pandas as pd
@@ -23,12 +23,12 @@ class FilteringFactor(SingleFactor, IFiltering):
         Whether more factor value, better company or less factor value better
         company. If it equals None, cannot be defined correctly (e.g. intercept
         multi-factor).
-    name : str, optional
-        Name of factor.
     min_threshold : int, float, default=-np.inf
         Lower threshold of factor values to filter stock universe.
     max_threshold : int, float, default=np.inf
         Upper threshold of factor values to filter stock universe.
+    name : str, optional
+        Name of factor.
 
     Attributes
     ----------
@@ -44,14 +44,13 @@ class FilteringFactor(SingleFactor, IFiltering):
                  data: pd.DataFrame,
                  dynamic: bool = False,
                  bigger_better: bool = True,
-                 name: str = '',
                  min_threshold: Union[int, float] = -np.inf,
-                 max_threshold: Union[int, float] = np.inf):
+                 max_threshold: Union[int, float] = np.inf,
+                 name: str = ''):
         """
         Initialize FilteringFactor instance.
         """
 
-        # init parent SingleFactor class
         super().__init__(
             data,
             dynamic,
@@ -82,14 +81,17 @@ class FilteringFactor(SingleFactor, IFiltering):
             Given data doesn't match in shape with factor values.
         """
 
-        # TODO: check data
-
-        values = self.transform(looking_period=1, lag_period=0)
-        filter_by_factor = (self.thresholds.lower <= values) & \
-                           (values <= self.thresholds.upper)
-        filtered_data = (data * filter_by_factor).astype(float)
-        filtered_data[filtered_data == 0] = np.nan
-        return filtered_data
+        factor = self.transform(looking_period=1, lag_period=0)
+        factor.values[np.isnan(data.values)] = np.nan
+        filter_by_factor = (self.thresholds.lower <= factor.values) & \
+                           (factor.values <= self.thresholds.upper)
+        filtered_values = data.values.copy()
+        filtered_values[~filter_by_factor] = np.nan
+        return pd.DataFrame(
+            filtered_values,
+            index=data.index,
+            columns=data.columns
+        )
 
     @property
     def thresholds(self) -> Thresholds:

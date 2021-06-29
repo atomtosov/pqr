@@ -18,16 +18,13 @@ class BaseFactor:
         Whether more factor value, better company or less factor value better
         company. If it equals None, cannot be defined correctly (e.g. intercept
         multi-factor).
-    name : str
-        Name of factor.
     """
 
     dynamic: bool
     bigger_better: Optional[bool]
-    name: str
 
     def __repr__(self) -> str:
-        return f'{self.__class__.__name__}({self.name})'
+        return f'{self.__class__.__name__}({self._name})'
 
     @abstractmethod
     def transform(self,
@@ -65,5 +62,5 @@ class BaseFactor:
 
     @property
     @abstractmethod
-    def name(self) -> str:
+    def _name(self) -> str:
         ...

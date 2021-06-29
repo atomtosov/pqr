@@ -3,10 +3,10 @@ import pandas as pd
 
 from .singlefactor import SingleFactor
 from ..interfaces import IPicking
-from pqr.intervals import Interval, Quantiles, Thresholds
+from pqr.intervals import Interval, Quantiles, Thresholds, Top
 
 
-class Factor(SingleFactor, IPicking):
+class PickingFactor(SingleFactor, IPicking):
     """
     Class for factors used to pick stocks.
 
@@ -68,25 +68,43 @@ class Factor(SingleFactor, IPicking):
             stocks.
         """
 
-        # TODO: check data
-
-        values = self.transform(looking_period, lag_period)
+        factor = self.transform(looking_period, lag_period)
         # exclude values which are not available in data (e.g. after filtering)
-        values[data.isna()] = np.nan
+        factor.values[np.isnan(data.values)] = np.nan
 
         if isinstance(interval, Quantiles):
-            lower_threshold = values.quantile(interval.lower, axis=1)
-            upper_threshold = values.quantile(interval.upper, axis=1)
-            # to include stock with highest factor value
-            choice = (lower_threshold.values[:, np.newaxis] <= values) & \
-                     (values <= upper_threshold.values[:, np.newaxis])
-            data = (data * choice).astype(float)
-            data[data == 0] = np.nan
-            return ~data.isna()
+            lower_threshold = np.nanquantile(
+                factor.values,
+                interval.lower,
+                axis=1
+            )[:, np.newaxis]
+            upper_threshold = np.nanquantile(
+                factor.values,
+                interval.upper,
+                axis=1
+            )[:, np.newaxis]
         elif isinstance(interval, Thresholds):
-            choice = (interval.lower <= values) & (values < interval.upper)
-            data = (data * choice).astype(float)
-            data[data == 0] = np.nan
-            return ~data.isna()
+            lower_threshold = interval.lower
+            upper_threshold = interval.upper
+        elif isinstance(interval, Top):
+            lower_threshold = np.nanmin(
+                factor.apply(
+                    pd.Series.nlargest, axis=1, n=interval.lower
+                ),
+                axis=1
+            )[:, np.newaxis]
+            upper_threshold = np.nanmin(
+                factor.apply(
+                    pd.Series.nlargest, axis=1, n=interval.upper
+                ),
+                axis=1
+            )[:, np.newaxis]
         else:
-            raise ValueError('interval must be Quantiles or Thresholds')
+            raise ValueError('interval must be some Interval')
+
+        return pd.DataFrame(
+            (lower_threshold <= factor.values)
+            & (factor.values <= upper_threshold),
+            index=data.index,
+            columns=data.columns
+        )
