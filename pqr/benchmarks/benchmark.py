@@ -17,7 +17,6 @@ class Benchmark(BaseBenchmark):
     Attributes
     ----------
     returns
-    cumulative_returns
     """
 
     def __init__(self,

@@ -24,7 +24,6 @@ class CustomBenchmark(BaseBenchmark):
     Attributes
     ----------
     returns
-    cumulative_returns
     """
 
     def __init__(self,
@@ -38,7 +37,7 @@ class CustomBenchmark(BaseBenchmark):
         if isinstance(prices, pd.DataFrame):
             self._prices = prices.copy()
         else:
-            raise ValueError('data must be pd.DataFrame')
+            raise TypeError('prices must be pd.DataFrame')
 
         if isinstance(weighting_factor, IWeighting):
             self._weighting_factor = weighting_factor
@@ -55,9 +54,9 @@ class CustomBenchmark(BaseBenchmark):
     @property
     def returns(self) -> pd.Series:
         return (
-                self._prices.pct_change()
-                * self._weighting_factor.weigh(self._prices)
-        ).sum(axis=1)
+                self._weighting_factor.weigh(self._prices)
+                * self._prices.pct_change().shift(-1)
+        ).shift().sum(axis=1)
 
     @property
     def _name(self) -> str:

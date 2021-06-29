@@ -3,8 +3,8 @@ from typing import Optional
 import numpy as np
 import pandas as pd
 
-from ..baseportfolio import BasePortfolio
-from ..interfaces import IRelativeInvest
+from pqr.portfolios.baseportfolio import BasePortfolio
+from pqr.portfolios.interfaces import IRelativeInvest
 from pqr.factors.interfaces import (
     IPicking,
     IFiltering,
@@ -38,6 +38,7 @@ class IntervalPortfolio(BasePortfolio, IRelativeInvest):
         """
         Initialize IntervalPortfolio instance.
         """
+
         self._positions = pd.DataFrame()
         self._returns = pd.Series()
         self._benchmark = None
@@ -86,7 +87,7 @@ class IntervalPortfolio(BasePortfolio, IRelativeInvest):
             Prices of stock universe, from which stocks are picked into
             portfolio.
         factor : IPicking
-            Factor, representing choice of stocks from stock universe. Must
+            PickingFactor, representing choice of stocks from stock universe. Must
             have data for the same stock universe.
         looking_period : int, default=1
             Looking period to transform factor values.
@@ -95,10 +96,10 @@ class IntervalPortfolio(BasePortfolio, IRelativeInvest):
         holding_period : int
             Holding period
         filtering_factor : IFiltering, optional
-            Factor, filtering stock universe before picking factors. (e.g.
+            PickingFactor, filtering stock universe before picking factors. (e.g.
             liquidity). If not given, prices are not filtered at all.
         weighting_factor : IWeighting, optional
-            Factor, weighting positions. If not given, simple equal weights are
+            PickingFactor, weighting positions. If not given, simple equal weights are
             used.
         benchmark : BaseBenchmark, optional
 
