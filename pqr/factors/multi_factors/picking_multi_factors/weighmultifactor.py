@@ -77,13 +77,16 @@ class WeighMultiFactor(PickingMultiFactor):
         if not isinstance(interval, Quantiles):
             raise ValueError('interval must be Quantiles')
 
+        factors = np.array(self.transform(looking_period, lag_period))
+
         factor = np.nansum(
-            np.array(self.transform(looking_period, lag_period))
+            factors
             * self.weights[:, np.newaxis, np.newaxis],
             axis=0
-        )
+        ) / np.nansum(self.weights)
+
         # exclude values which are not available in data (e.g. after filtering)
-        factor[np.isnan(data.values)] = np.nan
+        factor[np.isnan(data.values) | np.isnan(factors[0])] = np.nan
 
         lower_threshold = np.nanquantile(factor, interval.lower, axis=1)
         upper_threshold = np.nanquantile(factor, interval.upper, axis=1)

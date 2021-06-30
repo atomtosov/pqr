@@ -51,8 +51,13 @@ class PickingMultiFactor(MultiFactor, ABC, IPicking):
         else:
             raise TypeError('all factors must implement IPicking')
 
-        # TODO: check weights
-        self._weights = np.array(weights)
+        if weights is None:
+            self._weights = np.ones(len(factors))
+        elif isinstance(weights, Sequence) \
+                and np.all([isinstance(w, (int, float)) for w in weights]):
+            self._weights = np.array(weights)
+        else:
+            raise TypeError('weights must be sequence of int or float')
 
     @property
     def weights(self) -> np.ndarray:

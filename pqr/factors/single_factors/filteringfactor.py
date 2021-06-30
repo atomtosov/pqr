@@ -85,7 +85,7 @@ class FilteringFactor(SingleFactor, IFiltering):
         factor.values[np.isnan(data.values)] = np.nan
         filter_by_factor = (self.thresholds.lower <= factor.values) & \
                            (factor.values <= self.thresholds.upper)
-        filtered_values = data.values.copy()
+        filtered_values = data.values.copy().astype(float)
         filtered_values[~filter_by_factor] = np.nan
         return pd.DataFrame(
             filtered_values,

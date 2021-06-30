@@ -81,13 +81,16 @@ class NSortMultiFactor(PickingMultiFactor):
             raise ValueError('interval must be Quantiles')
 
         different_factors = self.bigger_better is None
-        data = data.copy()
+        data = data.copy().astype(float)
+        choice = np.zeros_like(data)
         for factor in self.factors:
             # update data by picking stocks by interval every time
             choice = factor.pick(
                 data,
                 interval if (not different_factors or factor.bigger_better)
-                else interval.mirror()
+                else interval.mirror(),
+                looking_period,
+                lag_period
             )
             data.values[choice.values == 0] = np.nan
-        return data.astype(float)
+        return choice
