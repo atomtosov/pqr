@@ -1,5 +1,3 @@
-from typing import Optional
-
 import pandas as pd
 
 from ..basefactor import BaseFactor
@@ -7,27 +5,7 @@ from ..basefactor import BaseFactor
 
 class SingleFactor(BaseFactor):
     """
-    Class for factors, which can be represented by 1 matrix (e.g. value - P/E).
-
-    Parameters
-    ----------
-    data : pd.DataFrame
-        Matrix with values of factor.
-    dynamic : bool, default=False
-        Whether factor values should be used to make decisions in absolute form
-        or in relative form (percentage changes).
-    bigger_better : bool, None, default=True
-        Whether more factor value, better company or less factor value better
-        company. If it equals None, cannot be defined correctly (e.g. intercept
-        multi-factor).
-    name : str, optional
-        Name of factor.
-
-    Attributes
-    ----------
-        dynamic
-        bigger_better
-        name
+    Class for single-factors, so factors with only one matrix of values.
     """
 
     def __init__(self,
@@ -37,6 +15,26 @@ class SingleFactor(BaseFactor):
                  name: str = ''):
         """
         Initialize SingleFactor instance.
+
+        Parameters
+        ----------
+        data : pd.DataFrame
+            Matrix with values of factor. Must be numeric (contains only
+            int/float numbers and nans).
+        dynamic : bool, default=False
+            Is to interpret factor values statically (values itself) or
+            dynamically (changes of values).
+        bigger_better : bool, default=True
+            Is bigger factor values are responsible for more attractive company
+            or vice versa.
+        name : str, optional
+            Name of factor.
+
+        Raises
+        ------
+        TypeError
+            Given data is not pd.DataFrame, dynamic or bigger_better is not
+            bool, or name is not str.
         """
 
         if isinstance(data, pd.DataFrame):
@@ -52,7 +50,7 @@ class SingleFactor(BaseFactor):
         if isinstance(bigger_better, bool):
             self._bigger_better = bigger_better
         else:
-            raise TypeError('bigger_better must be int')
+            raise TypeError('bigger_better must be bool or None')
 
         if isinstance(name, str):
             self.__name = name
@@ -66,38 +64,58 @@ class SingleFactor(BaseFactor):
         Transform factor values into appropriate for decision-making format.
 
         If factor is dynamic:
-            calculate percentage change t(-looking_period)/t(0)-1 and then lag
-            it to lag_period+1 (additional shift is necessary, because it is
-            always needed to know t(0) data, but it can be get only at t(1);
-            so, it helps to avoid lookahead bias).
+            calculate percentage changes with looking back for "looking_period"
+            periods, then values are lagged for 1 period (because in period
+            t(0) we can know percentage change from period t(-looking_period)
+            only at the end of t(0), so it is needed to avoid looking-forward
+            bias); then values are lagged for lag_period.
 
         If factor is static:
-            just lag all values to looking_period+lag_period.
+            all values are lagged for the sum of "looking_period" and
+            "lag_period".
 
         Parameters
         ----------
         looking_period : int, default=1
-            Period to lookahead in data to transform it.
+            Period to look back for making decisions.
         lag_period : int, default=0
-            Period to lag data to create effect of delayed reaction to factor
-            values.
+            Period of delaying entry into positions.
 
         Returns
         -------
-            2-d matrix with shape equal to shape of data with transformed
-            factor values. First looking_period+lag_period lines are equal to
-            np.nan, because in these moments decision-making is abandoned
-            because of lack of data. For dynamic factors one more line is equal
-            to np.nan (see above).
+        pd.DataFrame
+            DataFrame with the same shape as given data, but with first rows,
+            filled with nans. The amount of "blank" rows depends on the sum of
+            "looking_period", "lag_period" and indicator that factor is
+            dynamic.
+
+        Raises
+        ------
+        TypeError
+            looking_period or lag_period is not int.
+        ValueError
+            looking_period < 1 or lag_period < 0 or the sum of them and
+            indicator of factor dynamics exceeds the number of observations
+            in factor data.
         """
 
-        if not isinstance(looking_period, int) or looking_period < 1:
-            raise ValueError('looking_period must be int >= 1')
-        if not isinstance(lag_period, int) or lag_period < 0:
-            raise ValueError('lag_period must be int >= 0')
+        if not isinstance(looking_period, int):
+            raise TypeError('looking_period must be int')
+        elif looking_period < 1:
+            raise ValueError('looking_period must be >= 1')
+
+        if not isinstance(lag_period, int):
+            raise TypeError('lag_period must be int')
+        elif lag_period < 0:
+            raise ValueError('lag_period must be >= 0')
+
+        if looking_period + lag_period + self.dynamic >= self._data:
+            raise ValueError('the sum of looking_period, lag_period and '
+                             '1 if factor is dynamic must be less than periods'
+                             'of factor values')
 
         if self.dynamic:
-            return self._data.pct_change(looking_period).shift(lag_period + 1)
+            return self._data.pct_change(looking_period).shift(1 + lag_period)
         else:
             return self._data.shift(looking_period + lag_period)
 
@@ -106,7 +124,7 @@ class SingleFactor(BaseFactor):
         return self._dynamic
 
     @property
-    def bigger_better(self) -> Optional[bool]:
+    def bigger_better(self) -> bool:
         return self._bigger_better
 
     @property

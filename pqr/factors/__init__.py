@@ -5,11 +5,9 @@
         weighting factors.
 """
 
-from .single_factors import (
-    PickingFactor,
-    FilteringFactor, NoFilter,
-    WeightingFactor, EqualWeights
-)
+from .dummy_factors import NoFilter, EqualWeights
+
+from .single_factors import PickingFactor, FilteringFactor, WeightingFactor
 
 from .multi_factors import (
     WeighMultiFactor, InterceptMultiFactor, NSortMultiFactor,

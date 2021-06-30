@@ -5,9 +5,12 @@ import pandas as pd
 
 class IFiltering:
     """
-    Class-interface for filtering factors.
+    Interface for filtering factors.
     """
 
     @abstractmethod
     def filter(self, data: pd.DataFrame) -> pd.DataFrame:
-        ...
+        """
+        Method for filtering stock universe by factor values and some
+        restrictions on it.
+        """

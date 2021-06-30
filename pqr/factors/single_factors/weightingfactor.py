@@ -7,27 +7,7 @@ from ..interfaces import IWeighting
 
 class WeightingFactor(SingleFactor, IWeighting):
     """
-    Class for factors used to weigh positions.
-
-    Parameters
-    ----------
-    data : np.ndarray, pd.DataFrame
-        Matrix with values of factor.
-    dynamic : bool, default=False
-        Whether factor values should be used to make decisions in absolute form
-        or in relative form (percentage changes).
-    bigger_better : bool, None, default=True
-        Whether more factor value, better company or less factor value better
-        company. If it equals None, cannot be defined correctly (e.g. intercept
-        multi-factor).
-    name : str, optional
-        Name of factor.
-
-    Attributes
-    ----------
-        dynamic
-        bigger_better
-        name
+    Class for factors, weighting some data (e.g. positions).
     """
 
     def weigh(self, data: pd.DataFrame) -> pd.DataFrame:
@@ -37,8 +17,9 @@ class WeightingFactor(SingleFactor, IWeighting):
         Parameters
         ----------
         data : pd.DataFrame
-            Data to be weighted. Expected positions (matrix with True/False or
-            1/0), but not obligatory.
+            Data to be weighted. It is implied to get positions (matrix with
+            1/0), but it is not obligatory: if data doesn't represent positions
+            weights are affected by values of given data.
 
         Notes
         -----
@@ -46,12 +27,15 @@ class WeightingFactor(SingleFactor, IWeighting):
 
         Returns
         -------
-            2-d matrix with weighted data.
+        pd.DataFrame
+            DataFrame with weights for given data. It is guaranteed that the
+            sum of values in each row is equal to 1.
 
         Raises
         ------
-        ValueError
-            Given data doesn't match in shape with factor values.
+        NotImplementedError
+            If tried to weigh by factor, which is not bigger_better. That
+            mechanics is now unsupported, but will be in future versions.
         """
 
         factor = self.transform(looking_period=1, lag_period=0)
@@ -65,19 +49,3 @@ class WeightingFactor(SingleFactor, IWeighting):
         else:
             raise NotImplementedError('lower_better factors '
                                       'are not supported yet')
-
-
-class EqualWeights(IWeighting):
-    """
-    Class for dummy-weighting. Used to replace WeightingFactor with factor,
-    which weigh equally, but provides the same interface.
-    """
-
-    def weigh(self, data: pd.DataFrame) -> pd.DataFrame:
-        weights = np.ones(data.shape, dtype=float)
-        weights[np.isnan(data)] = np.nan
-        return pd.DataFrame(
-            weights / np.nansum(weights, axis=1)[:, np.newaxis],
-            index=data.index,
-            columns=data.columns
-        )

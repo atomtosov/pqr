@@ -7,23 +7,17 @@ import pandas as pd
 
 class BaseFactor:
     """
-    Abstract base class for factors.
-
-    Attributes
-    ----------
-    dynamic : bool
-        Whether factor values should be used to make decisions in absolute form
-        or in relative form (percentage changes).
-    bigger_better : bool, None
-        Whether more factor value, better company or less factor value better
-        company. If it equals None, cannot be defined correctly (e.g. intercept
-        multi-factor).
+    Abstract base class for all kinds of factors.
     """
 
     dynamic: bool
     bigger_better: Optional[bool]
 
     def __repr__(self) -> str:
+        """
+        Dunder/Magic method for fancy printing BaseFactor object in console.
+        """
+
         return f'{self.__class__.__name__}({self._name})'
 
     @abstractmethod
@@ -31,36 +25,31 @@ class BaseFactor:
                   looking_period: int,
                   lag_period: int) -> pd.DataFrame:
         """
-        Transform factor values into appropriate for decision-making format.
-
-        Parameters
-        ----------
-        looking_period : int, default=1
-            Period to lookahead in data to transform it.
-        lag_period : int, default=0
-            Period to lag data to create effect of delayed reaction to factor
-            values.
-
-        Returns
-        -------
-            2-d matrix with shape equal to shape of data with transformed
-            factor values. First looking_period+lag_period lines are equal to
-            np.nan, because in these moments decision-making is abandoned
-            because of lack of data. For dynamic factors one more line is equal
-            to np.nan (see above).
+        Method to transform factor values by looking period and lag period.
         """
 
     @property
     @abstractmethod
     def dynamic(self) -> bool:
-        ...
+        """
+        bool : Logical property, which shows whether absolute values of factor
+        are used to make decision or relative (pct changes).
+        """
 
     @property
     @abstractmethod
     def bigger_better(self) -> Optional[bool]:
-        ...
+        """
+        bool, optional : Logical property, which shows whether bigger values of
+        factor should be considered as better or on the contrary as worse. If
+        it is not obvious, higher or lower values of the factor indicate
+        a higher attractiveness of the company (e.g. complicated mix of
+        factors), can be None.
+        """
 
     @property
     @abstractmethod
     def _name(self) -> str:
-        ...
+        """
+        str : Name of factor.
+        """
