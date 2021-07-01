@@ -8,35 +8,43 @@ from ..basefactor import BaseFactor
 
 class MultiFactor(BaseFactor):
     """
-    Abstract base class for multi-factors, which consist of single-factors.
-
-    Parameters
-    ----------
-    factors : sequence of IFactor
-        Sequence of factors.
-    name : str, optional
-        Name of factor.
-
-    Attributes
-    ----------
-        dynamic
-        bigger_better
-        name
-        factors
+    Abstract base class for multi-factors, consisting of more than 1 factor.
     """
 
     def __init__(self,
                  factors: Sequence[BaseFactor],
                  name: str = ''):
+        """
+        Initialize MultiFactor instance.
+
+        Parameters
+        ----------
+        factors : sequence of IFactor
+            Sequence of factors. Must contain at least 2 factors. Can include
+            not only single-factors, but also multi-factors.
+        name : str, optional
+            Name of factor.
+
+        Raises
+        ------
+        TypeError
+            Any of factors is not a BaseFactor.
+        ValueError
+            Sequence of factors contains less than 2 elements.
+        """
+
+        if not np.all([isinstance(factor, BaseFactor) for factor in factors]):
+            raise TypeError('all factors must be BaseFactor')
+        elif len(factors) <= 1:
+            raise ValueError('sequence of factors must contain at least 2'
+                             'factors')
+        else:
+            self._factors = tuple(factors)
+
         if isinstance(name, str):
             self.__name = name
         else:
             raise ValueError('name must be str')
-
-        if np.all([isinstance(factor, BaseFactor) for factor in factors]):
-            self._factors = tuple(factors)
-        else:
-            raise ValueError('all factors must be PickingFactor')
 
     def transform(self,
                   looking_period: int = 1,
@@ -44,8 +52,10 @@ class MultiFactor(BaseFactor):
         """
         Transform factor values into appropriate for decision-making format.
 
-        All factors are transformed by the same looking and lag periods and
-        gathered into one array.
+        Simply transforms every factor independently. There is some kind of a
+        conflict between static and dynamic factors: if a multi-factor includes
+        both of them, static factors have in general one more period of
+        observations, but for decision-making it is not used.
 
         Parameters
         ----------
@@ -57,11 +67,9 @@ class MultiFactor(BaseFactor):
 
         Returns
         -------
-            3-d matrix with shape equal to quantity of factors and shape of
-            factor values with transformed factor values. First
-            looking_period+lag_period lines  are equal to np.nan, because in
-            these moments decision-making is abandoned because of lack of data.
-            For dynamic factors one more line is equal to np.nan (see above).
+        tuple[pd.DataFrame, ...]
+            Tuple of dataframes (or tuples of dataframes if a multi-factor also
+            include other multi-factors) with transformed views of each factor.
         """
 
         return tuple(

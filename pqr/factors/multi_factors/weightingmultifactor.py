@@ -10,22 +10,7 @@ from ..interfaces import IWeighting
 
 class WeightingMultiFactor(MultiFactor, IWeighting):
     """
-    Class for multi-factors used to weigh positions. Consists of factors,
-    implementing interface of weighting factors.
-
-    Parameters
-    ----------
-    factors : sequence of IFactor
-        Sequence of factors.
-    name : str, optional
-        Name of factor.
-
-    Attributes
-    ----------
-        dynamic
-        bigger_better
-        name
-        factors
+    Class for weighting some data (e.g. positions) by more than 1 factor.
     """
 
     factors: Tuple[IWeighting, ...]
@@ -35,6 +20,18 @@ class WeightingMultiFactor(MultiFactor, IWeighting):
                  name: str = ''):
         """
         Initialize WeightingMultiFactor instance.
+
+        Parameters
+        ----------
+        factors : sequence of IWeighting
+            Sequence of only weighting factors.
+        name : str, optional
+            Name of factor.
+
+        Raises
+        ------
+        TypeError
+            Any of factors doesn't implement weighting interface.
         """
 
         if np.all([isinstance(factor, IWeighting) for factor in factors]):
@@ -44,13 +41,14 @@ class WeightingMultiFactor(MultiFactor, IWeighting):
 
     def weigh(self, data: pd.DataFrame) -> pd.DataFrame:
         """
-        Weigh values in given data by factors.
+        Weigh values in given data by factors, set in the constructor.
 
         Parameters
         ----------
         data : pd.DataFrame
-            Data to be weighted. Expected positions (matrix with True/False or
-            1/0), but not obligatory.
+            Data to be weighted. Expected positions (matrix with 1/0), but not
+            obligatory: if data doesn't represent positions weights are
+            affected by values of given data.
 
         Notes
         -----
@@ -58,12 +56,9 @@ class WeightingMultiFactor(MultiFactor, IWeighting):
 
         Returns
         -------
-            2-d matrix with weighted data.
-
-        Raises
-        ------
-        ValueError
-            Given data doesn't match in shape with factor values.
+        pd.DataFrame
+            Dataframe with weights for given data. It is guaranteed that the
+            sum of values in each row is equal to 1.
         """
 
         for factor in self.factors:

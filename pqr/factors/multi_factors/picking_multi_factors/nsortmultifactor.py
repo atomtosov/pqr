@@ -7,31 +7,8 @@ from pqr.intervals import Quantiles
 
 class NSortMultiFactor(PickingMultiFactor):
     """
-    Class for multi-factors to pick stocks by intercepting picks of factors.
-
-    Parameters
-    ----------
-    factors : sequence of IPicking
-        Sequence of factors, which implement interface of picking factor.
-    weights : sequence of int or float, optional
-        Sequence of weights. Must have the same length as factors. By default
-        equal weights are used.
-    name : str, optional
-        Name of factor.
-
-    Attributes
-    ----------
-        dynamic
-        bigger_better
-        periodicity
-        name
-        factors
-        weights
-
-    Raises
-    ------
-    ValueError
-        If any of given factors doesn't implement interface of picking factor.
+    Class for picking multi-factors with the mechanism of n-sorting picks
+    of each factor iteratively.
     """
 
     def pick(self,
@@ -40,41 +17,45 @@ class NSortMultiFactor(PickingMultiFactor):
              looking_period: int = 1,
              lag_period: int = 0) -> pd.DataFrame:
         """
-        Pick stocks from data, using some interval.
+        Pick stocks from data, representing stock universe in each period of
+        time, using one of interval.
 
-        Provide the same interface as PickingFactor.pick().
+        Picking stocks is based on iterative choice of every factor from the
+        changing stock universe on every iteration: factor pick some stocks,
+        then others (whose wasn't picked) deleted from the stock universe, and
+        next factor pick stocks from the new stock universe.
 
-        Picking stocks is based on iterative choice of factors. On every
-        iteration unpicked choices are deleting from stock universe and this
-        data are given to next factor to pick. So, after the last iteration
-        choice is ready.
+        Notes
+        -----
+            Now supported only picks by quantiles with no use of weights.
+            Other intervals and weights will be added in future versions.
 
         Parameters
         ----------
-        data : np.ndarray
-            Data, from which stocks are picked. If some values are missed in
-            data but exist in factor values, they are excluded from factor
-            values too to prevent situations, when stock cannot be traded, but
-            picked.
+        data : pd.DataFrame
+            Data, representing stock universe (implied that this data is
+            prices). If some values are missed in data but exist in factor
+            values, they are excluded from factor values too to prevent
+            situations, when stock cannot be actually traded, but picked.
         interval : Interval
-            Interval of factor values to pick. Can be only Quantiles.
+            Interval of factor values to pick. Can be Quantiles, Thresholds or
+            Top.
         looking_period : int, default=1
-            Looking period to transform factor values of every factor
-            (see SingleFactor.transform()).
+            Looking back period.
         lag_period : int, default=0
-            Lag period to transform factor values of every factor
-            (see SingleFactor.transform()).
+            Delaying period to entry into positions.
 
         Returns
         -------
-            2-d matrix of bool values. True means that stock is picked, False -
-            isn't picked.
+        pd.DataFrame
+            DataFrame of 1/0, where 1 shows that a stock is fall into given
+            interval and should be picked into portfolio, and 0 shows that
+            a stock shouldn't.
 
         Raises
         ------
         ValueError
-            Given data is incorrect or given interval is not supported to pick
-            stocks.
+            Given interval is not supported to pick stocks.
         """
 
         if not isinstance(interval, Quantiles):

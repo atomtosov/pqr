@@ -10,22 +10,7 @@ from ..interfaces import IFiltering
 
 class FilteringMultiFactor(MultiFactor, IFiltering):
     """
-    Class for multi-factors used to filter positions. Consists of factors,
-    implementing interface of filtering factors.
-
-    Parameters
-    ----------
-    factors : sequence of IFactor
-        Sequence of factors.
-    name : str, optional
-        Name of factor.
-
-    Attributes
-    ----------
-        dynamic
-        bigger_better
-        name
-        factors
+    Class for filtering some data (e.g. stock universe) by more than 1 factor.
     """
 
     factors: Tuple[IFiltering, ...]
@@ -35,6 +20,18 @@ class FilteringMultiFactor(MultiFactor, IFiltering):
                  name: str = ''):
         """
         Initialize FilteringMultiFactor instance.
+
+        Parameters
+        ----------
+        factors : sequence of IFiltering
+            Sequence of only filtering factors.
+        name : str, optional
+            Name of factor.
+
+        Raises
+        ------
+        TypeError
+            Any of factors doesn't implement filtering interface.
         """
 
         if np.all([isinstance(factor, IFiltering) for factor in factors]):
@@ -44,21 +41,19 @@ class FilteringMultiFactor(MultiFactor, IFiltering):
 
     def filter(self, data: pd.DataFrame) -> pd.DataFrame:
         """
-        Filter values in given data by factors.
+        Filter values in given data by factors, set in the constructor.
 
         Parameters
         ----------
         data : pd.DataFrame
-            Data to be filtered.
+            Data to be filtered by factors. Expected to get stock prices, but
+            is not obligatory.
 
         Returns
         -------
-            2-d matrix with filtered data.
-
-        Raises
-        ------
-        ValueError
-            Given data doesn't match in shape with factor values.
+        pd.DataFrame
+            Dataframe with the same data as given, but filled with nans in
+            filtered places.
         """
 
         for factor in self.factors:

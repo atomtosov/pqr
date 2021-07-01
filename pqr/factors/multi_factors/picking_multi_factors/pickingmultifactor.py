@@ -8,32 +8,9 @@ from ...basefactor import BaseFactor
 from ...interfaces import IPicking
 
 
-class PickingMultiFactor(MultiFactor, ABC, IPicking):
+class PickingMultiFactor(MultiFactor, IPicking, ABC):
     """
-    Abstract base class for multi-factors, which consist of single-factors.
-
-    Parameters
-    ----------
-    factors : sequence of IPicking
-        Sequence of factors, which implement interface of picking factor.
-    weights : sequence of int or float, optional
-        Sequence of weights. Must have the same length as factors. By default
-        equal weights are used.
-    name : str, optional
-        Name of factor.
-
-    Attributes
-    ----------
-        dynamic
-        bigger_better
-        name
-        factors
-        weights
-
-    Raises
-    ------
-    ValueError
-        If any of given factors doesn't implement interface of picking factor.
+    Abstract base class for picking multi-factors.
     """
 
     factors: Tuple[IPicking, ...]
@@ -44,6 +21,24 @@ class PickingMultiFactor(MultiFactor, ABC, IPicking):
                  name: str = ''):
         """
         Initialize PickingMultiFactor instance.
+
+        Parameters
+        ----------
+        factors : sequence of IPicking
+            Sequence of only picking factors.
+        weights : sequence of int or float, optional
+            Sequence of weights. Must have the same length as factors. By
+            default equal weights are used.
+        name : str, optional
+            Name of factor.
+
+        Raises
+        ------
+        TypeError
+            Any of factors doesn't implement picking interface or given weights
+            are not numbers (int or float).
+        ValueError
+            Given weights are incompatible with given factors.
         """
 
         if np.all([isinstance(factor, IPicking) for factor in factors]):
@@ -53,12 +48,18 @@ class PickingMultiFactor(MultiFactor, ABC, IPicking):
 
         if weights is None:
             self._weights = np.ones(len(factors))
-        elif isinstance(weights, Sequence) \
-                and np.all([isinstance(w, (int, float)) for w in weights]):
-            self._weights = np.array(weights)
-        else:
+        elif not np.all([isinstance(w, (int, float)) for w in weights]):
             raise TypeError('weights must be sequence of int or float')
+        elif len(weights) != len(factors):
+            raise ValueError('weights must have the same length as length '
+                             'of factors')
+        else:
+            self._weights = np.array(weights)
 
     @property
     def weights(self) -> np.ndarray:
+        """
+        np.ndarray : array of weights for factors.
+        """
+
         return self._weights
