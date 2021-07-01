@@ -1,5 +1,4 @@
 from typing import Optional
-from functools import lru_cache
 
 import pandas as pd
 
@@ -11,20 +10,6 @@ from pqr.factors import EqualWeights
 class CustomBenchmark(BaseBenchmark):
     """
     Class for making custom indices-benchmarks from prices.
-
-    Parameters
-    ----------
-    prices : pd.DataFrame
-        Prices of stocks to be picked. All of available stocks are in the
-        portfolio.
-    weighting_factor : IWeighting, optional
-        Factor to weigh stocks in portfolio (e.g. marker capitalization).
-    name : str
-        Name of custom benchmark.
-
-    Attributes
-    ----------
-    returns
     """
 
     def __init__(self,
@@ -33,19 +18,37 @@ class CustomBenchmark(BaseBenchmark):
                  name: str = ''):
         """
         Initialize CustomBenchmark instance.
+
+        Parameters
+        ----------
+        prices : pd.DataFrame
+            Prices of stocks to be picked. All of available stocks are in the
+            portfolio in each period.
+        weighting_factor : IWeighting, optional
+            Factor to weigh stocks in portfolio (e.g. market capitalization).
+            If not passed, equal weights are used.
+        name : str
+            Name of benchmark.
+
+        Raises
+        ------
+        TypeError
+            Given prices is not pd.DataFrame, or weighting_factor doesn't
+            implement weighting interface, or name is not str.
         """
 
-        if isinstance(prices, pd.DataFrame):
-            self._prices = prices.copy()
-        else:
+        if not isinstance(prices, pd.DataFrame):
             raise TypeError('prices must be pd.DataFrame')
 
-        if isinstance(weighting_factor, IWeighting):
-            self._weighting_factor = weighting_factor
-        elif weighting_factor is None:
-            self._weighting_factor = EqualWeights()
-        else:
+        if weighting_factor is None:
+            weighting_factor = EqualWeights()
+        elif not isinstance(weighting_factor, IWeighting):
             raise TypeError('weighting_factor must implement IWeighting')
+
+        self._returns = (
+                weighting_factor.weigh(prices)
+                * prices.pct_change().shift(-1)
+        ).shift().sum(axis=1)
 
         if isinstance(name, str):
             self.__name = name
@@ -53,12 +56,8 @@ class CustomBenchmark(BaseBenchmark):
             raise TypeError('name must be str')
 
     @property
-    @lru_cache
     def returns(self) -> pd.Series:
-        return (
-                self._weighting_factor.weigh(self._prices)
-                * self._prices.pct_change().shift(-1)
-        ).shift().sum(axis=1)
+        return self._returns
 
     @property
     def _name(self) -> str:

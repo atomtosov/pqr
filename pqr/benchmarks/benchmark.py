@@ -1,5 +1,3 @@
-from functools import lru_cache
-
 import pandas as pd
 
 from .basebenchmark import BaseBenchmark
@@ -8,17 +6,6 @@ from .basebenchmark import BaseBenchmark
 class Benchmark(BaseBenchmark):
     """
     Class for existing benchmarks (e.g. S&P500).
-
-    Parameters
-    ----------
-    values : pd.Series
-        Values of some benchmark-index.
-    name : str, optional
-        Name of index.
-
-    Attributes
-    ----------
-    returns
     """
 
     def __init__(self,
@@ -26,19 +13,26 @@ class Benchmark(BaseBenchmark):
                  name: str = ''):
         """
         Initialize Benchmark instance.
+
+        Parameters
+        ----------
+        values : pd.Series
+            Values of some benchmark-index. Percentage changes of that values
+            are used as returns of benchmark.
+        name : str, optional
+            Name of benchmark.
         """
 
         if isinstance(values, pd.Series):
-            self._values = values.copy()
+            self._returns = values.pct_change()
         else:
-            raise TypeError('prices must be pd.Series')
+            raise TypeError('values must be pd.Series')
 
         self.__name = name
 
     @property
-    @lru_cache
     def returns(self) -> pd.Series:
-        return self._values.pct_change()
+        return self._returns
 
     @property
     def _name(self) -> str:
