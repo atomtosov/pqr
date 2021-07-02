@@ -46,6 +46,9 @@ class BasePortfolio:
         }
 
     def __repr__(self) -> str:
+        """
+        Dunder/Magic method for fancy printing BasePortfolio object in console.
+        """
         return f'{self.__class__.__name__}({self._name})'
 
     @property

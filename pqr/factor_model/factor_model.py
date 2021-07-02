@@ -14,6 +14,10 @@ from pqr.intervals import Quantiles
 
 
 class FactorModel:
+    """
+    Class for factor models.
+    """
+
     looking_period: int
     lag_period: int
     holding_period: int
@@ -24,6 +28,19 @@ class FactorModel:
                  looking_period: int = 1,
                  lag_period: int = 0,
                  holding_period: int = 1):
+        """
+        Initialize FactorModel instance.
+
+        Parameters
+        ----------
+        looking_period : int, default=1
+            Looking back on factor values period.
+        lag_period : int, default=0
+            Period to wait until entering the positions by factor values.
+        holding_period : int, default=1
+            Period of holding one set of positions.
+        """
+
         if not isinstance(looking_period, int):
             raise TypeError('looking_period must be int')
         elif looking_period < 1:
@@ -48,6 +65,10 @@ class FactorModel:
         self._portfolios = tuple()
 
     def __repr__(self) -> str:
+        """
+        Dunder/Magic method for fancy printing FactorModel object in console.
+        """
+
         return f'{self.__class__.__name__}(' \
                f'{self.looking_period}, ' \
                f'{self.lag_period}, ' \
@@ -62,10 +83,33 @@ class FactorModel:
             benchmark: Optional[IBenchmark] = None,
             n_quantiles: int = 3,
             add_wml: bool = False):
-        if not isinstance(n_quantiles, int):
-            raise TypeError('n_quantiles must be int')
-        elif n_quantiles <= 0:
-            raise ValueError('n_quantiles must be > 0')
+        """
+        Method for constructing portfolios covering all stock universe.
+
+        Parameters
+        ----------
+        prices : pd.DataFrame
+            Dataframe of prices, representing total stock universe in each
+            period.
+        picking_factor : IPicking
+            Factor to pick stocks into portfolio from filtered stock universe.
+        filtering_factor : IFiltering, optional
+            Factor to filter stock universe. If not given, stock universe is
+            not filtered at all.
+        weighting_factor : IWeighting, optional
+            Factor to weigh positions in portfolio. If not given, simple equal
+            weights are used.
+        benchmark : IBenchmark, optional
+            Benchmark to calculate some statistical metrics and compare
+            portfolio performance with it. If not given, custom benchmark is
+            used: in each period all stocks from stock universe (filtered) are
+            bought with equal weights.
+        n_quantiles : int, default=3
+            Stock universe is divided into "n_quantiles" quantile investing
+            portfolios.
+        add_wml : bool, default = False
+            Whether to add wml-portfolio or not.
+        """
 
         if benchmark is None:
             benchmark = CustomBenchmark(prices)
@@ -97,7 +141,24 @@ class FactorModel:
 
         self._portfolios = tuple(portfolios)
 
-    def compare_portfolios(self, plot: bool = True) -> pd.DataFrame:
+    def compare_portfolios(self,
+                           plot: bool = True) -> pd.DataFrame:
+        """
+        Method for comparing performance of built portfolios. Statistics of all
+        portfolios is combined into one dataframe. Also cumulative returns can
+        be plotted.
+
+        Parameters
+        ----------
+        plot : bool, default=True
+            Whether to plot cumulative returns of all portfolios or not.
+
+        Returns
+        -------
+        pd.DataFrame
+            DataFrame with statistics of constructed portfolios.
+        """
+
         stats = {}
         plt.figure(figsize=(16, 9))
         for i, portfolio in enumerate(self.portfolios):
@@ -124,6 +185,41 @@ class FactorModel:
                     n_quantiles: int = 3,
                     add_wml: bool = False) -> Dict[Tuple[int, int, int],
                                                    pd.DataFrame]:
+        """
+        Method for fitting factor models with different values of looking, lag
+        and holding periods.
+
+        Parameters
+        ----------
+        looking_periods : iterable of int
+            Looking back periods to iterate over.
+        lag_periods
+            Lag periods to iterate over.
+        holding_periods
+            Holding lengths to iterate over.
+        prices : pd.DataFrame
+            Dataframe of prices, representing total stock universe in each
+            period.
+        picking_factor : IPicking
+            Factor to pick stocks into portfolio from filtered stock universe.
+        filtering_factor : IFiltering, optional
+            Factor to filter stock universe. If not given, stock universe is
+            not filtered at all.
+        weighting_factor : IWeighting, optional
+            Factor to weigh positions in portfolio. If not given, simple equal
+            weights are used.
+        benchmark : IBenchmark, optional
+            Benchmark to calculate some statistical metrics and compare
+            portfolio performance with it. If not given, custom benchmark is
+            used: in each period all stocks from stock universe (filtered) are
+            bought with equal weights.
+        n_quantiles : int, default=3
+            Stock universe is divided into "n_quantiles" quantile investing
+            portfolios.
+        add_wml : bool, default = False
+            Whether to add wml-portfolio or not.
+        """
+
         results = {}
         for looking_period in looking_periods:
             for lag_period in lag_periods:
@@ -143,30 +239,97 @@ class FactorModel:
         return results
 
     @staticmethod
-    def _make_intervals(array: np.ndarray):
-        assert array.ndim == 1, 'array must be 1-dimensional'
+    def _make_intervals(array: np.ndarray) -> np.ndarray:
+        """
+        Method for making sequential intervals from 1-d array.
+
+        Parameters
+        ----------
+        array : np.ndarray
+            1-d array of values to split it into intervals.
+
+        Returns
+        -------
+            Array of intervals.
+
+        Raises
+        ------
+        TypeError
+            Given array is not np.ndarray.
+        ValueError
+            Given array is not 1-dimensional.
+        """
+
+        if not isinstance(array, np.ndarray):
+            raise TypeError('array must be np.ndarray')
+        elif array.ndim != 1:
+            raise ValueError('array must be 1-dimensional')
+
         n = np.size(array) - 1
         return np.take(
             array,
             np.arange(n * 2).reshape((n, -1)) - np.indices((n, 2))[0]
         )
 
-    def _get_quantiles(self, n) -> List[Quantiles]:
+    def _get_quantiles(self, n: int) -> List[Quantiles]:
+        """
+        Method for splitting into "n" quantiles.
+
+        Parameters
+        ----------
+        n : int
+            Number of pairs of quantiles to create.
+
+        Returns
+        -------
+        list of Quantiles
+            List of Quantiles-objects, representing created ordered intervals.
+
+        Raises
+        ------
+        TypeError
+            Given n is not int.
+        ValueError
+            n less than 1.
+        """
+
+        if not isinstance(n, int):
+            raise TypeError('n_quantiles must be int')
+        elif n <= 0:
+            raise ValueError('n_quantiles must be > 0')
+
         return [Quantiles(*pair)
                 for pair in self._make_intervals(np.linspace(0, 1, n+1))]
 
     @property
     def looking_period(self) -> int:
+        """
+        int : Looking back period of a model.
+        """
+
         return self._looking_period
 
     @property
     def lag_period(self) -> int:
+        """
+        int : Lag period of a model.
+        """
+
         return self._lag_period
 
     @property
     def holding_period(self) -> int:
+        """
+        int : Holding period of a model.
+        """
+
         return self._holding_period
 
     @property
     def portfolios(self) -> Tuple[Union[IPortfolio, IWMLPortfolio], ...]:
+        """
+        tuple of IPortfolio or IWMLPortfolio : Tuple of created portfolios by
+        model.
+        """
+
         return self._portfolios
