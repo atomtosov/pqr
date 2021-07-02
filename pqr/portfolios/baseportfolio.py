@@ -17,15 +17,6 @@ Beta = namedtuple('Beta', ['coef', 'p_value'])
 class BasePortfolio:
     """
     Abstract base class for portfolios of stocks.
-
-    Attributes
-    ----------
-    positions
-    returns
-    benchmark
-    shift
-    cumulative_returns
-    total_return
     """
 
     positions: pd.DataFrame
@@ -60,25 +51,36 @@ class BasePortfolio:
 
     @property
     @abstractmethod
+    def periodicity(self):
+        ...
+
+    @property
+    @abstractmethod
     def _name(self) -> str:
         ...
 
     @property
     def cumulative_returns(self) -> pd.Series:
-        return np.nancumprod(self.returns + 1) - 1
+        return (1 + self.returns).cumprod() - 1
 
     @property
     def total_return(self) -> Union[int, float]:
         return self.cumulative_returns[-1]
 
     @property
-    def alpha(self) -> Optional[Alpha]:
-        if self.benchmark is None:
-            return None
+    def max_drawdown(self) -> Union[int, float]:
+        cum_returns = self.cumulative_returns
+        return (cum_returns - cum_returns.cummax()).min()
+
+    @property
+    def alpha(self) -> Union[Alpha, pd.Series]:
+        returns = self.returns.values[self.shift+1:]
+        benchmark_returns = self.benchmark.returns.values[self.shift+1:]
+
         x = sm.add_constant(
-            np.nan_to_num(self.benchmark.returns[self.shift+1:])
+            np.nan_to_num(benchmark_returns)
         )
-        est = sm.OLS(self.returns[self.shift+1:], x).fit()
+        est = sm.OLS(returns, x).fit()
         return Alpha(
             coef=est.params[0],
             p_value=est.pvalues[0]
@@ -99,62 +101,64 @@ class BasePortfolio:
 
     @property
     def sharpe(self) -> Union[int, float]:
-        # TODO: add annualization
-        return self.returns.mean() / self.returns.std()
+        return self.returns.mean() / self.returns.std() * \
+               np.sqrt(self.periodicity.value)
 
-    @property
-    def mean_return(self) -> Union[int, float]:
-        return self.returns.mean()
+    def mean_return(self,
+                    moving: bool = False) -> Union[int, float, pd.Series]:
+        if moving:
+            return self.returns.rolling(self.periodicity.value).mean()
 
-    @property
-    def excessive_return(self) -> Optional[Union[int, float]]:
-        if self.benchmark is None:
-            return None
-        return self.mean_return - np.nanmean(self.benchmark.returns)
+        return self.returns.values.mean()
 
-    @property
-    def mean_volatility(self) -> Union[int, float]:
-        return self.returns.std()
+    def excessive_return(self,
+                         moving: bool = False) -> Union[int, float, pd.Series]:
+        if moving:
+            return self.mean_return(moving=True) \
+                   - self.benchmark.returns.rolling(self.periodicity.value)\
+                       .mean()
 
-    @property
-    def benchmark_correlation(self) -> Optional[Union[int, float]]:
-        if self.benchmark is None:
-            return None
-        return np.corrcoef(
-            self.returns,
-            np.nan_to_num(self.benchmark.returns)
-        )[0, 1]
+        return self.mean_return() - np.nanmean(self.benchmark.returns)
 
-    @property
-    def profitable_periods(self) -> Union[int, float]:
-        return (self.returns > 0).sum() / np.size(self.returns)
+    def mean_volatility(self,
+                        moving: bool = False) -> Union[int, float, pd.Series]:
+        if moving:
+            return self.returns.rolling(self.periodicity.value).std()
 
-    @property
-    def max_drawdown(self) -> Union[int, float]:
-        return (
-                self.cumulative_returns -
-                np.maximum.accumulate(self.cumulative_returns)
-        ).min()
+        return self.returns.values.std()
+
+    def benchmark_correlation(self,
+                              moving: bool = False) -> Union[int, float,
+                                                             pd.Series]:
+        if moving:
+            return self.returns.rolling(self.periodicity.value)\
+                .corr(self.benchmark.returns)
+
+        return self.returns.corr(self.benchmark.returns)
+
+    def profitable_periods(self,
+                           moving: bool = False) -> Union[int, float,
+                                                          pd.Series]:
+        if moving:
+            return (self.returns > 0).rolling(self.periodicity.value).sum() / 12
+
+        return (self.returns.values > 0).sum() / np.size(self.returns.values)
 
     @property
     def stats(self) -> Dict[str, Union[int, float]]:
         return {
-            'Alpha, %': self.alpha.coef * 100
-            if self.alpha is not None else None,
-            'Alpha p-value': self.alpha.p_value
-            if self.alpha is not None else None,
-            'Beta': self.beta.coef
-            if self.beta is not None else None,
-            'Beta p-value': self.beta.p_value
-            if self.beta is not None else None,
+            'Alpha, %': self.alpha.coef * 100,
+            'Alpha p-value': self.alpha.p_value,
+            'Beta': self.beta.coef,
+            'Beta p-value': self.beta.p_value,
             'Sharpe Ratio': self.sharpe,
-            'Mean Return, %': self.mean_return * 100,
-            'Excessive Return, %': self.excessive_return * 100
+            'Mean Return, %': self.mean_return() * 100,
+            'Excessive Return, %': self.excessive_return() * 100
             if self.excessive_return is not None else None,
             'Total Return, %': self.total_return * 100,
-            'Volatility, %': self.mean_volatility * 100,
-            'Benchmark Correlation': self.benchmark_correlation,
-            'Profitable Periods, %': self.profitable_periods * 100,
+            'Volatility, %': self.mean_volatility() * 100,
+            'Benchmark Correlation': self.benchmark_correlation(),
+            'Profitable Periods, %': self.profitable_periods() * 100,
             'Maximum Drawdown, %': self.max_drawdown * 100
         }
 
@@ -163,4 +167,4 @@ class BasePortfolio:
                  self.cumulative_returns,
                  label=repr(self))
         if add_benchmark and self.benchmark is not None:
-            self.benchmark.plot_cumulative_returns()
+            self.benchmark.plot_cumulative_returns(self.shift)

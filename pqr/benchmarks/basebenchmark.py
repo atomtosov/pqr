@@ -1,7 +1,6 @@
 from abc import ABC, abstractmethod
 
 import matplotlib.pyplot as plt
-import numpy as np
 import pandas as pd
 
 from .interfaces import IBenchmark
@@ -11,6 +10,8 @@ class BaseBenchmark(IBenchmark, ABC):
     """
     Abstract base class for benchmarks.
     """
+
+    returns: pd.Series
 
     def __repr__(self) -> str:
         """
@@ -58,7 +59,7 @@ class BaseBenchmark(IBenchmark, ABC):
             raise ValueError('shift must be >= 0')
 
         returns = self.returns.copy()
-        returns[:shift + 1] = np.nan
+        returns[:shift + 1] = 0
         return (1 + returns).cumprod() - 1
 
     def plot_cumulative_returns(self, shift: int = 0) -> None:

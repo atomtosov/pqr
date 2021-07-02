@@ -16,7 +16,7 @@ class IBenchmark:
         """
 
     @abstractmethod
-    def plot_cumulative_returns(self, shift: int) -> None:
+    def plot_cumulative_returns(self, shift: int = 0) -> None:
         """
         Method for plotting cumulative returns of benchmark with shift (
         non-tradable period of main strategy).

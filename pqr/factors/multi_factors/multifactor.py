@@ -85,7 +85,7 @@ class MultiFactor(BaseFactor):
 
     @property
     def dynamic(self) -> bool:
-        return np.any([factor.dynamic for factor in self.factors])
+        return bool(np.any([factor.dynamic for factor in self.factors]))
 
     @property
     def bigger_better(self) -> Optional[bool]:

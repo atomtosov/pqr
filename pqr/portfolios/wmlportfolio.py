@@ -9,32 +9,18 @@ from pqr.benchmarks.interfaces import IBenchmark
 class WMLPortfolio(BasePortfolio, IWMLPortfolio):
     """
     Class for Winners-minus-Losers (WML) portfolios.
-
-    Attributes
-    ----------
-    positions
-    returns
-    benchmark
-    shift
-    cumulative_returns
-    total_return
-    winners
-    losers
     """
 
     def __init__(self):
         self._positions = pd.DataFrame()
         self._returns = pd.Series()
-        self._benchmark = None
-        self._shift = 0
 
         self._winners = None
         self._losers = None
 
     def invest(self,
                winners: IPortfolio,
-               losers: IPortfolio,
-               benchmark: Optional[IBenchmark] = None) -> None:
+               losers: IPortfolio) -> None:
         """
         Simulating theoretical WML-portfolio (all short-sells are available).
 
@@ -44,14 +30,7 @@ class WMLPortfolio(BasePortfolio, IWMLPortfolio):
             Portfolio of "winners" - companies with the best values of factor.
         losers : BasePortfolio
             Portfolio of "losers" - companies with the worst values of factor.
-        benchmark : BaseBenchmark, optional
-            Benchmark to compare results of WML-Portfolio and compute metrics.
         """
-
-        if isinstance(benchmark, IBenchmark) or benchmark is None:
-            self._benchmark = benchmark
-        else:
-            raise TypeError('benchmark must implement IBenchmark')
 
         self._winners = winners
         self._losers = losers
@@ -66,11 +45,15 @@ class WMLPortfolio(BasePortfolio, IWMLPortfolio):
 
     @property
     def benchmark(self) -> Optional[IBenchmark]:
-        return self._benchmark
+        return self.winners.benchmark
 
     @property
     def shift(self) -> int:
-        return self._shift
+        return self.winners.shift
+
+    @property
+    def periodicity(self):
+        return self.winners.periodicity
 
     @property
     def _name(self) -> str:

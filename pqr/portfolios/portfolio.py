@@ -10,6 +10,7 @@ from pqr.benchmarks.interfaces import IBenchmark
 from pqr.intervals import Interval
 from pqr.factors import NoFilter, EqualWeights
 from pqr.benchmarks import CustomBenchmark
+from pqr.preprocessing.resampling import DataPeriodicity
 
 
 class Portfolio(BasePortfolio, IPortfolio):
@@ -41,6 +42,7 @@ class Portfolio(BasePortfolio, IPortfolio):
         self._returns = pd.Series()
         self._benchmark = None
         self._shift = 0
+        self._periodicity = DataPeriodicity.M
 
         self._interval = interval
 
@@ -59,6 +61,10 @@ class Portfolio(BasePortfolio, IPortfolio):
     @property
     def shift(self) -> int:
         return self._shift
+
+    @property
+    def periodicity(self) -> DataPeriodicity:
+        return self._periodicity
 
     @property
     def _name(self) -> str:
@@ -125,6 +131,8 @@ class Portfolio(BasePortfolio, IPortfolio):
             raise TypeError('weighting_factor must implement IWeighting')
 
         self._shift = looking_period + lag_period + picking_factor.dynamic
+        # TODO: ubratb kostylb)
+        self._periodicity = DataPeriodicity[prices.index.freq.name]
 
         filtered_prices = filtering_factor.filter(prices)
         positions = picking_factor.pick(

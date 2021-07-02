@@ -5,6 +5,7 @@ import pandas as pd
 
 from pqr.factors.interfaces import IPicking, IFiltering, IWeighting
 from pqr.benchmarks.interfaces import IBenchmark
+from pqr.preprocessing.resampling import DataPeriodicity
 
 
 class IPortfolio:
@@ -14,6 +15,9 @@ class IPortfolio:
 
     positions: pd.DataFrame
     returns: pd.Series
+    benchmark: IBenchmark
+    shift: int
+    periodicity: DataPeriodicity
 
     stats: pd.DataFrame
 

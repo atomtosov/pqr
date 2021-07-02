@@ -109,7 +109,7 @@ class SingleFactor(BaseFactor):
         elif lag_period < 0:
             raise ValueError('lag_period must be >= 0')
 
-        if looking_period + lag_period + self.dynamic >= self._data:
+        if looking_period + lag_period + self.dynamic >= self._data.shape[0]:
             raise ValueError('the sum of looking_period, lag_period and '
                              '1 if factor is dynamic must be less than periods'
                              'of factor values')

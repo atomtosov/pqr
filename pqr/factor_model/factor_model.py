@@ -89,12 +89,10 @@ class FactorModel:
             if picking_factor.bigger_better \
                     or picking_factor.bigger_better is None:
                 wml.invest(winners=portfolios[-1],
-                           losers=portfolios[0],
-                           benchmark=benchmark)
+                           losers=portfolios[0])
             else:
                 wml.invest(winners=portfolios[0],
-                           losers=portfolios[-1],
-                           benchmark=benchmark)
+                           losers=portfolios[-1])
             portfolios.append(wml)
 
         self._portfolios = tuple(portfolios)

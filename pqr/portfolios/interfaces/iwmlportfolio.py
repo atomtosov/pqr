@@ -13,8 +13,7 @@ class IWMLPortfolio:
     @abstractmethod
     def invest(self,
                winners: IPortfolio,
-               losers: IPortfolio,
-               benchmark: Optional[IBenchmark]) -> None:
+               losers: IPortfolio) -> None:
         """
         Method for filling portfolio with relative positions (1/0/-1).
         """
