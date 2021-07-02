@@ -10,39 +10,28 @@ from pqr.benchmarks.interfaces import IBenchmark
 from pqr.intervals import Interval
 from pqr.factors import NoFilter, EqualWeights
 from pqr.benchmarks import CustomBenchmark
-from pqr.preprocessing.resampling import DataPeriodicity
 
 
 class Portfolio(BasePortfolio, IPortfolio):
     """
     Class for portfolios, based on picking stocks, falling within some interval
     (quantiles, thresholds or top).
-
-    Parameters
-    ----------
-    interval : Interval
-        Interval, used to pick stocks by factor values.
-
-    Attributes
-    ----------
-    positions
-    returns
-    benchmark
-    shift
-    cumulative_returns
-    total_return
     """
 
     def __init__(self, interval: Interval):
         """
         Initialize Portfolio instance.
+
+         Parameters
+        ----------
+        interval : Interval
+            Interval, used to pick stocks by factor values.
         """
 
         self._positions = pd.DataFrame()
         self._returns = pd.Series()
         self._benchmark = None
         self._shift = 0
-        self._periodicity = DataPeriodicity.M
 
         self._interval = interval
 
@@ -63,10 +52,6 @@ class Portfolio(BasePortfolio, IPortfolio):
         return self._shift
 
     @property
-    def periodicity(self) -> DataPeriodicity:
-        return self._periodicity
-
-    @property
     def _name(self) -> str:
         return str(self.interval)
 
@@ -84,37 +69,44 @@ class Portfolio(BasePortfolio, IPortfolio):
                weighting_factor: Optional[IWeighting] = None,
                benchmark: Optional[IBenchmark] = None) -> None:
         """
-        Invest relatively in stocks by factor.
+        Form positions in each period basing them on factor's picks.
 
-        At first, stock universe is filtered, than portfolio is filled from it
-        by choices of factor.
+        At first, stock universe is filtered (filtered values are treated as
+        missing). Then, picking factor is used to choose stocks to enter
+        positions with. In the last step positions are weighted by weighting
+        factor (by default equal weights are used) and returns are calculated.
 
         Parameters
         ----------
         prices : pd.DataFrame
-            Prices of stock universe, from which stocks are picked into
-            portfolio.
+            Dataframe of prices, representing total stock universe in each
+            period.
         picking_factor : IPicking
-            Factor, representing choice of stocks from stock universe. Must
-            have data for the same stock universe.
+            Factor to pick stocks into portfolio from filtered stock universe.
         looking_period : int, default=1
             Looking period to transform factor values.
         lag_period : int, default=0
             Lag period to transform factor values.
-        holding_period : int
-            Holding period
+        holding_period : int, default=1
+            Holding period of positions. It impacts the frequency of
+            rebalancing periods.
         filtering_factor : IFiltering, optional
-            Factor, filtering stock universe before picking factors. (e.g.
-            liquidity). If not given, prices are not filtered at all.
+            Factor to filter stock universe. If not given, stock universe is
+            not filtered at all.
         weighting_factor : IWeighting, optional
-            Factor, weighting positions. If not given, simple equal weights are
-            used.
+            Factor to weigh positions in portfolio. If not given, simple equal
+            weights are used.
         benchmark : IBenchmark, optional
+            Benchmark to calculate some statistical metrics and compare
+            portfolio performance with it. If not given, custom benchmark is
+            used: in each period all stocks from stock universe (filtered) are
+            bought with equal weights.
 
         Raises
         ------
         TypeError
-            One of (factor, filtering_factor, weighting_factor).
+            One of (factor, filtering_factor, weighting_factor) doesn't
+            implement required interface or benchmark is not correct.
         """
 
         if not isinstance(picking_factor, IPicking):
@@ -131,8 +123,6 @@ class Portfolio(BasePortfolio, IPortfolio):
             raise TypeError('weighting_factor must implement IWeighting')
 
         self._shift = looking_period + lag_period + picking_factor.dynamic
-        # TODO: ubratb kostylb)
-        self._periodicity = DataPeriodicity[prices.index.freq.name]
 
         filtered_prices = filtering_factor.filter(prices)
         positions = picking_factor.pick(
@@ -152,7 +142,7 @@ class Portfolio(BasePortfolio, IPortfolio):
         ).shift().sum(axis=1)
 
         if benchmark is None:
-            self._benchmark = CustomBenchmark(prices)
+            self._benchmark = CustomBenchmark(filtered_prices)
         elif isinstance(benchmark, IBenchmark):
             self._benchmark = benchmark
         else:
@@ -161,6 +151,31 @@ class Portfolio(BasePortfolio, IPortfolio):
     def _set_holding_period(self,
                             raw_positions: pd.DataFrame,
                             holding_period: int = 1) -> pd.DataFrame:
+        """
+        Method to set holding period of positions in portfolio. Simulates
+        rebalancing each "holding_period" periods.
+
+        Parameters
+        ----------
+        raw_positions : pd.DataFrame
+            Picks of factor in each period (in general they are different from
+            time to time).
+        holding_period : int, default=1
+            Number of periods to hold each stock.
+
+        Returns
+        -------
+        pd.DataFrame
+            Dataframe with positions with respect to rebalancing period.
+
+        Raises
+        ------
+        TypeError
+            Given holding_period is not int.
+        ValueError
+            Holding period less than 1.
+        """
+
         if not isinstance(holding_period, int):
             raise TypeError('holding_period must be int')
         elif holding_period < 1:

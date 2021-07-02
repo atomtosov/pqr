@@ -5,19 +5,18 @@ import pandas as pd
 
 from pqr.factors.interfaces import IPicking, IFiltering, IWeighting
 from pqr.benchmarks.interfaces import IBenchmark
-from pqr.preprocessing.resampling import DataPeriodicity
 
 
 class IPortfolio:
     """
-    Class-interface for portfolio.
+    Interface for portfolio, picking stocks into portfolio by interval of
+    factor values.
     """
 
     positions: pd.DataFrame
     returns: pd.Series
     benchmark: IBenchmark
     shift: int
-    periodicity: DataPeriodicity
 
     stats: pd.DataFrame
 
@@ -32,9 +31,11 @@ class IPortfolio:
                weighting_factor: Optional[IWeighting] = None,
                benchmark: Optional[IBenchmark] = None) -> None:
         """
-        Method for investing by factor.
+        Method for investing by interval of factor values.
         """
 
     @abstractmethod
     def plot_cumulative_returns(self, add_benchmark=False) -> None:
-        ...
+        """
+        Method for plotting cumulative returns of portfolio.
+        """

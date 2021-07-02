@@ -12,6 +12,10 @@ class WMLPortfolio(BasePortfolio, IWMLPortfolio):
     """
 
     def __init__(self):
+        """
+        Initialize WMLPortfolio instance.
+        """
+
         self._positions = pd.DataFrame()
         self._returns = pd.Series()
 
@@ -27,9 +31,9 @@ class WMLPortfolio(BasePortfolio, IWMLPortfolio):
         Parameters
         ----------
         winners : BasePortfolio
-            Portfolio of "winners" - companies with the best values of factor.
+            Portfolio of "winners" - stocks with the best values of factor.
         losers : BasePortfolio
-            Portfolio of "losers" - companies with the worst values of factor.
+            Portfolio of "losers" - stocks with the worst values of factor.
         """
 
         self._winners = winners
@@ -52,17 +56,21 @@ class WMLPortfolio(BasePortfolio, IWMLPortfolio):
         return self.winners.shift
 
     @property
-    def periodicity(self):
-        return self.winners.periodicity
-
-    @property
     def _name(self) -> str:
         return ''
 
     @property
     def winners(self) -> IPortfolio:
+        """
+        IPortfolio : Portfolio of stocks with the best values of factor.
+        """
+
         return self._winners
 
     @property
     def losers(self) -> IPortfolio:
+        """
+        IPortfolio : Portfolio of stocks with the worst values of factor.
+        """
+
         return self._losers
