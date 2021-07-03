@@ -6,20 +6,6 @@ import numpy as np
 class Interval:
     """
     Class for intervals from lower boarder to upper.
-
-    Parameters
-    ----------
-    lower : int, float, default=-np.inf
-        Lower boarder of interval.
-    upper : int, float, default=np.inf
-        Upper boarder of interval.
-
-    Raises
-    ------
-    ValueError
-        Lower boarder more than upper.
-    TypeError
-        A boarder is not int or float.
     """
 
     lower: Union[int, float]
@@ -30,6 +16,21 @@ class Interval:
                  upper: Union[int, float] = np.inf):
         """
         Initialize Interval instance.
+
+
+        Parameters
+        ----------
+        lower : int, float, default=-np.inf
+            Lower boarder of interval.
+        upper : int, float, default=np.inf
+            Upper boarder of interval.
+
+        Raises
+        ------
+        ValueError
+            Lower boarder more than upper.
+        TypeError
+            A boarder is not int or float.
         """
 
         if isinstance(lower, (int, float)) and isinstance(upper, (int, float)):
@@ -42,6 +43,10 @@ class Interval:
             raise ValueError('lower interval boarder must be <= upper')
 
     def __repr__(self) -> str:
+        """
+        Dunder/Magic method for fancy printing Interval object in console.
+        """
+
         lower_str = f'{self.lower:.2f}' if isinstance(self.lower, float) \
             else str(self.lower)
         upper_str = f'{self.upper:.2f}' if isinstance(self.upper, float) \
@@ -51,8 +56,16 @@ class Interval:
 
     @property
     def lower(self) -> Union[int, float]:
+        """
+        int, float : Lower boarder of interval.
+        """
+
         return self._lower
 
     @property
     def upper(self) -> Union[int, float]:
+        """
+        int, float : Upper boarder of interval.
+        """
+
         return self._upper

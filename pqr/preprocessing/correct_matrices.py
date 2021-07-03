@@ -4,6 +4,22 @@ import pandas as pd
 
 
 def correct_matrices(*matrices: pd.DataFrame) -> List[pd.DataFrame]:
+    """
+    Function for correcting matrices: bringing them to a single view with
+    similar indices and columns in the same order.
+
+    Parameters
+    ----------
+    matrices : iterable of pd.DataFrame
+        Matrices to be corrected.
+
+    Returns
+    -------
+    list of pd.DataFrame
+        Corrected matrices. It is guaranteed that all matrices have the same
+        indices and columns in the same order.
+    """
+
     # collect all
     all_columns = set()
     all_indices = set()

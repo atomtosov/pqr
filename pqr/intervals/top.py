@@ -6,25 +6,26 @@ from .interval import Interval
 class Top(Interval):
     """
     Class for intervals of top levels.
-
-    Parameters
-    ----------
-    lower : int, default=10
-        Lower top level.
-    upper : int, float, default=1
-        Upper top level.
-
-    Raises
-    ------
-    ValueError
-        Upper top level more than lower or one of top levels is less than 1.
-    TypeError
-        A top level isn't int.
     """
 
     def __init__(self,
                  upper: int = 1,
                  lower: int = 10):
+        """
+        Parameters
+        ----------
+        lower : int, default=10
+            Lower top level.
+        upper : int, float, default=1
+            Upper top level.
+
+        Raises
+        ------
+        TypeError
+            Lower or upper boarder is not int.
+        ValueError
+            One of top levels is less than 1.
+        """
 
         super().__init__(upper, lower)
 
