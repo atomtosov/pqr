@@ -5,4 +5,4 @@ it cannot be reached, you can use this module's functions.
 """
 
 from .correct_matrices import correct_matrices
-from .resampling import resample
+from .replace_with_nan import replace_with_nan

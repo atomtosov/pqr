@@ -28,23 +28,6 @@ class BasePortfolio:
     cumulative_returns: pd.Series
     total_return: Union[int, float]
 
-    _freq_alias_to_num = {
-            # yearly
-            'BA': 1,
-            'A': 1,
-            # quarterly
-            'BQ': 4,
-            'Q': 4,
-            # monthly
-            'BM': 12,
-            'M': 12,
-            # weekly
-            'W': 52,
-            # daily
-            'B': 252,
-            'D': 252,
-        }
-
     def __repr__(self) -> str:
         """
         Dunder/Magic method for fancy printing BasePortfolio object in console.
@@ -88,7 +71,7 @@ class BasePortfolio:
         str: Name of portfolio.
         """
 
-    def _get_periodicity(self) -> int:
+    def _get_freq(self) -> int:
         """
         Calculate periodicity of positions to calculate some periodical
         metrics (or annualize them).
@@ -99,8 +82,25 @@ class BasePortfolio:
             Number of periods in 1 year.
         """
 
-        freq_num = self._freq_alias_to_num.get(
-            self.positions.index.freq.freqstr,
+        _freq_alias_to_num = {
+            # yearly
+            'BA': 1,
+            'A': 1,
+            # quarterly
+            'BQ': 4,
+            'Q': 4,
+            # monthly
+            'BM': 12,
+            'M': 12,
+            # weekly
+            'W': 52,
+            # daily
+            'B': 252,
+            'D': 252,
+        }
+
+        freq_num = _freq_alias_to_num.get(
+            self.positions.index.inferred_freq,
             None
         )
         if freq_num is None:
@@ -151,7 +151,7 @@ class BasePortfolio:
         x = sm.add_constant(np.nan_to_num(benchmark_returns))
 
         if rolling:
-            est = RollingOLS(returns, x, window=self._get_periodicity()).fit()
+            est = RollingOLS(returns, x, window=self._get_freq()).fit()
             return pd.Series(
                 est.params[:, 0],
                 index=self.returns.index[self.shift + 1:]
@@ -190,7 +190,7 @@ class BasePortfolio:
 
         if rolling:
             est = RollingOLS(returns, x,
-                             window=self._get_periodicity()).fit()
+                             window=self._get_freq()).fit()
             return pd.Series(
                 est.params[:, 1],
                 index=self.returns.index[self.shift + 1:]
@@ -227,12 +227,12 @@ class BasePortfolio:
         """
 
         if rolling:
-            return self.returns.rolling(self._get_periodicity()).mean() \
-                   / self.returns.rolling(self._get_periodicity()).std() \
-                   * np.sqrt(self._get_periodicity())
+            return self.returns.rolling(self._get_freq()).mean() \
+                   / self.returns.rolling(self._get_freq()).std() \
+                   * np.sqrt(self._get_freq())
 
         return self.returns.mean() / self.returns.std() * \
-            np.sqrt(self._get_periodicity())
+            np.sqrt(self._get_freq())
 
     def calc_mean_return(self,
                          rolling: bool = False) -> Union[int, float,
@@ -257,7 +257,7 @@ class BasePortfolio:
         """
 
         if rolling:
-            return self.returns.rolling(self._get_periodicity()).mean()
+            return self.returns.rolling(self._get_freq()).mean()
 
         return self.returns.values.mean()
 
@@ -286,8 +286,7 @@ class BasePortfolio:
 
         if rolling:
             return self.calc_mean_return(rolling=True) \
-                   - self.benchmark.returns.rolling(self._get_periodicity())\
-                       .mean()
+                   - self.benchmark.returns.rolling(self._get_freq()).mean()
 
         return self.calc_mean_return() - np.nanmean(self.benchmark.returns)
 
@@ -316,7 +315,7 @@ class BasePortfolio:
         """
 
         if rolling:
-            return self.returns.rolling(self._get_periodicity()).std()
+            return self.returns.rolling(self._get_freq()).std()
 
         return self.returns.values.std()
 
@@ -344,7 +343,7 @@ class BasePortfolio:
         """
 
         if rolling:
-            return self.returns.rolling(self._get_periodicity())\
+            return self.returns.rolling(self._get_freq())\
                 .corr(self.benchmark.returns)
 
         return self.returns.corr(self.benchmark.returns)
@@ -374,8 +373,8 @@ class BasePortfolio:
         """
 
         if rolling:
-            return (self.returns > 0).rolling(self._get_periodicity()).sum() \
-                   / self._get_periodicity()
+            return (self.returns > 0).rolling(self._get_freq()).sum() \
+                   / self._get_freq()
 
         return (self.returns.values > 0).sum() / np.size(self.returns.values)
 
@@ -404,7 +403,7 @@ class BasePortfolio:
         cum_returns = self.cumulative_returns
 
         if rolling:
-            return cum_returns.rolling(self._get_periodicity()).apply(
+            return cum_returns.rolling(self._get_freq()).apply(
                 lambda x: (x - x.cummax()).min()
             )
 

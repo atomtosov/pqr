@@ -28,7 +28,7 @@ class EqualWeights(IWeighting):
         """
 
         weights = np.ones(data.shape, dtype=float)
-        weights[np.isnan(data)] = np.nan
+        weights *= data.values
         return pd.DataFrame(
             weights / np.nansum(weights, axis=1)[:, np.newaxis],
             index=data.index,
