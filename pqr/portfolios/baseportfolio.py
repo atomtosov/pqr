@@ -400,14 +400,14 @@ class BasePortfolio:
             returns pd.Series of rolling yearly maximum drawdowns.
         """
 
-        cum_returns = self.cumulative_returns
+        cumsum_returns = self.returns.cumsum()
 
         if rolling:
-            return cum_returns.rolling(self._get_freq()).apply(
+            return cumsum_returns.rolling(self._get_freq()).apply(
                 lambda x: (x - x.cummax()).min()
             )
 
-        return (cum_returns - cum_returns.cummax()).min()
+        return (cumsum_returns - cumsum_returns.cummax()).min()
 
     @property
     def stats(self) -> Dict[str, Union[int, float]]:
