@@ -71,43 +71,6 @@ class BasePortfolio:
         str: Name of portfolio.
         """
 
-    def _get_freq(self) -> int:
-        """
-        Calculate periodicity of positions to calculate some periodical
-        metrics (or annualize them).
-
-        Returns
-        -------
-        int
-            Number of periods in 1 year.
-        """
-
-        _freq_alias_to_num = {
-            # yearly
-            'BA': 1,
-            'A': 1,
-            # quarterly
-            'BQ': 4,
-            'Q': 4,
-            # monthly
-            'BM': 12,
-            'M': 12,
-            # weekly
-            'W': 52,
-            # daily
-            'B': 252,
-            'D': 252,
-        }
-
-        freq_num = _freq_alias_to_num.get(
-            self.positions.index.inferred_freq,
-            None
-        )
-        if freq_num is None:
-            raise ValueError('periodicity of given data cannot be defined, '
-                             'try to resample data')
-        return freq_num
-
     @property
     def cumulative_returns(self) -> pd.Series:
         """
@@ -519,3 +482,40 @@ class BasePortfolio:
 
         plt.plot(self.calc_max_drawdown(True),
                  label='Rolling Maximum Drawdown')
+
+    def _get_freq(self) -> int:
+        """
+        Calculate periodicity of positions to calculate some periodical
+        metrics (or annualize them).
+
+        Returns
+        -------
+        int
+            Number of periods in 1 year.
+        """
+
+        _freq_alias_to_num = {
+            # yearly
+            'BA': 1,
+            'A': 1,
+            # quarterly
+            'BQ': 4,
+            'Q': 4,
+            # monthly
+            'BM': 12,
+            'M': 12,
+            # weekly
+            'W': 52,
+            # daily
+            'B': 252,
+            'D': 252,
+        }
+
+        freq_num = _freq_alias_to_num.get(
+            self.positions.index.inferred_freq,
+            None
+        )
+        if freq_num is None:
+            raise ValueError('periodicity of given data cannot be defined, '
+                             'try to resample data')
+        return freq_num
