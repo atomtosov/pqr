@@ -1,6 +1,12 @@
-from typing import List
+from typing import Iterable, Any, List
 
+import numpy as np
 import pandas as pd
+
+__all__ = [
+    'correct_matrices',
+    'replace_with_nan',
+]
 
 
 def correct_matrices(*matrices: pd.DataFrame) -> List[pd.DataFrame]:
@@ -50,3 +56,25 @@ def correct_matrices(*matrices: pd.DataFrame) -> List[pd.DataFrame]:
         corrected_matrices.append(matrix_corrected)
 
     return corrected_matrices
+
+
+def replace_with_nan(*matrices: pd.DataFrame,
+                     to_replace: Iterable[Any]) -> List[pd.DataFrame]:
+    """
+
+    Parameters
+    ----------
+    matrices : iterable of pd.DataFrame
+        Matrices to be processed.
+    to_replace : iterable of any
+        Aliases for nans in data.
+    Returns
+    -------
+
+    """
+
+    replaced_matrices = []
+    for matrix in matrices:
+        replaced_matrix = matrix.replace(to_replace, np.nan)
+        replaced_matrices.append(replaced_matrix)
+    return replaced_matrices

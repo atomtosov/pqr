@@ -15,7 +15,9 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 from pqr.preprocessing import correct_matrices, replace_with_nan
-from pqr.factors import PickingFactor, FilteringFactor
+from pqr.factors import Factor, filter
+from pqr.thresholds import Thresholds
+from pqr.benchmarks import CustomBenchmark
 from pqr.factor_model import FactorModel
 
 # read data
@@ -25,21 +27,24 @@ volume = pd.read_csv('volume.csv', parse_dates=True)
 
 # preprocess the data
 prices, pe, volume = correct_matrices(prices, pe, volume)
-prices, pe, volume = replace_with_nan(prices, pe, volume, to_replace=[0, 'nan'])
+prices, pe, volume = replace_with_nan(prices, pe, volume,
+                                      to_replace=[0, 'nan'])
 
 # go to factors
-value = PickingFactor(
+value = Factor(
     data=pe,
     dynamic=False,
-    bigger_better=False,
-    name='value'
+    bigger_better=False
 )
-liquidity = FilteringFactor(
+
+liquidity = Factor(
     data=volume,
     dynamic=False,
-    min_threshold=10_000_000,
-    name='liquidity'
 )
+liquidity_threshold = Thresholds(lower=10_000_000)
+
+# create custom benchmark from liquid stocks
+benchmark = CustomBenchmark(filter(prices, liquidity, liquidity_threshold))
 
 # creating factor model
 fm = FactorModel(
@@ -59,7 +64,7 @@ fm.fit(
 )
 
 # fetch the table with summary statistics and plot cumulative returns
-summary = fm.compare_portfolios(plot=True)
+summary = fm.compare_portfolios(benchmark, plot=True)
 
 # then we can print stats
 print(summary)
