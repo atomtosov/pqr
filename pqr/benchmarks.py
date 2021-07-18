@@ -18,12 +18,17 @@ class AbstractBenchmark(abc.ABC):
     """
 
     returns: pd.Series
+    """Period-to-period returns of benchmark."""
 
     def __repr__(self) -> str:
         return f'{type(self).__name__}({self.returns.name})'
 
     @property
     def cumulative_returns(self) -> pd.Series:
+        """
+        pd.Series : Cumulative returns of benchmark.
+        """
+
         return (1 + self.returns).cumprod() - 1
 
 
@@ -59,8 +64,8 @@ class CustomBenchmark(AbstractBenchmark):
     def __init__(self,
                  prices: pd.DataFrame,
                  weighting_factor: Optional[pqr.factors.Factor] = None):
-        picks = pqr.factors.pick(prices)
-        weights = pqr.factors.weigh(picks, weighting_factor)
+        picks = pqr.factors.Picker()(prices)
+        weights = pqr.factors.Weigher(weighting_factor)(picks)
         universe_returns = prices.pct_change().shift(-1)
         self.returns = (weights * universe_returns).shift().sum(axis=1)
         self.returns.name = ''

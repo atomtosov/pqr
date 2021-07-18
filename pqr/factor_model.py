@@ -1,6 +1,5 @@
-from typing import List, Tuple, Dict, Union
+from typing import List, Tuple, Dict, Union, Optional
 
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
@@ -10,7 +9,6 @@ import pqr.metrics
 import pqr.portfolios
 import pqr.thresholds
 import pqr.visualization
-
 
 __all__ = [
     'FactorModel',
@@ -50,11 +48,29 @@ class FactorModel:
     def fit(self,
             prices: pd.DataFrame,
             picking_factor: pqr.factors.Factor,
-            balance: Union[int, float] = None,
-            fee_rate: Union[int, float] = 0,
             n_quantiles: int = 3,
             add_wml: bool = False,
-            **kwargs) -> 'FactorModel':
+
+            balance: Union[int, float] = None,
+            fee_rate: Union[int, float] = 0,
+
+            filtering_factor: Optional[pqr.factors.Factor] = None,
+            filtering_thresholds:
+            pqr.thresholds.Thresholds = pqr.thresholds.Thresholds(),
+            filtering_looking_period: int = 1,
+            filtering_lag_period: int = 0,
+            filtering_holding_period: int = 1,
+
+            weighting_factor: Optional[pqr.factors.Factor] = None,
+            weighting_looking_period: int = 1,
+            weighting_lag_period: int = 0,
+            weighting_holding_period: int = 1,
+
+            scaling_factor: Optional[pqr.factors.Factor] = None,
+            scaling_target: Union[int, float] = 1,
+            scaling_looking_period: int = 1,
+            scaling_lag_period: int = 0,
+            scaling_holding_period: int = 1) -> 'FactorModel':
         """
         Creates factor portfolios, covering all stock universe.
 
@@ -64,18 +80,46 @@ class FactorModel:
             Dataframe, representing stock universe by prices.
         picking_factor : pqr.Factor
             Factor, used to pick stocks from (filtered) stock universe.
+        n_quantiles : int, default=3
+            Number of portfolios to build for covering stock universe.
+        add_wml : bool, default=False
+            Whether to add wml-portfolio or not.
         balance : int, default=None
             Initial balance of portfolio. If not given, used relative
             portfolio-building.
         fee_rate : int, float, default=0
             Commission rate for every deal. For relative portfolio is not used.
-        n_quantiles : int, default=3
-            Number of portfolios to build for covering stock universe.
-        add_wml : bool, default=False
-            Whether to add wml-portfolio or not.
-        **kwargs : dict
-            Keyword arguments for portfolio investing. See
-            pqr.portfolios.Portfolio.invest() parameters.
+        filtering_factor : pqr.factors.Factor, optional
+            Factor, filtering stock universe. If not given, just not filter at
+            all.
+        filtering_thresholds : pqr.thresholds.Thresholds, default=Thresholds()
+            Thresholds, limiting filtering of filtering_factor.
+        filtering_looking_period : int, default=1
+            Looking back on filtering_factor period.
+        filtering_lag_period : int, default=0
+            Delaying period to react on filtering_factor filters.
+        filtering_holding_period : int, default=1
+            Number of periods to hold each filter of filtering_factor.
+        weighting_factor : pqr.factors.Factor, optional
+            Factor, weighting picks of picking_factor. If not given, just weigh
+            equally.
+        weighting_looking_period : int, default=1
+            Looking back on weighting_factor period.
+        weighting_lag_period : int, default=0
+            Delaying period to react on weighting_factor weights.
+        weighting_holding_period : int, default=1
+            Number of periods to hold each weight of weighting_factor.
+        scaling_factor : pqr.factors.Factor, optional
+            Factor, scaling (leveraging) weights. If not given just not scale 
+            at all.
+        scaling_target : int, float, default=1
+            Target to scale weights by scaling factor.
+        scaling_looking_period : int, default=1
+            Looking back on scaling_factor period.
+        scaling_lag_period : int, default=0
+            Delaying period to react on scaling_factor leverages.
+        scaling_holding_period : int, default=1
+            Number of periods to hold each leverage of scaling_factor.
 
         Returns
         -------
@@ -83,13 +127,26 @@ class FactorModel:
             The same object, but with filled portfolios.
         """
 
+        filter = pqr.factors.Filter(filtering_factor, filtering_thresholds,
+                                    filtering_looking_period,
+                                    filtering_lag_period,
+                                    filtering_holding_period)
+        weigher = pqr.factors.Weigher(weighting_factor,
+                                      weighting_looking_period,
+                                      weighting_lag_period,
+                                      weighting_holding_period)
+        scaler = pqr.factors.Scaler(scaling_factor, scaling_target,
+                                    scaling_looking_period, scaling_lag_period,
+                                    scaling_holding_period)
+
         quantiles = _make_quantiles(n_quantiles)
         self.portfolios = [
             pqr.portfolios.Portfolio(balance, fee_rate).invest(
                 prices,
-                picking_factor, quantile,
-                self.looking_period, self.lag_period, self.holding_period,
-                **kwargs
+                picker=pqr.factors.Picker(picking_factor, quantile,
+                                          self.looking_period, self.lag_period,
+                                          self.holding_period),
+                filter=filter, weigher=weigher, scaler=scaler
             )
             for quantile in quantiles
         ]
@@ -122,7 +179,7 @@ def grid_search(looking_periods: List[int],
                 holding_periods: List[int],
                 benchmark: pqr.benchmarks.AbstractBenchmark,
                 **kwargs) -> Dict[Tuple[int, int, int],
-                                               pd.DataFrame]:
+                                  pd.DataFrame]:
     """
     Fits factor models by grid of looking, lag and holding periods and save
     their statistics. Can be used to find the best parameters or just as fast

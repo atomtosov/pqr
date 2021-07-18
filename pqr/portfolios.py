@@ -1,5 +1,5 @@
 import abc
-from typing import Union, Optional
+from typing import Union, Optional, Callable
 
 import numpy as np
 import pandas as pd
@@ -11,6 +11,7 @@ __all__ = [
     'AbstractPortfolio',
     'Portfolio',
     'WmlPortfolio',
+    'RandomPortfolio',
 ]
 
 
@@ -20,8 +21,11 @@ class AbstractPortfolio(abc.ABC):
     """
 
     positions: pd.DataFrame
+    """Positions of portfolio in each period."""
     returns: pd.Series
+    """Period-to-period returns of portfolio."""
     trading_start: pd.Timestamp
+    """Date of starting trading."""
 
     def __repr__(self) -> str:
         return f'{type(self).__name__}()'
@@ -69,105 +73,51 @@ class Portfolio(AbstractPortfolio):
 
     def invest(self,
                prices: pd.DataFrame,
-
-               picking_factor: Optional[pqr.factors.Factor] = None,
-               picking_thresholds:
-               pqr.thresholds.Thresholds = pqr.thresholds.Thresholds(),
-               looking_period: int = 1,
-               lag_period: int = 0,
-               holding_period: int = 1,
-
-               filtering_factor: Optional[pqr.factors.Factor] = None,
-               filtering_thresholds:
-               pqr.thresholds.Thresholds = pqr.thresholds.Thresholds(),
-               filtering_looking_period: int = 1,
-               filtering_lag_period: int = 0,
-               filtering_holding_period: int = 1,
-
-               weighting_factor: Optional[pqr.factors.Factor] = None,
-               weighting_looking_period: int = 1,
-               weighting_lag_period: int = 0,
-               weighting_holding_period: int = 1,
-
-               scaling_factor: Optional[pqr.factors.Factor] = None,
-               scaling_target: Union[int, float] = 1,
-               scaling_looking_period: int = 1,
-               scaling_lag_period: int = 0,
-               scaling_holding_period: int = 1) -> 'Portfolio':
+               filter: Optional[pqr.factors.Filter] = pqr.factors.Filter(),
+               picker: Optional[pqr.factors.Picker] = pqr.factors.Picker(),
+               weigher: Optional[pqr.factors.Weigher] = pqr.factors.Weigher(),
+               scaler: Optional[
+                   pqr.factors.Scaler] = pqr.factors.Scaler()) -> 'Portfolio':
         """
-        Allocate money in stocks, making decisions on the basis of factors.
+        Allocates balance into stocks from stock universe.
+
+        At first, stock universe is filtered by `filter`, then `picker` is used
+        to pick stocks from filtered stock universe. After the picks are used
+        as input for `weigher`, and weights are scaled by `scaler`.
 
         Parameters
         ----------
         prices : pd.DataFrame
-            Dataframe, representing stock universe by prices.
-        picking_factor : pqr.factors.Factor
-            Factor, used to pick stocks from (filtered) stock universe.
-        picking_thresholds : pqr.thresholds.Thresholds
-            Thresholds, limiting picks of picking factor.
-        looking_period : int, default=1
-            Looking back on picking_factor period.
-        lag_period : int, default=0
-            Delaying period to react on picking_factor picks.
-        holding_period : int, default=1
-            Number of periods to hold each pick of picking_factor.
-        filtering_factor : pqr.factors.Factor, optional
-            Factor, filtering stock universe. If not given, just not filter at
-            all.
-        filtering_thresholds : pqr.thresholds.Thresholds, default=Thresholds()
-            Thresholds, limiting filtering of filtering_factor.
-        filtering_looking_period : int, default=1
-            Looking back on filtering_factor period.
-        filtering_lag_period : int, default=0
-            Delaying period to react on filtering_factor filters.
-        filtering_holding_period : int, default=1
-            Number of periods to hold each filter of filtering_factor.
-        weighting_factor : pqr.factors.Factor, optional
-            Factor, weighting picks of picking_factor. If not given, just weigh
-            equally.
-        weighting_looking_period : int, default=1
-            Looking back on weighting_factor period.
-        weighting_lag_period : int, default=0
-            Delaying period to react on weighting_factor weights.
-        weighting_holding_period : int, default=1
-            Number of periods to hold each weight of weighting_factor.
-        scaling_factor : pqr.factors.Factor, optional
-            Factor, scaling (leveraging) weights. If not given just not scale 
-            at all.
-        scaling_target : int, float, default=1
-            Target to scale weights by scaling factor.
-        scaling_looking_period : int, default=1
-            Looking back on scaling_factor period.
-        scaling_lag_period : int, default=0
-            Delaying period to react on scaling_factor leverages.
-        scaling_holding_period : int, default=1
-            Number of periods to hold each leverage of scaling_factor.
-            
+            Prices, representing stock universe.
+        filter : pqr.factors.Filter, default=Filter(None)
+            Callable object, which can filter stock universe. By default used
+            no-filter.
+        picker : pqr.factors.Picker, default=Picker(None)
+            Callable object, which can pick stocks from stock universe. By
+            default used all-pick.
+        weigher : pqr.factors.Weigher, default=Weigher(None)
+            Callable object, which can weigh positions of portfolio (picks). By
+            default used equal-weights.
+        scaler : pqr.factors.Picker, default=Scaler(None)
+            Callable object, which can scale weights. By default used
+            no-scaler.
+
         Returns
         -------
         Portfolio
-            The same object, but with filled positions and returns.
+            The same object, but with filled portfolios. Transformation is done
+            inplace.
         """
 
-        i_trading_start = looking_period + lag_period + picking_factor.dynamic
+        i_trading_start = (picker.looking_period + picker.lag_period +
+                           picker.factor.dynamic)
         self.trading_start = prices.index[i_trading_start]
-        self.thresholds = picking_thresholds
+        self.thresholds = picker.thresholds
 
-        filtered_prices = pqr.factors.filter(prices, filtering_factor,
-                                             filtering_thresholds,
-                                             filtering_looking_period,
-                                             filtering_lag_period,
-                                             filtering_holding_period)
-        picks = pqr.factors.pick(filtered_prices, picking_factor,
-                                 picking_thresholds, looking_period,
-                                 lag_period, holding_period)
-        weights = pqr.factors.weigh(picks, weighting_factor,
-                                    weighting_looking_period,
-                                    weighting_lag_period,
-                                    weighting_holding_period)
-        weights = pqr.factors.scale(weights, scaling_factor, scaling_target,
-                                    scaling_looking_period, scaling_lag_period,
-                                    scaling_holding_period)
+        filtered_prices = filter(prices)
+        picks = picker(filtered_prices)
+        weights = weigher(picks)
+        weights = scaler(weights)
 
         if self.balance is None:
             self._allocate_relative(prices, weights)
@@ -241,5 +191,41 @@ class WmlPortfolio(AbstractPortfolio):
         self.positions = winners.positions - losers.positions
         self.returns = winners.returns - losers.returns
         self.trading_start = min([winners.trading_start, losers.trading_start])
+
+        return self
+
+
+class RandomPortfolio(AbstractPortfolio):
+    target_value: Union[int, float]
+
+    def __repr__(self) -> str:
+        target_value = getattr(self, 'target_value', '')
+        return f'{type(self).__name__}({target_value:.2f})'
+
+    def invest(self,
+               prices: pd.DataFrame,
+               portfolio: Portfolio,
+               target: Callable[[AbstractPortfolio], Union[int, float]],
+               filter: Optional[pqr.factors.Filter] = pqr.factors.Filter(),
+               weigher: Optional[pqr.factors.Weigher] = pqr.factors.Weigher(),
+               scaler: Optional[pqr.factors.Scaler] = pqr.factors.Scaler()
+               ) -> 'RandomPortfolio':
+        random_data = pd.DataFrame(np.random.random(portfolio.positions.shape),
+                                   index=portfolio.positions.index,
+                                   columns=portfolio.positions.columns)
+        random_factor = pqr.factors.Factor(random_data)
+        random_picker = pqr.factors.Picker(
+            random_factor, portfolio.thresholds)
+        random_portfolio = Portfolio(portfolio.balance,
+                                     portfolio.fee_rate)
+        random_portfolio.invest(prices, filter, random_picker, weigher, scaler)
+        random_portfolio.positions[:portfolio.trading_start] = 0
+        random_portfolio.returns[:portfolio.trading_start] = 0
+
+        self.positions = random_portfolio.positions
+        self.returns = random_portfolio.returns
+        self.trading_start = portfolio.trading_start
+
+        self.target_value = target(self)
 
         return self
