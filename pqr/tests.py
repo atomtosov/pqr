@@ -10,30 +10,35 @@ import pqr.metrics
 
 
 def random_test(portfolio: pqr.portfolios.Portfolio,
-                target: Callable[[pqr.portfolios.Portfolio],
+                target: Callable[[pqr.portfolios.AbstractPortfolio],
                                  Union[int, float]],
                 prices: pd.DataFrame,
                 n_random_portfolios: int = 100,
+                n_quantiles: int = 10,
                 random_seed: Optional[int] = None,
                 **kwargs):
     np.random.seed(random_seed)
     target_values = pd.Series(index=range(n_random_portfolios))
+    random_portfolios = [None for _ in range(n_random_portfolios)]
     for i in range(n_random_portfolios):
-        random_factor = _generate_random_factor(portfolio)
-        random_portfolio = pqr.portfolios.Portfolio(portfolio.balance,
-                                                    portfolio.fee_rate)
-        random_portfolio.invest(prices=prices,
-                                picking_factor=random_factor,
-                                picking_thresholds=portfolio.thresholds,
-                                **kwargs)
-        target_values.values[i] = target(random_portfolio)
+        random_portfolio = pqr.portfolios.RandomPortfolio()
+        random_portfolio.invest(prices, portfolio, target, **kwargs)
+        target_values.values[i] = random_portfolio.target_value
+        random_portfolios[i] = random_portfolio
 
-    return target_values
+    indices = []
+    for q in np.linspace(0, 1, n_quantiles):
+        indices.append(
+            target_values[target_values <= target_values.quantile(q)].argmax())
+
+    target_quantiles = target_values[indices].sort_values()
+
+    return (target_quantiles,
+            np.array(random_portfolios)[target_quantiles.index])
 
 
 def _generate_random_factor(portfolio):
-    random_data = np.random.random(portfolio.positions.shape)
-    random_data = pd.DataFrame(random_data,
+    random_data = pd.DataFrame(np.random.random(portfolio.positions.shape),
                                index=portfolio.positions.index,
                                columns=portfolio.positions.columns)
     return pqr.factors.Factor(random_data)
