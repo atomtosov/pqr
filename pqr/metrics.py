@@ -47,6 +47,7 @@ def summary(portfolio: HasReturns, benchmark: HasReturns) -> pd.Series:
     Calculates summary statistics for a `portfolio`.
 
     Computed metrics:
+
     - Alpha, %
     - Beta, %
     - Sharpe Ratio
