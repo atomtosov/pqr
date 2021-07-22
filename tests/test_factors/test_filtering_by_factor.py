@@ -3,7 +3,7 @@ import pandas as pd
 import pytest
 from numpy.testing import assert_allclose
 
-from pqr.factors import Factor, filter
+from pqr.factors import Factor, Filter
 from pqr.thresholds import Thresholds
 
 test_data = [
@@ -86,7 +86,7 @@ def test_filtering_by_factor(
         expected: pd.DataFrame
 ):
     assert_allclose(
-        filter(prices, factor, thresholds),
+        Filter(factor, thresholds)(prices),
         expected,
         equal_nan=True
     )

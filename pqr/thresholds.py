@@ -1,4 +1,19 @@
+"""
+This module contains instruments to store different thresholds expressively.
+During the process of building a portfolio you need to impose restrictions on
+factors to filter stock universe, from which you pick stocks, and to select
+stocks from this pre-filtered stock universe.
+
+Pqr provides 2 specific types of thresholds - quantiles and tops to filtrate
+and select any data, as well as simple thresholds. You can inherit from any of
+them to create a new type of thresholds and contribute to source code to add
+suport of them.
+"""
+
+
 from typing import Union
+
+import dataclasses
 
 import numpy as np
 
@@ -10,57 +25,42 @@ __all__ = [
 ]
 
 
+@dataclasses.dataclass(frozen=True)
 class Thresholds:
     """
-    Class for thresholds from lower value to upper.
+    Class for simple thresholds from lower value to upper.
+
+    These thresholds are used as simple bounds (e.g. trading volume >
+    10 000 000$/day).
 
     Parameters
     ----------
-    lower : int, float, default=-np.inf
+    lower
         Lower threshold.
-    upper : int, float, default=np.inf
+    upper
         Upper threshold.
-
-    Raises
-    ------
-    ValueError
-        Lower threshold more than upper.
-    TypeError
-        A threshold is not int or float.
     """
 
-    lower: Union[int, float]
-    upper: Union[int, float]
-
-    def __init__(self, lower: Union[int, float] = -np.inf,
-                 upper: Union[int, float] = np.inf):
-        if isinstance(lower, (int, float)) and isinstance(upper, (int, float)):
-            self.lower = lower
-            self.upper = upper
-        else:
-            raise TypeError('thresholds must be int or float')
-
-        if self.lower > self.upper:
-            raise ValueError('lower threshold must be <= upper')
-
-    def __repr__(self) -> str:
-        lower_str = f'{self.lower:.2f}' if isinstance(self.lower, float) \
-            else str(self.lower)
-        upper_str = f'{self.upper:.2f}' if isinstance(self.upper, float) \
-            else str(self.upper)
-
-        return f'{type(self).__name__}({lower_str}, {upper_str})'
+    lower: Union[int, float] = -np.inf
+    """Lower threshold."""
+    upper: Union[int, float] = np.inf
+    """Upper threshold."""
 
 
+@dataclasses.dataclass(frozen=True)
 class Quantiles(Thresholds):
     """
     Class for quantile thresholds.
 
+    Quantile thresholds are used to select or filtrate the data from lower
+    quantile to upper (e.g. build a portfolio with companies, having the lowest
+    30% of P/E on the market).
+
     Parameters
     ----------
-    lower : int, float, default=0
+    lower
         Lower quantile.
-    upper : int, float, default=1
+    upper
         Upper quantile.
 
     Raises
@@ -69,22 +69,29 @@ class Quantiles(Thresholds):
         One of quantiles isn't in range [0,1].
     """
 
-    def __init__(self, lower: Union[int, float] = 0,
-                 upper: Union[int, float] = 1):
-        super().__init__(lower, upper)
+    lower: Union[int, float] = 0
+    """Lower quantile."""
+    upper: Union[int, float] = 1
+    """Upper quantile."""
+
+    def __post_init__(self):
         if not (0 <= self.lower <= 1 and 0 <= self.upper <= 1):
-            raise ValueError('quantiles must be in range [0, 1]')
+            raise ValueError('quantiles must be in range [0;1]')
 
 
+@dataclasses.dataclass(frozen=True)
 class Top(Thresholds):
     """
-    Class for intervals of top levels.
+    Class for thresholds of top levels.
+
+    Top levels are used to select or filtrate any piece of ranked data (e.g.
+    pick into portfolio top-10 stocks with largest market capitalization).
 
     Parameters
     ----------
-    lower : int, default=10
+    lower
         Lower top level.
-    upper : int, float, default=1
+    upper
         Upper top level.
 
     Raises
@@ -95,13 +102,14 @@ class Top(Thresholds):
         One of top levels is less than 1.
     """
 
-    def __init__(self, upper: int = 1, lower: int = 10):
-        super().__init__(upper, lower)
+    lower: int = 10
+    """Lower top level."""
+    upper: int = 1
+    """Upper top level."""
 
+    def __post_init__(self):
         if not (isinstance(self.lower, int) and isinstance(self.upper, int)):
             raise TypeError('top levels must be int')
 
-        if self.lower < 1 or self.upper < 1:
-            raise ValueError('top levels must be more than 1')
-
-        self.lower, self.upper = self.upper, self.lower
+        if not (self.lower >= 1 and self.upper >= 1):
+            raise ValueError('top levels must be >= 1')

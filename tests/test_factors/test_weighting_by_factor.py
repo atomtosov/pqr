@@ -2,7 +2,7 @@ import pandas as pd
 import pytest
 from numpy.testing import assert_allclose
 
-from pqr.factors import Factor, weigh
+from pqr.factors import Factor, Weigher
 
 test_data = [
     # test 1: static single factor
@@ -58,7 +58,7 @@ def test_weighting_by_factor(
         expected: pd.DataFrame
 ):
     assert_allclose(
-        weigh(positions, factor),
+        Weigher(factor)(positions),
         expected,
         equal_nan=True
     )

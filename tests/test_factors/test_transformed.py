@@ -3,7 +3,7 @@ import pandas as pd
 import pytest
 from numpy.testing import assert_allclose
 
-from pqr.factors import Factor
+from pqr.factors import Factor, transform
 
 test_data = [
     # Single Factors
@@ -16,8 +16,7 @@ test_data = [
                              [5, 5, 5, 5]]),
                dynamic=False),
         1, 0, 1,
-        pd.DataFrame([[np.nan, np.nan, np.nan, np.nan],
-                      [1, 1, 1, 1],
+        pd.DataFrame([[1, 1, 1, 1],
                       [2, 2, 2, 2],
                       [3, 3, 3, 3],
                       [4, 4, 4, 4]]),
@@ -32,9 +31,7 @@ test_data = [
                              [5, 5, 5, 5]]),
                dynamic=False),
         2, 0, 1,
-        pd.DataFrame([[np.nan, np.nan, np.nan, np.nan],
-                      [np.nan, np.nan, np.nan, np.nan],
-                      [1, 1, 1, 1],
+        pd.DataFrame([[1, 1, 1, 1],
                       [2, 2, 2, 2],
                       [3, 3, 3, 3]]),
         id='static single looking=2, lag=0'
@@ -48,10 +45,7 @@ test_data = [
                              [5, 5, 5, 5]]),
                dynamic=False),
         2, 1, 1,
-        pd.DataFrame([[np.nan, np.nan, np.nan, np.nan],
-                      [np.nan, np.nan, np.nan, np.nan],
-                      [np.nan, np.nan, np.nan, np.nan],
-                      [1, 1, 1, 1],
+        pd.DataFrame([[1, 1, 1, 1],
                       [2, 2, 2, 2]]),
         id='static single looking=2, lag=1'
     ),
@@ -64,9 +58,7 @@ test_data = [
                              [5, 5, 5, 5]]),
                dynamic=True),
         1, 0, 1,
-        pd.DataFrame([[np.nan, np.nan, np.nan, np.nan],
-                      [np.nan, np.nan, np.nan, np.nan],
-                      [1, 1, 1, 1],
+        pd.DataFrame([[1, 1, 1, 1],
                       [1 / 2, 1 / 2, 1 / 2, 1 / 2],
                       [1 / 3, 1 / 3, 1 / 3, 1 / 3]]),
         id='dynamic single looking=1, lag=0'
@@ -80,10 +72,7 @@ test_data = [
                              [5, 5, 5, 5]]),
                dynamic=True),
         2, 0, 1,
-        pd.DataFrame([[np.nan, np.nan, np.nan, np.nan],
-                      [np.nan, np.nan, np.nan, np.nan],
-                      [np.nan, np.nan, np.nan, np.nan],
-                      [2, 2, 2, 2],
+        pd.DataFrame([[2, 2, 2, 2],
                       [1, 1, 1, 1]]),
         id='dynamic single looking=2, lag=0'
     ),
@@ -96,11 +85,7 @@ test_data = [
                              [5, 5, 5, 5]]),
                dynamic=True),
         2, 1, 1,
-        pd.DataFrame([[np.nan, np.nan, np.nan, np.nan],
-                      [np.nan, np.nan, np.nan, np.nan],
-                      [np.nan, np.nan, np.nan, np.nan],
-                      [np.nan, np.nan, np.nan, np.nan],
-                      [2, 2, 2, 2]]),
+        pd.DataFrame([[2, 2, 2, 2]]),
         id='dynamic single looking=2, lag=1'
     ),
 ]
@@ -118,7 +103,7 @@ def test_single_factor_transform(
         expected: pd.DataFrame
 ):
     assert_allclose(
-        factor.transformed(looking_period, lag_period, holding_period),
+        transform(factor, looking_period, lag_period, holding_period).data,
         expected,
         equal_nan=True
     )

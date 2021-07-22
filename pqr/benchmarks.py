@@ -1,71 +1,120 @@
-import abc
+"""
+This module provides instruments to create benchmarks. Benchmarks treated as
+theoretical portfolios, which each investor dreams to beat. Usually there are
+already good benchmarks - indices (e.g. S&P 500 or IMOEX). But if for some
+reason you cannot find suitable benchmark you can build it from stock universe
+(with filters and weights, but without selecting stocks). The benchmark will
+include all available (filtered) stock universe in each period  without
+transaction costs, but with weighting positions (optionally).
+
+In most cases you need a benchmark just to compare its performance with
+performance of a portfolio, but do not forget, that portfolios are also can be
+used as benchmarks for calculating metrics/plotting the performance. If you
+want to create benchmark with selecting stocks, just construct the portfolio.
+
+"""
+
+
+import dataclasses
 from typing import Optional
 
 import pandas as pd
 
 import pqr.factors
+import pqr.thresholds
+
 
 __all__ = [
-    'AbstractBenchmark',
-    'IndexBenchmark',
-    'CustomBenchmark'
+    'Benchmark',
+    'benchmark_from_index',
+    'benchmark_from_stock_universe',
 ]
 
 
-class AbstractBenchmark(abc.ABC):
+@dataclasses.dataclass(frozen=True, repr=False)
+class Benchmark:
     """
-    Abstract base class for benchmarks.
+    Class for theoretical benchmarks.
+
+    Parameters
+    ----------
+    returns
+        Period-to-period returns of a theoretical benchmark.
     """
 
     returns: pd.Series
-    """Period-to-period returns of benchmark."""
+    """Period-to-period returns of the benchmark."""
 
-    def __repr__(self) -> str:
-        return f'{type(self).__name__}({self.returns.name})'
+    def __str__(self) -> str:
+        return str(self.returns.name)
 
     @property
     def cumulative_returns(self) -> pd.Series:
-        """
-        pd.Series : Cumulative returns of benchmark.
-        """
+        """Cumulative returns of the benchmark."""
 
         return (1 + self.returns).cumprod() - 1
 
 
-class IndexBenchmark(AbstractBenchmark):
+def benchmark_from_index(index_values: pd.Series) -> Benchmark:
     """
-    Class for benchmarks from existing assets indices (e.g. S&P500).
+    Creates benchmark from existing index (e.g. S&P500 or IMOEX).
 
     Parameters
     ----------
-    index_values : pd.Series
-        Values of some benchmark-index. Percentage changes of that values
-        are used as returns of benchmark.
+    index_values
+        Series of index values. Percentage changes of these values are used as
+        returns of the benchmark. Name of the series is used as name for the
+        benchmark.
     """
 
-    def __init__(self, index_values: pd.Series):
-        self.returns = index_values.pct_change()
+    return Benchmark(index_values.pct_change())
 
 
-class CustomBenchmark(AbstractBenchmark):
+def benchmark_from_stock_universe(
+        stock_prices: pd.DataFrame,
+        filtering_factor: Optional[pd.DataFrame] = None,
+        filtering_thresholds:
+        pqr.thresholds.Thresholds = pqr.thresholds.Thresholds(),
+        weighting_factor: Optional[pd.DataFrame] = None,
+        weighting_factor_is_bigger_better: bool = True,
+) -> Benchmark:
     """
-    Class for custom benchmarks from stock universe.
+    Creates custom benchmark from stock universe.
+
+    This type of benchmark should be used, when there is no relevant index to
+    compare with portfolios (e.g. if stock universe is too specific or just
+    is severe filtrated). In other cases it is highly recommended to download
+    data for existing benchmark, because it is really hard to accurately 
+    replicate any real stock index with factors.
+    
+    To build benchmark from stock universe you can use filtration and 
+    weighting, but not selecting the stocks. If selecting is needed, just 
+    construct the portfolio, it also can be used as benchmark.
 
     Parameters
     ----------
-    prices : pd.DataFrame
-        Prices of stocks to be picked. All of available stocks are in the
-        portfolio in each period.
-    weighting_factor : IWeighting, optional
-        Factor to weigh stocks in portfolio (e.g. market capitalization).
-        If not passed, equal weights are used.
+    stock_prices
+        Prices, representing stock universe. All of available (not np.nan) for 
+        selecting stocks are picked into the "benchmark-portfolio".
+    filtering_factor
+        Factor, filtering stock universe. If not given, just do not filter at
+        all.
+    filtering_thresholds
+        Thresholds, limiting `filtering_factor`.
+    weighting_factor
+        Factor, weighting positions (if you want to replicate some market-cap
+        weighted benchmark). If not passed, weighs positions equally.
+    weighting_factor_is_bigger_better
+        Whether bigger values of `weighting_factor` will lead to bigger weights 
+        for a position or on the contrary to lower.
     """
 
-    def __init__(self,
-                 prices: pd.DataFrame,
-                 weighting_factor: Optional[pqr.factors.Factor] = None):
-        picks = pqr.factors.Picker()(prices)
-        weights = pqr.factors.Weigher(weighting_factor)(picks)
-        universe_returns = prices.pct_change().shift(-1)
-        self.returns = (weights * universe_returns).shift().sum(axis=1)
-        self.returns.name = ''
+    stock_universe = pqr.factors.filtrate(stock_prices, filtering_factor,
+                                          filtering_thresholds)
+    picks = pqr.factors.select(stock_universe)
+    weights = pqr.factors.weigh(picks, weighting_factor,
+                                weighting_factor_is_bigger_better)
+    universe_returns = stock_prices.pct_change().shift(-1)
+    benchmark_returns = (weights * universe_returns).shift().sum(axis=1)
+    benchmark_returns.name = 'benchmark'
+    return Benchmark(benchmark_returns)

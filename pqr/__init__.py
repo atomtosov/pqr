@@ -1,14 +1,18 @@
 """
-This library contains all necessary stuff for testing factor investing
-strategies easily.
+Provides:
+  1. Library for testing factor strategies
+  2. A lot of different statistical metrics for portfolios
+  3. Fancy visualization of results
+
+Source: https://github.com/atomtosov/pqr/tree/dev
 """
 
-
-from . import benchmarks
-from . import factors
-from . import factor_model
-from . import metrics
-from . import portfolios
-from . import preprocessing
-from . import thresholds
-from . import visualization
+from .benchmarks import *
+from .factor_models import *
+from .factors import *
+from .metrics import *
+from .portfolios import *
+from .preprocessing import *
+from .tests import *
+from .thresholds import *
+from .visualization import *
