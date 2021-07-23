@@ -9,9 +9,12 @@ Provides:
 
 ## Installation
 
-For now download code directly from github and copy it to directory, where you work, or add it to path.
 
-But pqr will be soon on PyPI!
+Use the package manager [pip](https://pip.pypa.io/en/stable/) to install pqr.
+
+```bash
+pip install pqr
+```
 
 ## Documentation
 
