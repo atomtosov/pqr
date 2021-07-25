@@ -9,29 +9,27 @@ strategy in future.
 For now, it has only 1 test - random test, but some more will be added soon.
 """
 
-
 from typing import Tuple, Callable, Union
 
-import pandas as pd
 import numpy as np
+import pandas as pd
 
-import pqr.portfolios
 import pqr.benchmarks
 import pqr.factors
 import pqr.metrics
-
+import pqr.portfolios
 
 __all__ = [
-    'random_test',
+    'zero_intelligence_test',
 ]
 
 
-def random_test(stock_prices: pd.DataFrame,
-                portfolio: pqr.portfolios.Portfolio,
-                target: Callable[[pqr.portfolios.Portfolio],
-                                 Union[int, float]],
-                n_quantiles: int = 10,
-                **kwargs) -> Tuple[pd.Series, np.ndarray]:
+def zero_intelligence_test(stock_prices: pd.DataFrame,
+                           portfolio: pqr.portfolios.Portfolio,
+                           target: Callable[[pqr.portfolios.Portfolio],
+                                            Union[int, float]],
+                           n_quantiles: int = 10,
+                           **kwargs) -> Tuple[pd.Series, np.ndarray]:
     """
     Creates random portfolios, replicating positions of `portfolio`.
 
