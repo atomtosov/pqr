@@ -30,7 +30,7 @@ __all__ = [
     'beta', 'rolling_beta',
     'sharpe', 'rolling_sharpe',
     'mean_return', 'rolling_mean_return',
-    'mean_excessive_return', 'rolling_mean_excessive_return',
+    'excess_return', 'rolling_excess_return',
     'volatility', 'rolling_volatility',
     'benchmark_correlation', 'rolling_benchmark_correlation',
     'profitable_periods_share', 'rolling_profitable_periods_share',
@@ -52,7 +52,7 @@ def summary(portfolio: HasReturns, benchmark: HasReturns) -> pd.Series:
     - Beta, %
     - Sharpe Ratio
     - Mean Return, %
-    - Mean Excessive Return, %
+    - Excess Return, %
     - Volatility, %
     - Benchmark Correlation, %
     - Profitable periods, %
@@ -73,8 +73,8 @@ def summary(portfolio: HasReturns, benchmark: HasReturns) -> pd.Series:
             'Beta': beta(portfolio, benchmark),
             'Sharpe Ratio': sharpe(portfolio),
             'Mean Return, %': mean_return(portfolio) * 100,
-            'Mean Excessive Return, %': mean_excessive_return(portfolio,
-                                                              benchmark) * 100,
+            'Mean Excessive Return, %': excess_return(portfolio,
+                                                      benchmark) * 100,
             'Volatility, %': volatility(portfolio) * 100,
             'Benchmark Correlation': benchmark_correlation(portfolio,
                                                            benchmark),
@@ -234,8 +234,8 @@ def rolling_mean_return(portfolio: HasReturns) -> pd.Series:
     return portfolio.returns.rolling(freq).mean()
 
 
-def mean_excessive_return(portfolio: HasReturns,
-                          benchmark: HasReturns) -> Union[int, float]:
+def excess_return(portfolio: HasReturns,
+                  benchmark: HasReturns) -> Union[int, float]:
     """
     Calculates mean excessive return of a `portfolio`.
 
@@ -257,8 +257,8 @@ def mean_excessive_return(portfolio: HasReturns,
     return mean_portfolio_return - mean_benchmark_return
 
 
-def rolling_mean_excessive_return(portfolio: HasReturns,
-                                  benchmark: HasReturns) -> pd.Series:
+def rolling_excess_return(portfolio: HasReturns,
+                          benchmark: HasReturns) -> pd.Series:
     """
     Calculates rolling on 1 trading year mean excessive return of portfolio.
 
