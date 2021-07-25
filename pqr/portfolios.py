@@ -287,10 +287,10 @@ def _relative_portfolio(
     Constructs the portfolio relatively (without real money rebalancing).
     """
 
-    positions = weights
-    positions_diff = positions.diff()
-    positions_diff.values[0] = positions.values[0]
-    positions = positions - positions_diff.abs() * fee_rate
+    weights_diff = weights.diff()
+    weights_diff.values[0] = weights.values[0]
+    positions = weights - weights_diff.abs() * fee_rate
+
     returns = (positions * stock_prices.pct_change().shift(-1)
                ).shift().sum(axis=1)
     return Portfolio(positions, returns, None, fee_rate, name)
@@ -307,4 +307,31 @@ def _money_portfolio(
     Constructs the portfolio with real money rebalancing.
     """
 
-    raise NotImplementedError('money portfolio does not work for now')
+    positions = weights
+    returns = pd.Series(index=weights.index)
+
+    positions.values[0] = positions.values[0] * balance // (stock_prices.values[0])
+    returns.values[0] = 0
+    cash = balance - np.nansum(positions.values[0] *
+                               stock_prices.values[0] * (1 + fee_rate))
+    prev_balance = balance
+    for i in range(1, len(positions)):
+        w = positions.values[i]
+        prices = stock_prices.values[i]
+        prev_alloc = positions.values[i-1]
+
+        cur_balance = cash + np.nansum(prev_alloc * prices)
+        alloc = w * cur_balance // prices
+
+        alloc_diff = alloc - prev_alloc
+        cash_diff = -(alloc_diff * prices)
+        commission = np.abs(cash_diff) * fee_rate
+
+        cash += np.nansum(cash_diff - commission)
+
+        positions.values[i] = alloc
+        returns.values[i] = cur_balance / prev_balance - 1
+
+        prev_balance = cur_balance
+
+    return Portfolio(positions, returns, balance, fee_rate, name)
