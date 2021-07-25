@@ -288,9 +288,11 @@ def _relative_portfolio(
     """
 
     positions = weights
+    positions_diff = positions.diff()
+    positions_diff.values[0] = positions.values[0]
+    positions = positions - positions_diff.abs() * fee_rate
     returns = (positions * stock_prices.pct_change().shift(-1)
                ).shift().sum(axis=1)
-    # TODO: add commission
     return Portfolio(positions, returns, None, fee_rate, name)
 
 
