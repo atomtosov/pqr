@@ -11,110 +11,104 @@ In most cases you need a benchmark just to compare its performance with
 performance of a portfolio, but do not forget, that portfolios are also can be
 used as benchmarks for calculating metrics/plotting the performance. If you
 want to create benchmark with selecting stocks, just construct the portfolio.
-
 """
 
-
-import dataclasses
 from typing import Optional
 
+import numpy as np
 import pandas as pd
 
-import pqr.factors
-import pqr.thresholds
+import pqr.portfolios
 
 
-__all__ = [
-    'Benchmark',
-    'benchmark_from_index',
-    'benchmark_from_stock_universe',
-]
-
-
-@dataclasses.dataclass(frozen=True, repr=False)
 class Benchmark:
     """
-    Class for theoretical benchmarks.
+    Class for benchmarks.
 
     Parameters
     ----------
-    returns
-        Period-to-period returns of a theoretical benchmark.
+    name
+        Name of the benchmark.
     """
 
+    name: str
     returns: pd.Series
-    """Period-to-period returns of the benchmark."""
+
+    def __init__(self, name: str = 'benchmark'):
+        self.name = name
+
+    def __repr__(self) -> str:
+        return f'Benchmark({self.name})'
 
     def __str__(self) -> str:
-        return str(self.returns.name)
+        return self.name
 
-    @property
-    def cumulative_returns(self) -> pd.Series:
-        """Cumulative returns of the benchmark."""
+    def from_index(self, index_values: pd.Series) -> None:
+        """
+        Creates benchmark from existing index (e.g. S&P500 or IMOEX).
 
-        return (1 + self.returns).cumprod() - 1
+        Parameters
+        ----------
+        index_values
+            Series of index values. Percentage changes of these values are used
+            as returns of the benchmark.
+        """
 
+        self.returns = index_values.pct_change()
+        self.returns.name = self.name
 
-def benchmark_from_index(index_values: pd.Series) -> Benchmark:
-    """
-    Creates benchmark from existing index (e.g. S&P500 or IMOEX).
+    def from_stock_universe(
+            self,
+            stock_prices: pd.DataFrame,
+            mask: Optional[pd.DataFrame] = None,
+            weighting_factor: Optional[pqr.factors.Factor] = None,
+            is_bigger_better: bool = True,
+    ) -> None:
+        """
+        Creates benchmark from stock universe.
 
-    Parameters
-    ----------
-    index_values
-        Series of index values. Percentage changes of these values are used as
-        returns of the benchmark. Name of the series is used as name for the
-        benchmark.
-    """
+        This type of benchmark should be used, when there is no relevant index
+        to compare with portfolios (e.g. if stock universe is too specific or
+        just is severe filtrated). In other cases it is highly recommended to
+        download data for existing benchmark, because it is really hard to
+        accurately replicate any real stock index with factors.
 
-    return Benchmark(index_values.pct_change())
+        To build benchmark from stock universe you can use filtration and
+        weighting, but not selecting the stocks. If selecting is needed, just
+        construct the portfolio, it also can be used as benchmark.
 
+        Parameters
+        ----------
+        stock_prices
+            Prices, representing stock universe. All of available (not np.nan)
+            for selecting stocks are picked into the "benchmark-portfolio".
+        mask
+            Mask to filter stock universe.
+        weighting_factor
+            Factor, weighting positions (if you want to replicate some
+            market-cap weighted benchmark). If not passed, weighs positions
+            equally.
+        is_bigger_better
+            Whether bigger values of `weighting_factor` will lead to bigger
+            weights for a position or on the contrary to lower.
+        """
 
-def benchmark_from_stock_universe(
-        stock_prices: pd.DataFrame,
-        filtering_factor: Optional[pd.DataFrame] = None,
-        filtering_thresholds:
-        pqr.thresholds.Thresholds = pqr.thresholds.Thresholds(),
-        weighting_factor: Optional[pd.DataFrame] = None,
-        weighting_factor_is_bigger_better: bool = True,
-) -> Benchmark:
-    """
-    Creates custom benchmark from stock universe.
+        benchmark_portfolio = pqr.portfolios.Portfolio()
 
-    This type of benchmark should be used, when there is no relevant index to
-    compare with portfolios (e.g. if stock universe is too specific or just
-    is severe filtrated). In other cases it is highly recommended to download
-    data for existing benchmark, because it is really hard to accurately 
-    replicate any real stock index with factors.
-    
-    To build benchmark from stock universe you can use filtration and 
-    weighting, but not selecting the stocks. If selecting is needed, just 
-    construct the portfolio, it also can be used as benchmark.
+        if mask is not None:
+            stock_prices[~mask] = np.nan
 
-    Parameters
-    ----------
-    stock_prices
-        Prices, representing stock universe. All of available (not np.nan) for 
-        selecting stocks are picked into the "benchmark-portfolio".
-    filtering_factor
-        Factor, filtering stock universe. If not given, just do not filter at
-        all.
-    filtering_thresholds
-        Thresholds, limiting `filtering_factor`.
-    weighting_factor
-        Factor, weighting positions (if you want to replicate some market-cap
-        weighted benchmark). If not passed, weighs positions equally.
-    weighting_factor_is_bigger_better
-        Whether bigger values of `weighting_factor` will lead to bigger weights 
-        for a position or on the contrary to lower.
-    """
+        picks = ~stock_prices.isna()
+        benchmark_portfolio.picks = picks
 
-    stock_universe = pqr.factors.filtrate(stock_prices, filtering_factor,
-                                          filtering_thresholds)
-    picks = pqr.factors.select(stock_universe)
-    weights = pqr.factors.weigh(picks, weighting_factor,
-                                weighting_factor_is_bigger_better)
-    universe_returns = stock_prices.pct_change().shift(-1)
-    benchmark_returns = (weights * universe_returns).shift().sum(axis=1)
-    benchmark_returns.name = 'benchmark'
-    return Benchmark(benchmark_returns)
+        if weighting_factor is not None:
+            benchmark_portfolio.weigh_by_factor(weighting_factor,
+                                                is_bigger_better)
+        else:
+            benchmark_portfolio.weigh_equally()
+
+        universe_returns = stock_prices.pct_change().shift(-1)
+        weights = benchmark_portfolio.weights
+
+        self.returns = (weights * universe_returns).shift().sum(axis=1)
+        self.returns.name = self.name

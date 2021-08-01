@@ -39,47 +39,38 @@ prices, pe, volume = pqr.replace_with_nan(prices, pe, volume,
                                           to_replace=[0, 'nan'])
 
 # go to factors
-value = pqr.factorize(
-    factor=pe,
+value = pqr.Factor(pe)
+value.transform(
     is_dynamic=False,
-    looking_period=3,
+    looking_back_period=3,
     lag_period=0,
     holding_period=3
 )
 
-liquidity = pqr.factorize(
-    factor=volume,
-    is_dynamic=False,
-    looking_period=1,
-    lag_period=0,
-    holding_period=1
-)
-liquidity_threshold = pqr.Thresholds(lower=10_000_000)
+liquidity = pqr.Factor(volume)
+liquidity.look_back()
+liquidity_filter = liquidity.data >= 10_000_000
+
+value.prefilter(liquidity_filter)
 
 # create custom benchmark from liquid stocks with equal weights
-benchmark = pqr.benchmark_from_stock_universe(
+benchmark = pqr.Benchmark()
+benchmark.from_stock_universe(
     prices,
-    filtering_factor=liquidity,
-    filtering_thresholds=liquidity_threshold
+    liquidity_filter
 )
 
 # fitting the factor model on value factor (3-0-3)
 # after fit we will get 3 quantile portfolios and wml-portfolio
 portfolios = pqr.fit_factor_model(
-    prices,
-    value,
-    filtering_factor=liquidity,
-    filtering_thresholds=liquidity_threshold
+    stock_prices=prices,
+    factor=value
 )
-
-
 # fetch the table with summary statistics and plot cumulative returns
-summary = pqr.compare_portfolios(*portfolios, benchmark=benchmark)
-print(summary)
-
-# and show the plot of cumulative returns
-pqr.plot_cumulative_returns(*portfolios, benchmark=benchmark)
-plt.show()
+pqr.factor_model_tear_sheet(
+    *portfolios,
+    benchmark=benchmark
+)
 ```
 
 You can also see this example on real data with output in examples/quickstart.ipynb.

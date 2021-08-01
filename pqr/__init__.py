@@ -14,5 +14,4 @@ from .metrics import *
 from .portfolios import *
 from .preprocessing import *
 from .tests import *
-from .thresholds import *
 from .visualization import *

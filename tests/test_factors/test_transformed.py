@@ -3,13 +3,13 @@ import pandas as pd
 import pytest
 from numpy.testing import assert_allclose
 
-from pqr.factors import Factor, transform
+from pqr.factors import factorize
 
 test_data = [
     # Single Factors
     # test 1: static single factor looking=1, lag=0
     pytest.param(
-        Factor(pd.DataFrame([[1, 1, 1, 1],
+        factorize(pd.DataFrame([[1, 1, 1, 1],
                              [2, 2, 2, 2],
                              [3, 3, 3, 3],
                              [4, 4, 4, 4],
@@ -24,7 +24,7 @@ test_data = [
     ),
     # test 2: static single factor looking=2, lag=0
     pytest.param(
-        Factor(pd.DataFrame([[1, 1, 1, 1],
+        factorize(pd.DataFrame([[1, 1, 1, 1],
                              [2, 2, 2, 2],
                              [3, 3, 3, 3],
                              [4, 4, 4, 4],
@@ -38,7 +38,7 @@ test_data = [
     ),
     # test 3: static single factor looking=2, lag=1
     pytest.param(
-        Factor(pd.DataFrame([[1, 1, 1, 1],
+        factorize(pd.DataFrame([[1, 1, 1, 1],
                              [2, 2, 2, 2],
                              [3, 3, 3, 3],
                              [4, 4, 4, 4],
@@ -51,7 +51,7 @@ test_data = [
     ),
     # test 4: dynamic single factor looking=1, lag=0
     pytest.param(
-        Factor(pd.DataFrame([[1, 1, 1, 1],
+        factorize(pd.DataFrame([[1, 1, 1, 1],
                              [2, 2, 2, 2],
                              [3, 3, 3, 3],
                              [4, 4, 4, 4],
@@ -65,7 +65,7 @@ test_data = [
     ),
     # test 5: dynamic single factor looking=2, lag=0
     pytest.param(
-        Factor(pd.DataFrame([[1, 1, 1, 1],
+        factorize(pd.DataFrame([[1, 1, 1, 1],
                              [2, 2, 2, 2],
                              [3, 3, 3, 3],
                              [4, 4, 4, 4],
@@ -78,12 +78,12 @@ test_data = [
     ),
     # test 6: dynamic single factor looking=2, lag=1
     pytest.param(
-        Factor(pd.DataFrame([[1, 1, 1, 1],
+        factorize(pd.DataFrame([[1, 1, 1, 1],
                              [2, 2, 2, 2],
                              [3, 3, 3, 3],
                              [4, 4, 4, 4],
                              [5, 5, 5, 5]]),
-               dynamic=True),
+               is_dynamic=True),
         2, 1, 1,
         pd.DataFrame([[2, 2, 2, 2]]),
         id='dynamic single looking=2, lag=1'
@@ -96,7 +96,7 @@ test_data = [
     test_data
 )
 def test_single_factor_transform(
-        factor: Factor,
+        factor: pd.DataFrame,
         looking_period: int,
         lag_period: int,
         holding_period: int,

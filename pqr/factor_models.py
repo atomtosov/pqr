@@ -16,90 +16,112 @@ Moreover, you can calibrate factor model parameters, using simple bruteforce
 method, provided by grid_search() function.
 """
 
-from typing import Iterable, List, Dict, Tuple
+from __future__ import annotations
+
+from typing import Tuple, List, Optional, Iterable, Dict
 
 import numpy as np
 import pandas as pd
 
 import pqr.benchmarks
 import pqr.factors
-import pqr.metrics
 import pqr.portfolios
-import pqr.thresholds
 
 __all__ = [
     'fit_factor_model',
-    'compare_portfolios',
+    'calculate_portfolios_summary_stats',
+    'factor_model_tear_sheet',
     'grid_search',
 ]
 
 
 def fit_factor_model(
         stock_prices: pd.DataFrame,
-        factor: pd.DataFrame,
-        n_quantiles: int = 3,
+        factor: pqr.factors.Factor,
+        weighting_factor: Optional[pqr.factors.Factor] = None,
+        is_weighting_factor_bigger_better: bool = True,
+        balance: Optional[int | float] = None,
+        fee_rate: int | float = 0,
+        quantiles: int = 3,
         add_wml: bool = False,
-        is_bigger_better: bool = True,
-        **kwargs
-) -> List[pqr.portfolios.Portfolio]:
+        is_bigger_better: bool = True
+) -> List[pqr.portfolios.AbstractPortfolio]:
     """
-    Creates factor portfolios with quantiles method, covering stock universe.
 
     Parameters
     ----------
     stock_prices
         Prices, representing stock universe.
     factor
-        Factor, used to pick stocks from (filtered) stock universe.
-    n_quantiles
+        Factor to pick stocks into the portfolio.
+    weighting_factor
+        Factor to weigh picks.
+    is_weighting_factor_bigger_better
+        Whether bigger values of `weighting_factor` will lead to bigger weights
+        for a position or on the contrary to lower.
+    balance
+        Initial balance of the portfolio.
+    fee_rate
+        Indicative commission rate for every deal.
+    quantiles
         Number of portfolios to build for covering stock universe by quantiles.
     add_wml
         Whether to also create wml-portfolio or not.
     is_bigger_better
         Whether portfolio with highest quantiles will be "winners" for
         wml-portfolio or with lowest ones.
-    **kwargs
-        Keyword arguments for building portfolios. See factor_portfolio().
     """
 
-    portfolios = [
-        pqr.portfolios.factor_portfolio(
-            stock_prices,
-            factor=factor, thresholds=q,
-            name=f'q({q.lower:.2f}, {q.upper:.2f})',
-            **kwargs
-        )
-        for q in _make_quantiles(n_quantiles)
-    ]
+    quantiles_ = _split_quantiles(quantiles)
+
+    portfolios = []
+    for q in quantiles_:
+        portfolio = pqr.portfolios.Portfolio('q({:.2f}, {:.2f})'.format(*q))
+        portfolio.pick_stocks_by_factor(factor, q)
+
+        if weighting_factor is not None:
+            portfolio.weigh_by_factor(factor,
+                                      is_weighting_factor_bigger_better)
+        else:
+            portfolio.weigh_equally()
+
+        portfolio.allocate(stock_prices, balance, fee_rate)
+
+        portfolios.append(portfolio)
 
     if add_wml:
         if is_bigger_better:
-            wml = pqr.portfolios.wml_portfolio(portfolios[-1], portfolios[0])
+            wml = pqr.portfolios.WmlPortfolio(portfolios[-1],
+                                              portfolios[0])
         else:
-            wml = pqr.portfolios.wml_portfolio(portfolios[0], portfolios[-1])
+            wml = pqr.portfolios.WmlPortfolio(portfolios[0],
+                                              portfolios[-1])
         portfolios.append(wml)
 
     return portfolios
 
 
-def compare_portfolios(
-        *portfolios: pqr.portfolios.Portfolio,
+def calculate_portfolios_summary_stats(
+        *portfolios: pqr.portfolios.AbstractPortfolio,
         benchmark: pqr.benchmarks.Benchmark
 ) -> pd.DataFrame:
-    """
-    Calculates summary statistics for portfolios.
-
-    Parameters
-    ----------
-    portfolios
-        Portfolios to be compared.
-    benchmark
-        Benchmark to calculate some metrics.
-    """
-
-    return pd.DataFrame(
-        [pqr.metrics.summary(p, benchmark) for p in portfolios]
+    stats = pd.DataFrame(
+        [pqr.metrics.summary(p.returns, benchmark.returns) for p in portfolios]
     ).T.round(2)
+    return stats
+
+
+def factor_model_tear_sheet(
+        *portfolios: pqr.portfolios.AbstractPortfolio,
+        benchmark: pqr.benchmarks.Benchmark,
+) -> pd.DataFrame:
+    stats = calculate_portfolios_summary_stats(*portfolios,
+                                               benchmark=benchmark)
+    pqr.visualization.plot_cumulative_returns(
+        *[p.returns for p in portfolios],
+        benchmark_returns=benchmark.returns
+    )
+    return stats
 
 
 def grid_search(
@@ -110,6 +132,7 @@ def grid_search(
         lag_periods: Iterable[int],
         holding_periods: Iterable[int],
         benchmark: pqr.benchmarks.Benchmark,
+        mask: Optional[pd.DataFrame] = None,
         **kwargs
 ) -> Dict[Tuple[int, int, int], pd.DataFrame]:
     """
@@ -125,6 +148,8 @@ def grid_search(
     factor
         Factor, used to pick stocks from (filtered) stock universe.
     is_dynamic
+        Whether absolute values of `factor` are used to make decision or
+        their percentage changes.
     looking_periods
         Looking periods for `factor` to be tested.
     lag_periods
@@ -133,6 +158,9 @@ def grid_search(
         Holding periods for `factor` to be tested.
     benchmark
         Benchmark to compare with portfolios and calculate some metrics.
+    mask
+        Matrix of True/False, where True means that a value should remain
+        in `factor` and False - that a value should be deleted.
     **kwargs
         Keyword arguments for fitting factor models. See fit_factor_model().
     """
@@ -141,18 +169,20 @@ def grid_search(
     for looking in looking_periods:
         for lag in lag_periods:
             for holding in holding_periods:
-                transformed_factor = pqr.factors.factorize(factor, is_dynamic,
-                                                           looking, lag,
-                                                           holding)
-                portfolios = fit_factor_model(stock_prices,
-                                              transformed_factor,
+                transformed_factor = pqr.factors.Factor(factor)
+                transformed_factor.transform(is_dynamic, looking, lag, holding)
+                if mask is not None:
+                    transformed_factor.prefilter(mask)
+                portfolios = fit_factor_model(stock_prices, transformed_factor,
                                               **kwargs)
-                results[(looking, lag, holding)] = compare_portfolios(
-                    *portfolios, benchmark=benchmark)
+                results[(looking, lag, holding)] = (
+                    calculate_portfolios_summary_stats(*portfolios,
+                                                       benchmark=benchmark)
+                )
     return results
 
 
-def _make_quantiles(n: int) -> List[pqr.thresholds.Quantiles]:
+def _split_quantiles(n: int) -> List[Tuple[int | float, int | float]]:
     """
     Creates `n` quantiles, covering all range from 0 to 1.
     """
@@ -160,5 +190,4 @@ def _make_quantiles(n: int) -> List[pqr.thresholds.Quantiles]:
     quantile_pairs = np.take(np.linspace(0, 1, n + 1),
                              np.arange(n * 2).reshape((n, -1)) -
                              np.indices((n, 2))[0])
-    return [pqr.thresholds.Quantiles(*pair)
-            for pair in quantile_pairs]
+    return [tuple(pair) for pair in quantile_pairs]

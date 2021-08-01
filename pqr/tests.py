@@ -6,7 +6,7 @@ into the trap: you can get a portfolio with very high total returns, but these
 returns are gotten randomly, so it is not likely that you wanna use this
 strategy in future.
 
-For now, it has only 1 test - random test, but some more will be added soon.
+For now, it has only 1 test - random test, but more will be added soon.
 """
 
 from typing import Tuple, Callable, Union
@@ -14,9 +14,6 @@ from typing import Tuple, Callable, Union
 import numpy as np
 import pandas as pd
 
-import pqr.benchmarks
-import pqr.factors
-import pqr.metrics
 import pqr.portfolios
 
 __all__ = [
@@ -26,9 +23,9 @@ __all__ = [
 
 def zero_intelligence_test(stock_prices: pd.DataFrame,
                            portfolio: pqr.portfolios.Portfolio,
-                           target: Callable[[pqr.portfolios.Portfolio],
-                                            Union[int, float]],
-                           n_quantiles: int = 10,
+                           target_metric: Callable[[pd.Series],
+                                                   Union[int, float]],
+                           quantiles: int = 10,
                            **kwargs) -> Tuple[pd.Series, np.ndarray]:
     """
     Creates random portfolios, replicating positions of `portfolio`.
@@ -42,23 +39,26 @@ def zero_intelligence_test(stock_prices: pd.DataFrame,
         Prices, representing stock universe.
     portfolio
         Portfolio, to be tested (replicated by random portfolios).
-    target
+    target_metric
         Function-like object, computing some number (e.g. value of metric). It
         must get Portfolio and return int or float.
-    n_quantiles
+    quantiles
         How many quantile-bounds to generate.
     **kwargs
         Keyword arguments for building up portfolios. See random_portfolios().
     """
 
-    random_portfolios = pqr.portfolios.random_portfolios(stock_prices,
-                                                         portfolio,
-                                                         **kwargs)
+    random_portfolios = pqr.portfolios.generate_random_portfolios(
+        stock_prices,
+        portfolio.picks,
+        ~stock_prices.isna(),
+        **kwargs)
 
-    target_values = pd.Series([target(p) for p in random_portfolios])
+    target_values = pd.Series(
+        [target_metric(p.returns) for p in random_portfolios])
 
     indices = []
-    for q in np.linspace(0, 1, n_quantiles):
+    for q in np.linspace(0, 1, quantiles):
         indices.append(
             target_values[target_values <= target_values.quantile(q)].argmax())
 

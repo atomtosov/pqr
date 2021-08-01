@@ -11,8 +11,7 @@ are supported, but you are welcome to create your own metrics and contribute to
 source code.
 """
 
-
-from typing import Union
+from __future__ import annotations
 
 import numpy as np
 import pandas as pd
@@ -20,12 +19,9 @@ import statsmodels.regression.linear_model as sm_linear
 import statsmodels.regression.rolling as sm_rolling
 import statsmodels.tools.tools as sm_tools
 
-import pqr.benchmarks
-import pqr.portfolios
-
-
 __all__ = [
     'summary',
+    'cumulative_returns',
     'alpha', 'rolling_alpha',
     'beta', 'rolling_beta',
     'sharpe', 'rolling_sharpe',
@@ -33,16 +29,15 @@ __all__ = [
     'excess_return', 'rolling_excess_return',
     'volatility', 'rolling_volatility',
     'benchmark_correlation', 'rolling_benchmark_correlation',
-    'profitable_periods_share', 'rolling_profitable_periods_share',
+    'win_rate', 'rolling_win_rate',
     'max_drawdown', 'rolling_max_drawdown',
 ]
 
-# type alias for Portfolio | Benchmark
-HasReturns = Union[pqr.portfolios.Portfolio,
-                   pqr.benchmarks.Benchmark]
 
-
-def summary(portfolio: HasReturns, benchmark: HasReturns) -> pd.Series:
+def summary(
+        portfolio_returns: pd.Series,
+        benchmark_returns: pd.Series
+) -> pd.Series:
     """
     Calculates summary statistics for a `portfolio`.
 
@@ -55,37 +50,44 @@ def summary(portfolio: HasReturns, benchmark: HasReturns) -> pd.Series:
     - Excess Return, %
     - Volatility, %
     - Benchmark Correlation, %
-    - Profitable periods, %
+    - Win Rate, %
     - Maximum Drawdown, %
 
     Parameters
     ----------
-    portfolio
+    portfolio_returns
         Portfolio, for which metrics are calculated.
-    benchmark
+    benchmark_returns
         Benchmark, which used as the alternative for the `portfolio` to
         calculate some metrics (usually some stock index).
     """
 
     return pd.Series(
         {
-            'Alpha, %': alpha(portfolio, benchmark) * 100,
-            'Beta': beta(portfolio, benchmark),
-            'Sharpe Ratio': sharpe(portfolio),
-            'Mean Return, %': mean_return(portfolio) * 100,
-            'Mean Excessive Return, %': excess_return(portfolio,
-                                                      benchmark) * 100,
-            'Volatility, %': volatility(portfolio) * 100,
-            'Benchmark Correlation': benchmark_correlation(portfolio,
-                                                           benchmark),
-            'Profitable Periods, %': profitable_periods_share(portfolio) * 100,
-            'Maximum Drawdown, %': max_drawdown(portfolio) * 100,
+            'Alpha, %': alpha(portfolio_returns, benchmark_returns) * 100,
+            'Beta': beta(portfolio_returns, benchmark_returns),
+            'Sharpe Ratio': sharpe(portfolio_returns),
+            'Mean Return, %': mean_return(portfolio_returns) * 100,
+            'Mean Excessive Return, %': excess_return(portfolio_returns,
+                                                      benchmark_returns) * 100,
+            'Volatility, %': volatility(portfolio_returns) * 100,
+            'Benchmark Correlation': benchmark_correlation(portfolio_returns,
+                                                           benchmark_returns),
+            'Win Rate, %': win_rate(portfolio_returns) * 100,
+            'Maximum Drawdown, %': max_drawdown(portfolio_returns) * 100,
         },
-        name=str(portfolio)
+        name=portfolio_returns.name
     ).round(2)
 
 
-def alpha(portfolio: HasReturns, benchmark: HasReturns) -> Union[int, float]:
+def cumulative_returns(returns: pd.Series) -> pd.Series:
+    return (returns + 1).cumprod() - 1
+
+
+def alpha(
+        portfolio_returns: pd.Series,
+        benchmark_returns: pd.Series
+) -> int | float:
     """
     Calculates alpha of a `portfolio`.
 
@@ -96,17 +98,20 @@ def alpha(portfolio: HasReturns, benchmark: HasReturns) -> Union[int, float]:
 
     Parameters
     ----------
-    portfolio
+    portfolio_returns
         Portfolio, for which alpha is calculated.
-    benchmark
+    benchmark_returns
         Benchmark, which used as the alternative for the `portfolio`.
     """
 
-    est = _estimate_ols(portfolio, benchmark)
+    est = _estimate_ols(portfolio_returns, benchmark_returns)
     return est.params[0]
 
 
-def rolling_alpha(portfolio: HasReturns, benchmark: HasReturns) -> pd.Series:
+def rolling_alpha(
+        portfolio_returns: pd.Series,
+        benchmark_returns: pd.Series
+) -> pd.Series:
     """
     Calculates rolling on 1 trading year alpha of a `portfolio`.
 
@@ -114,17 +119,20 @@ def rolling_alpha(portfolio: HasReturns, benchmark: HasReturns) -> pd.Series:
 
     Parameters
     ----------
-    portfolio
+    portfolio_returns
         Portfolio, for which rolling alpha is calculated.
-    benchmark
+    benchmark_returns
         Benchmark, which used as the alternative for the `portfolio`.
     """
 
-    est = _estimate_rolling_ols(portfolio, benchmark)
-    return pd.Series(est.params[:, 0], index=portfolio.returns.index)
+    est = _estimate_rolling_ols(portfolio_returns, benchmark_returns)
+    return pd.Series(est.params[:, 0], index=portfolio_returns.index)
 
 
-def beta(portfolio: HasReturns, benchmark: HasReturns) -> Union[int, float]:
+def beta(
+        portfolio_returns: pd.Series,
+        benchmark_returns: pd.Series
+) -> int | float:
     """
     Calculates beta of a `portfolio`.
 
@@ -136,17 +144,20 @@ def beta(portfolio: HasReturns, benchmark: HasReturns) -> Union[int, float]:
 
     Parameters
     ----------
-    portfolio
+    portfolio_returns
         Portfolio, for which beta is calculated.
-    benchmark
+    benchmark_returns
         Benchmark, which used as the alternative for the `portfolio`.
     """
 
-    est = _estimate_ols(portfolio, benchmark)
+    est = _estimate_ols(portfolio_returns, benchmark_returns)
     return est.params[1]
 
 
-def rolling_beta(portfolio: HasReturns, benchmark: HasReturns) -> pd.Series:
+def rolling_beta(
+        portfolio_returns: pd.Series,
+        benchmark_returns: pd.Series
+) -> pd.Series:
     """
     Calculates rolling on 1 trading year beta of a `portfolio`.
 
@@ -154,36 +165,46 @@ def rolling_beta(portfolio: HasReturns, benchmark: HasReturns) -> pd.Series:
 
     Parameters
     ----------
-    portfolio
+    portfolio_returns
         Portfolio, for which rolling beta is calculated.
-    benchmark
+    benchmark_returns
         Benchmark, which used as the alternative for the `portfolio`.
     """
 
-    est = _estimate_rolling_ols(portfolio, benchmark)
-    return pd.Series(est.params[:, 1], index=portfolio.returns.index)
+    est = _estimate_rolling_ols(portfolio_returns, benchmark_returns)
+    return pd.Series(est.params[:, 1], index=portfolio_returns.index)
 
 
-def sharpe(portfolio: HasReturns) -> Union[int, float]:
+def sharpe(
+        portfolio_returns: pd.Series,
+        risk_free_rate: int | float = 0
+) -> int | float:
     """
     Calculates sharpe ratio of a `portfolio`.
 
     Sharpe Ratio is the ratio of mean return and standard deviation of
-    returns:
+    adjusted returns:
 
     .. math:: SR = \\frac{\\bar{r}}{\\sigma_{r}}
 
     Parameters
     ----------
-    portfolio
+    portfolio_returns
         Portfolio, for which sharpe ratio is calculated.
+    risk_free_rate
     """
 
-    annualization_rate = np.sqrt(_get_freq(portfolio.returns))
-    return mean_return(portfolio) / volatility(portfolio) * annualization_rate
+    annualization_rate = np.sqrt(_get_freq(portfolio_returns))
+    portfolio_returns = portfolio_returns - risk_free_rate
+    mean = mean_return(portfolio_returns)
+    std = volatility(portfolio_returns)
+    return mean / std * annualization_rate
 
 
-def rolling_sharpe(portfolio: HasReturns) -> pd.Series:
+def rolling_sharpe(
+        portfolio_returns: pd.Series,
+        risk_free_rate: int | float = 0
+) -> pd.Series:
     """
     Calculates rolling on 1 trading year sharpe ratio of a `portfolio`.
 
@@ -191,17 +212,19 @@ def rolling_sharpe(portfolio: HasReturns) -> pd.Series:
 
     Parameters
     ----------
-    portfolio
+    portfolio_returns
         Portfolio, for which rolling sharpe ratio is calculated.
+    risk_free_rate
     """
 
-    annualization_rate = np.sqrt(_get_freq(portfolio.returns))
-    mean = rolling_mean_return(portfolio)
-    std = rolling_volatility(portfolio)
+    annualization_rate = np.sqrt(_get_freq(portfolio_returns))
+    portfolio_returns = portfolio_returns - risk_free_rate
+    mean = rolling_mean_return(portfolio_returns)
+    std = rolling_volatility(portfolio_returns)
     return mean / std * annualization_rate
 
 
-def mean_return(portfolio: HasReturns) -> Union[int, float]:
+def mean_return(portfolio_returns: pd.Series) -> int | float:
     """
     Calculates mean return of a `portfolio`.
 
@@ -211,14 +234,14 @@ def mean_return(portfolio: HasReturns) -> Union[int, float]:
 
     Parameters
     ----------
-    portfolio
+    portfolio_returns
         Portfolio, for which mean return is calculated.
     """
 
-    return portfolio.returns.mean()
+    return portfolio_returns.mean()
 
 
-def rolling_mean_return(portfolio: HasReturns) -> pd.Series:
+def rolling_mean_return(portfolio_returns: pd.Series) -> pd.Series:
     """
     Calculates rolling on 1 trading year mean return of a `portfolio`.
 
@@ -226,16 +249,18 @@ def rolling_mean_return(portfolio: HasReturns) -> pd.Series:
 
     Parameters
     ----------
-    portfolio
+    portfolio_returns
         Portfolio, for which mean return is calculated.
     """
 
-    freq = _get_freq(portfolio.returns)
-    return portfolio.returns.rolling(freq).mean()
+    freq = _get_freq(portfolio_returns)
+    return portfolio_returns.rolling(freq).mean()
 
 
-def excess_return(portfolio: HasReturns,
-                  benchmark: HasReturns) -> Union[int, float]:
+def excess_return(
+        portfolio_returns: pd.Series,
+        benchmark_returns: pd.Series
+) -> int | float:
     """
     Calculates mean excessive return of a `portfolio`.
 
@@ -246,19 +271,21 @@ def excess_return(portfolio: HasReturns,
 
     Parameters
     ----------
-    portfolio
+    portfolio_returns
         Portfolio, for which alpha is calculated.
-    benchmark
+    benchmark_returns
         Benchmark, which used as the alternative for the `portfolio`.
     """
 
-    mean_portfolio_return = mean_return(portfolio)
-    mean_benchmark_return = mean_return(benchmark)
+    mean_portfolio_return = mean_return(portfolio_returns)
+    mean_benchmark_return = mean_return(benchmark_returns)
     return mean_portfolio_return - mean_benchmark_return
 
 
-def rolling_excess_return(portfolio: HasReturns,
-                          benchmark: HasReturns) -> pd.Series:
+def rolling_excess_return(
+        portfolio_returns: pd.Series,
+        benchmark_returns: pd.Series
+) -> pd.Series:
     """
     Calculates rolling on 1 trading year mean excessive return of portfolio.
 
@@ -266,18 +293,18 @@ def rolling_excess_return(portfolio: HasReturns,
 
     Parameters
     ----------
-    portfolio
+    portfolio_returns
         Portfolio, for which rolling mean excessive return is calculated.
-    benchmark
+    benchmark_returns
         Benchmark, which used as the alternative for the `portfolio`.
     """
 
-    mean_portfolio_return = rolling_mean_return(portfolio)
-    mean_benchmark_return = rolling_mean_return(benchmark)
+    mean_portfolio_return = rolling_mean_return(portfolio_returns)
+    mean_benchmark_return = rolling_mean_return(benchmark_returns)
     return mean_portfolio_return - mean_benchmark_return
 
 
-def volatility(portfolio: HasReturns) -> Union[int, float]:
+def volatility(portfolio_returns: pd.Series) -> int | float:
     """
     Calculates volatility of returns of a `portfolio`.
 
@@ -287,14 +314,14 @@ def volatility(portfolio: HasReturns) -> Union[int, float]:
 
     Parameters
     ----------
-    portfolio
+    portfolio_returns
         Portfolio, for which volatility is calculated.
     """
 
-    return portfolio.returns.std()
+    return portfolio_returns.std()
 
 
-def rolling_volatility(portfolio: HasReturns) -> pd.Series:
+def rolling_volatility(portfolio_returns: pd.Series) -> pd.Series:
     """
     Calculates rolling on 1 trading year volatility of a `portfolio`.
 
@@ -302,16 +329,18 @@ def rolling_volatility(portfolio: HasReturns) -> pd.Series:
 
     Parameters
     ----------
-    portfolio
+    portfolio_returns
         Portfolio, for which volatility is calculated.
     """
 
-    freq = _get_freq(portfolio.returns)
-    return portfolio.returns.rolling(freq).std()
+    freq = _get_freq(portfolio_returns)
+    return portfolio_returns.rolling(freq).std()
 
 
-def benchmark_correlation(portfolio: HasReturns,
-                          benchmark: HasReturns) -> Union[int, float]:
+def benchmark_correlation(
+        portfolio_returns: pd.Series,
+        benchmark_returns: pd.Series
+) -> int | float:
     """
     Calculates correlation between a `portfolio` and a `benchmark`.
 
@@ -322,17 +351,19 @@ def benchmark_correlation(portfolio: HasReturns,
 
     Parameters
     ----------
-    portfolio
+    portfolio_returns
         Portfolio, for which correlation with the `benchmark` is calculated.
-    benchmark
+    benchmark_returns
         Benchmark, which used as the alternative for the `portfolio`.
     """
 
-    return portfolio.returns.corr(benchmark.returns)
+    return portfolio_returns.corr(benchmark_returns)
 
 
-def rolling_benchmark_correlation(portfolio: HasReturns,
-                                  benchmark: HasReturns) -> pd.Series:
+def rolling_benchmark_correlation(
+        portfolio_returns: pd.Series,
+        benchmark_returns: pd.Series
+) -> pd.Series:
     """
     Calculates rolling on 1 trading year correlation between portfolio and
     benchmark.
@@ -341,18 +372,19 @@ def rolling_benchmark_correlation(portfolio: HasReturns,
 
     Parameters
     ----------
-    portfolio
+    portfolio_returns
         Portfolio, for which rolling correlation with the `benchmark` is
         calculated.
-    benchmark
+    benchmark_returns
         Benchmark, which used as the alternative for the `portfolio`.
     """
 
-    freq = _get_freq(portfolio.returns)
-    return portfolio.returns.rolling(freq).corr(benchmark.returns)
+    freq = _get_freq(portfolio_returns.returns)
+    return portfolio_returns.returns.rolling(freq).corr(
+        benchmark_returns.returns)
 
 
-def profitable_periods_share(portfolio: HasReturns) -> Union[int, float]:
+def win_rate(portfolio_returns: pd.Series) -> int | float:
     """
     Calculates share of profitable periods of a `portfolio`.
 
@@ -363,16 +395,16 @@ def profitable_periods_share(portfolio: HasReturns) -> Union[int, float]:
 
     Parameters
     ----------
-    portfolio
+    portfolio_returns
         Portfolio, for which share of profitable periods is calculated.
     """
 
-    positive_periods = (portfolio.returns > 0).sum()
-    total_periods = np.size(portfolio.returns)
+    positive_periods = (portfolio_returns > 0).sum()
+    total_periods = np.size(portfolio_returns)
     return positive_periods / total_periods
 
 
-def rolling_profitable_periods_share(portfolio: HasReturns) -> pd.Series:
+def rolling_win_rate(portfolio_returns: pd.Series) -> pd.Series:
     """
     Calculates rolling on 1 trading year share of profitable periods of a
     `portfolio`.
@@ -381,16 +413,16 @@ def rolling_profitable_periods_share(portfolio: HasReturns) -> pd.Series:
 
     Parameters
     ----------
-    portfolio
+    portfolio_returns
         Portfolio, for which share of profitable periods is calculated.
     """
 
-    freq = _get_freq(portfolio.returns)
-    rolling_positive = (portfolio.returns > 0).rolling(freq).sum()
+    freq = _get_freq(portfolio_returns.returns)
+    rolling_positive = (portfolio_returns.returns > 0).rolling(freq).sum()
     return rolling_positive / freq
 
 
-def max_drawdown(portfolio: HasReturns) -> Union[int, float]:
+def max_drawdown(portfolio_returns: pd.Series) -> int | float:
     """
     Calculates maximum drawdown of a `portfolio`.
 
@@ -399,15 +431,15 @@ def max_drawdown(portfolio: HasReturns) -> Union[int, float]:
 
     Parameters
     ----------
-    portfolio
+    portfolio_returns
         Portfolio, for maximum drawdown is calculated.
     """
 
-    cumsum_returns = portfolio.returns.cumsum()
+    cumsum_returns = portfolio_returns.cumsum()
     return (cumsum_returns - cumsum_returns.cummax()).min()
 
 
-def rolling_max_drawdown(portfolio: HasReturns) -> pd.Series:
+def rolling_max_drawdown(portfolio_returns: pd.Series) -> pd.Series:
     """
     Calculates rolling on 1 trading year maximum drawdown of a `portfolio`.
 
@@ -415,16 +447,16 @@ def rolling_max_drawdown(portfolio: HasReturns) -> pd.Series:
 
     Parameters
     ----------
-    portfolio
+    portfolio_returns
         Portfolio, for which maximum drawdown is calculated.
     """
 
-    freq = _get_freq(portfolio.returns)
-    cumsum_returns = portfolio.returns.cumsum()
+    freq = _get_freq(portfolio_returns)
+    cumsum_returns = portfolio_returns.cumsum()
     return cumsum_returns.rolling(freq).apply(lambda x: (x - x.cummax()).min())
 
 
-def _get_freq(data: Union[pd.Series, pd.DataFrame]) -> int:
+def _get_freq(data: pd.Series | pd.DataFrame) -> int:
     """
     Extract inferred by pandas frequency of data to annualize metrics. Minimal
     supported frequency of data is daily, maximal - yearly.
@@ -454,31 +486,34 @@ def _get_freq(data: Union[pd.Series, pd.DataFrame]) -> int:
     return freq_num
 
 
-def _estimate_ols(portfolio: HasReturns,
-                  benchmark: HasReturns) -> sm_linear.RegressionResults:
+def _estimate_ols(
+        portfolio_returns: pd.Series,
+        benchmark_returns: pd.Series
+) -> sm_linear.RegressionResults:
     """
     Estimates simple linear regression (ordinary least squares) of portfolio
     returns per benchmark returns.
     """
 
-    portfolio_returns = portfolio.returns
-    start_trading = portfolio.returns.index[0]
-    benchmark_returns = benchmark.returns[start_trading:]
+    portfolio_returns = portfolio_returns
+    start_trading = portfolio_returns.index[0]
+    benchmark_returns = benchmark_returns[start_trading:]
     x = sm_tools.add_constant(benchmark_returns.values)
     return sm_linear.OLS(portfolio_returns.values, x).fit()
 
 
 def _estimate_rolling_ols(
-        portfolio: HasReturns,
-        benchmark: HasReturns) -> sm_rolling.RollingRegressionResults:
+        portfolio_returns: pd.Series,
+        benchmark_returns: pd.Series
+) -> sm_rolling.RollingRegressionResults:
     """
     Estimates rolling simple linear regression (ordinary least squares) of
     portfolio returns per benchmark returns. kek
     """
 
-    portfolio_returns = portfolio.returns
-    start_trading = portfolio.returns.index[0]
-    benchmark_returns = benchmark.returns[start_trading:]
+    portfolio_returns = portfolio_returns
+    start_trading = portfolio_returns.index[0]
+    benchmark_returns = benchmark_returns[start_trading:]
     x = sm_tools.add_constant(benchmark_returns.values)
     return sm_rolling.RollingOLS(portfolio_returns.values, x,
                                  window=_get_freq(portfolio_returns)).fit()
