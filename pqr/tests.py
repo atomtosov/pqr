@@ -50,8 +50,7 @@ def zero_intelligence_test(stock_prices: pd.DataFrame,
 
     random_portfolios = pqr.portfolios.generate_random_portfolios(
         stock_prices,
-        portfolio.picks,
-        ~stock_prices.isna(),
+        portfolio,
         **kwargs)
 
     target_values = pd.Series(

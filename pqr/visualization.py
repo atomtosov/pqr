@@ -24,14 +24,15 @@ def plot_cumulative_returns(
         benchmark_returns: Optional[pd.Series] = None
 ) -> None:
     """
-    Plots cumulative returns of `portfolios` and `benchmark`.
+    Plots cumulative returns of portfolios (optionally with a benchmark).
 
     Parameters
     ----------
     portfolios_returns
-        Portfolios, which cumulative returns are plotted.
+        Portfolios returns, which cumulative returns are plotted.
     benchmark_returns
-        Benchmark or portfolio to plot cumulative returns "reference point".
+        Benchmark or portfolio returns to plot cumulative returns
+        "reference point".
     """
 
     for portfolio_returns in portfolios_returns:
@@ -43,7 +44,7 @@ def plot_cumulative_returns(
             benchmark_returns)
         benchmark_cum_returns = (benchmark_cum_returns[start_trading:] -
                                  benchmark_cum_returns[start_trading])
-        benchmark_cum_returns.plot(color='gray', alpha=0.7)
+        benchmark_cum_returns.plot(color='gray', alpha=0.8)
 
     plt.title('Portfolio Cumulative Returns', fontsize=25)
     plt.grid()

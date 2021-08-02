@@ -25,11 +25,10 @@ only for long-only (not wml) portfolios.
 
 from __future__ import annotations
 
-from typing import Tuple, Optional, Any, List
+from typing import Protocol, Tuple, Optional, Any, List
 
 import numpy as np
 import pandas as pd
-import scipy.stats
 
 import pqr.factors
 
@@ -42,7 +41,7 @@ __all__ = [
 ]
 
 
-class AbstractPortfolio:
+class AbstractPortfolio(Protocol):
     """
     Abstract class for portfolios.
 
@@ -62,7 +61,7 @@ class AbstractPortfolio:
     """Periodical returns of the portfolio (non-cumulative)."""
 
     def __repr__(self) -> str:
-        return f'{type(self).__name__}({self.name})'
+        return f'{type(self).__name__}({repr(self.name)})'
 
     def __str__(self) -> str:
         return self.name
@@ -91,7 +90,7 @@ class Portfolio(AbstractPortfolio):
             factor: pqr.factors.Factor,
             thresholds: Tuple[int | float, int | float],
             method: str = 'quantile'
-    ) -> None:
+    ) -> Portfolio:
         """
         Picks subset of stocks into the portfolio, choosing them by `factor`.
 
@@ -116,25 +115,28 @@ class Portfolio(AbstractPortfolio):
 
         if method == 'quantile':
             lower_threshold, upper_threshold = np.nanquantile(
-                factor, thresholds,
-                axis=1, keepdims=True
+                factor, thresholds, axis=1, keepdims=True
             )
         elif method == 'top':
-            factor = pd.DataFrame(
-                scipy.stats.rankdata(factor, axis=1, method='min'),
-                index=factor.index, columns=factor.columns
+            lower_threshold = np.nanmin(
+                factor.apply(pd.Series.nlargest, n=thresholds[1], axis=1),
+                axis=1, keepdims=True
             )
-            lower_threshold, upper_threshold = thresholds
+            upper_threshold = np.nanmin(
+                factor.apply(pd.Series.nlargest, n=thresholds[0], axis=1),
+                axis=1, keepdims=True
+            )
         else:  # method = 'time-series'
             lower_threshold, upper_threshold = thresholds
 
         self.picks = (lower_threshold <= factor) & (factor <= upper_threshold)
 
+        return self
+
     def weigh_by_factor(
             self,
-            factor: pqr.factors.Factor,
-            is_bigger_better: bool = True
-    ) -> None:
+            factor: pqr.factors.Factor
+    ) -> Portfolio:
         """
         Weighs the `picks` by `factor`.
 
@@ -146,38 +148,35 @@ class Portfolio(AbstractPortfolio):
         ----------
         factor
             Factor to weigh picks.
-        is_bigger_better
-            Whether bigger values of `factor` will lead to bigger weights for a
-            position or on the contrary to lower.
 
         Notes
         -----
         Works only for factors with all positive values.
         """
 
-        raw_weights = self.picks * factor.data
-        normalizer = raw_weights.sum(axis=1).values[:, np.newaxis]
-        weights = (raw_weights / normalizer).fillna(0)
-        if not is_bigger_better:
-            weights = _ranked_reverse(weights)
+        raw_weights = self.picks * factor.data.loc[self.picks.index[0]:]
+        normalizer = np.nansum(raw_weights, axis=1, keepdims=True)
 
-        self.weights = weights
+        self.weights = (raw_weights / normalizer).fillna(0)
 
-    def weigh_equally(self) -> None:
+        return self
+
+    def weigh_equally(self) -> Portfolio:
         """
         Weighs the `picks` equally: all stocks will have the same weights.
         """
 
         raw_weights = self.picks * np.ones_like(self.picks, dtype=int)
-        normalizer = raw_weights.sum(axis=1).values[:, np.newaxis]
+        normalizer = np.nansum(raw_weights, axis=1, keepdims=True)
         self.weights = (raw_weights / normalizer).fillna(0)
+
+        return self
 
     def scale_weights_by_factor(
             self,
             factor: pqr.factors.Factor,
-            target: int | float = 1,
-            is_bigger_better: bool = True
-    ) -> None:
+            target: int | float = 1
+    ) -> Portfolio:
         """
         Scale the `weights` by `target` of `factor`.
 
@@ -189,9 +188,6 @@ class Portfolio(AbstractPortfolio):
         ----------
         factor
             Factor to scale (leverage) positions weights.
-        is_bigger_better
-            Whether bigger values of `factor` will lead to bigger leverage for
-            a position or on the contrary to lower.
         target
             Target of `factor`.
 
@@ -201,17 +197,17 @@ class Portfolio(AbstractPortfolio):
         """
 
         leveraged_weights = self.weights * factor / target
-        if not is_bigger_better:
-            leveraged_weights = _ranked_reverse(leveraged_weights)
 
         self.weights = leveraged_weights
+
+        return self
 
     def allocate(
             self,
             stock_prices: pd.DataFrame,
             balance: Optional[int | float] = None,
             fee_rate: int | float = 0
-    ) -> None:
+    ) -> Portfolio:
         """
         Allocates positions, based on `weights`.
 
@@ -244,13 +240,15 @@ class Portfolio(AbstractPortfolio):
 
         self.returns.name = self.name
 
+        return self
+
     def _allocate_relatively(
             self,
             stock_prices: pd.DataFrame,
             fee_rate: int | float
     ) -> None:
         """
-        Allocates positions relatively (without money).
+        Allocates positions relatively (theoretically).
         """
 
         stock_prices = stock_prices.loc[self.weights.index[0]:]
@@ -380,7 +378,7 @@ class RandomPortfolio(AbstractPortfolio):
             self,
             picks: pd.DataFrame,
             mask: Optional[pd.DataFrame] = None
-    ) -> None:
+    ) -> RandomPortfolio:
         """
         Pick stocks randomly, but in the same quantity as in the `picks`.
 
@@ -405,68 +403,73 @@ class RandomPortfolio(AbstractPortfolio):
                         indices=np.indices((picks.shape[1],))[0]):
             picked = (row > 0).sum()
             choice = np.random.choice(indices[~np.isnan(row)], picked)
-            picks = np.zeros_like(row, dtype=bool)
-            picks[choice] = True
-            return picks
+            random_picks = np.zeros_like(row, dtype=bool)
+            random_picks[choice] = True
+            return random_picks
 
         self._portfolio.picks = pd.DataFrame(
             np.apply_along_axis(random_pick, axis=1, arr=picks.values),
             index=picks.index, columns=picks.columns
         )
 
+        return self
+
     def weigh_by_factor(
             self,
-            factor: pqr.factors.Factor,
-            is_bigger_better: bool = True
-    ) -> None:
+            factor: pqr.factors.Factor
+    ) -> RandomPortfolio:
         """
         See Portfolio.weigh_by_factor().
         """
 
-        self._portfolio.weigh_by_factor(factor, is_bigger_better)
+        self._portfolio.weigh_by_factor(factor)
 
-    def weigh_equally(self) -> None:
+        return self
+
+    def weigh_equally(self) -> RandomPortfolio:
         """
         See Portfolio.weigh_equally().
         """
 
         self._portfolio.weigh_equally()
 
+        return self
+
     def scale_weights_by_factor(
             self,
             factor: pqr.factors.Factor,
-            target: int | float = 1,
-            is_bigger_better: bool = True
-    ) -> None:
+            target: int | float = 1
+    ) -> RandomPortfolio:
         """
         See Portfolio.scale_weights_by_factor().
         """
 
-        self._portfolio.scale_weights_by_factor(factor, target,
-                                                is_bigger_better)
+        self._portfolio.scale_weights_by_factor(factor, target)
+
+        return self
 
     def allocate(
             self,
             stock_prices: pd.DataFrame,
             balance: Optional[int | float] = None,
             fee_rate: int | float = 0
-    ) -> None:
+    ) -> RandomPortfolio:
         """
         See Portfolio.allocate().
         """
 
         self._portfolio.allocate(stock_prices, balance, fee_rate)
 
+        return self
+
 
 def generate_random_portfolios(
         stock_prices: pd.DataFrame,
-        picks: pd.DataFrame,
-        mask: Optional[pd.DataFrame],
+        portfolio: Portfolio,
+        mask: Optional[pd.DataFrame] = None,
         weighting_factor: Optional[pqr.factors.Factor] = None,
-        is_weighting_factor_bigger_better: bool = True,
         scaling_factor: Optional[pqr.factors.Factor] = None,
         target: int | float = 1,
-        is_scaling_factor_bigger_better: bool = True,
         balance: Optional[int | float] = None,
         fee_rate: int | float = 0,
         n: int = 100,
@@ -479,24 +482,18 @@ def generate_random_portfolios(
     ----------
     stock_prices
         Prices, representing stock universe.
-    picks
-        Picks of a portfolio to be replicated by random ones.
+    portfolio
+        Portfolio to be replicated by random ones.
     mask
         Matrix to filter stock universe. By default, stocks which are not
         available for trading are excluded, so there is no necessity to pass
         this mask, if specific filter is not used.
     weighting_factor
         Factor, weighting positions. If not given, just weigh equally.
-    is_weighting_factor_bigger_better
-        Whether bigger values of `weighting_factor` will lead to bigger weights
-        for a position or on the contrary to lower.
     scaling_factor
         Factor to scale (leverage) positions weights.
     target
         Target of `scaling_factor`.
-    is_scaling_factor_bigger_better
-        Whether bigger values of `factor` will lead to bigger leverage for
-        a position or on the contrary to lower.
     balance
         Initial balance of the portfolio.
     fee_rate
@@ -509,7 +506,7 @@ def generate_random_portfolios(
 
     np.random.seed(random_seed)
 
-    picks = picks.astype(float)
+    picks = portfolio.picks.astype(float)
     picks[stock_prices.isna()] = np.nan
     if mask is not None:
         picks[~mask] = np.nan
@@ -519,13 +516,11 @@ def generate_random_portfolios(
         random_portfolio = RandomPortfolio()
         random_portfolio.pick_stocks_randomly(picks)
         if weighting_factor is not None:
-            random_portfolio.weigh_by_factor(weighting_factor,
-                                             is_weighting_factor_bigger_better)
+            random_portfolio.weigh_by_factor(weighting_factor)
         else:
             random_portfolio.weigh_equally()
         if scaling_factor is not None:
-            random_portfolio.scale_weights_by_factor(
-                scaling_factor, target, is_scaling_factor_bigger_better)
+            random_portfolio.scale_weights_by_factor(scaling_factor, target)
         random_portfolio.allocate(stock_prices, balance, fee_rate)
 
         portfolios.append(random_portfolio)
@@ -539,9 +534,9 @@ def _ranked_reverse(data: pd.DataFrame) -> pd.DataFrame:
     """
 
     data = data.copy()
-    straight_sort = np.argsort(data, axis=1)
+    straight_sort = np.argsort(data.values, axis=1)
     reversed_sort = np.fliplr(straight_sort)
     for i in range(len(data)):
-        data[i, straight_sort[i]] = data[i, reversed_sort[i]]
+        data.values[i, straight_sort[i]] = data.values[i, reversed_sort[i]]
 
     return data

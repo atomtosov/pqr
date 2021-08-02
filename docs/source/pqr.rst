@@ -14,14 +14,6 @@ pqr.preprocessing module
    :undoc-members:
    :show-inheritance:
 
-pqr.thresholds module
----------------------
-
-.. automodule:: pqr.thresholds
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
 pqr.factors module
 ------------------
 

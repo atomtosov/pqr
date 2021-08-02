@@ -39,7 +39,6 @@ def fit_factor_model(
         stock_prices: pd.DataFrame,
         factor: pqr.factors.Factor,
         weighting_factor: Optional[pqr.factors.Factor] = None,
-        is_weighting_factor_bigger_better: bool = True,
         balance: Optional[int | float] = None,
         fee_rate: int | float = 0,
         quantiles: int = 3,
@@ -47,6 +46,10 @@ def fit_factor_model(
         is_bigger_better: bool = True
 ) -> List[pqr.portfolios.AbstractPortfolio]:
     """
+    Fits factor model with quantile-method.
+
+    Creates `quantiles` portfolios, covering all stock universe and
+    (optionally) add wml-portfolio.
 
     Parameters
     ----------
@@ -56,9 +59,6 @@ def fit_factor_model(
         Factor to pick stocks into the portfolio.
     weighting_factor
         Factor to weigh picks.
-    is_weighting_factor_bigger_better
-        Whether bigger values of `weighting_factor` will lead to bigger weights
-        for a position or on the contrary to lower.
     balance
         Initial balance of the portfolio.
     fee_rate
@@ -80,8 +80,7 @@ def fit_factor_model(
         portfolio.pick_stocks_by_factor(factor, q)
 
         if weighting_factor is not None:
-            portfolio.weigh_by_factor(factor,
-                                      is_weighting_factor_bigger_better)
+            portfolio.weigh_by_factor(factor)
         else:
             portfolio.weigh_equally()
 
@@ -105,6 +104,19 @@ def calculate_portfolios_summary_stats(
         *portfolios: pqr.portfolios.AbstractPortfolio,
         benchmark: pqr.benchmarks.Benchmark
 ) -> pd.DataFrame:
+    """
+    Calculates portfolios summary statistics and gather them into a table.
+
+    See function pqr.metrics.summary().
+
+    Parameters
+    ----------
+    portfolios
+        Portfolios, for which summary stats are calculated.
+    benchmark
+        Benchmark to compute some metrics.
+    """
+
     stats = pd.DataFrame(
         [pqr.metrics.summary(p.returns, benchmark.returns) for p in portfolios]
     ).T.round(2)
@@ -115,6 +127,22 @@ def factor_model_tear_sheet(
         *portfolios: pqr.portfolios.AbstractPortfolio,
         benchmark: pqr.benchmarks.Benchmark,
 ) -> pd.DataFrame:
+    """
+    Shows the performance assessment of a factor model' portfolios.
+
+    For now:
+
+    * shows summary stats table
+    * plots cumulative returns
+
+    Parameters
+    ----------
+    portfolios
+        Portfolios, included into the factor model.
+    benchmark
+        Benchmark to compute some metrics.
+    """
+
     stats = calculate_portfolios_summary_stats(*portfolios,
                                                benchmark=benchmark)
     pqr.visualization.plot_cumulative_returns(

@@ -13,7 +13,7 @@ factors with looking, lag and holding periods to avoid it.
 Factors can be dynamic or static. Static factor is a factor, for which is not
 necessary to calculate the change, its value can be compared across the stocks
 straightly (e.g. P/E). Dynamic factor is a factor, which values must be
-recalculated to get the percentage change to work with them (e.g. Momentum).
+recalculated to get the percentage changes to work with them (e.g. Momentum).
 Start of testing for dynamic factors will be 1 period later to avoid look-ahead
 bias.
 
@@ -27,12 +27,8 @@ weighting and scaling (leveraging) of positions in a portfolio.
 
 from __future__ import annotations
 
-import functools as ft
-from typing import Optional
-
 import numpy as np
 import pandas as pd
-
 
 __all__ = [
     'Factor',
@@ -49,6 +45,9 @@ class Factor:
         Matrix of factor values.
     """
 
+    data: pd.DataFrame
+    """Factor values."""
+
     def __init__(self, data: pd.DataFrame):
         self.data = data.copy()
 
@@ -58,7 +57,7 @@ class Factor:
             looking_back_period: int = 1,
             lag_period: int = 0,
             holding_period: int = 1
-    ) -> None:
+    ) -> Factor:
         """
         Transforms `factor` into appropriate for decision-making format.
 
@@ -78,15 +77,15 @@ class Factor:
             Number of periods to hold each `factor` value.
         """
 
-        self.look_back(is_dynamic, looking_back_period)
-        self.lag(lag_period)
-        self.fill_forward(holding_period)
+        return (self.look_back(is_dynamic, looking_back_period)
+                .lag(lag_period)
+                .fill_forward(holding_period))
 
     def look_back(
             self,
             is_dynamic: bool = False,
             period: int = 1
-    ) -> None:
+    ) -> Factor:
         """
         Looks back on `factor` for `period` periods.
 
@@ -116,7 +115,9 @@ class Factor:
 
         self.data = self.data.iloc[period:]
 
-    def lag(self, period: int = 0) -> None:
+        return self
+
+    def lag(self, period: int = 0) -> Factor:
         """
         Simply shifts the `factor` for `period` periods.
 
@@ -130,11 +131,13 @@ class Factor:
 
         self.data = self.data.shift(period).iloc[period:]
 
-    def fill_forward(self, period: int = 1) -> None:
+        return self
+
+    def fill_forward(self, period: int = 1) -> Factor:
         """
         Fills forward row-wise `factor` with the periodicity of `period`.
 
-        Can be used to simulate periodical updates  of `factor`.
+        Can be used to simulate periodical updates of `factor`.
 
         Parameters
         ----------
@@ -143,7 +146,7 @@ class Factor:
         """
 
         if period == 1:
-            return
+            return self
 
         all_periods = np.zeros(len(self.data), dtype=int)
         update_periods = np.arange(len(self.data), step=period)
@@ -153,10 +156,12 @@ class Factor:
         self.data.values[:] = np.take_along_axis(self.data.values,
                                                  update_mask, axis=0)
 
+        return self
+
     def prefilter(
             self,
             mask: pd.DataFrame
-    ) -> None:
+    ) -> Factor:
         """
         Filters the `factor` by given `mask`.
 
@@ -172,24 +177,4 @@ class Factor:
 
         self.data[~mask] = np.nan
 
-
-###############################################################################
-
-
-def _validate_data_and_factor_data(func):
-    """
-    Decorator, fixing the problem of different shapes of transformed factor and
-    passed data.
-    """
-
-    @ft.wraps(func)
-    def validated_func(data: pd.DataFrame,
-                       factor: Optional[pd.DataFrame] = None,
-                       *args, **kwargs):
-        if factor is not None:
-            min_index = max(data.index[0], factor.index[0])
-            data = data.loc[min_index:]
-            factor = factor.loc[min_index:]
-        return func(data, factor, *args, **kwargs)
-
-    return validated_func
+        return self

@@ -13,12 +13,19 @@ used as benchmarks for calculating metrics/plotting the performance. If you
 want to create benchmark with selecting stocks, just construct the portfolio.
 """
 
+from __future__ import annotations
+
 from typing import Optional
 
 import numpy as np
 import pandas as pd
 
+import pqr.factors
 import pqr.portfolios
+
+__all__ = [
+    'Benchmark',
+]
 
 
 class Benchmark:
@@ -32,18 +39,22 @@ class Benchmark:
     """
 
     name: str
+    """Name of the benchmark."""
     returns: pd.Series
+    """Periodical returns of the benchmark (non-cumulative)."""
 
     def __init__(self, name: str = 'benchmark'):
         self.name = name
 
+        self.returns = pd.Series()
+
     def __repr__(self) -> str:
-        return f'Benchmark({self.name})'
+        return f'Benchmark({repr(self.name)})'
 
     def __str__(self) -> str:
         return self.name
 
-    def from_index(self, index_values: pd.Series) -> None:
+    def from_index(self, index_values: pd.Series) -> Benchmark:
         """
         Creates benchmark from existing index (e.g. S&P500 or IMOEX).
 
@@ -57,24 +68,26 @@ class Benchmark:
         self.returns = index_values.pct_change()
         self.returns.name = self.name
 
+        return self
+
     def from_stock_universe(
             self,
             stock_prices: pd.DataFrame,
             mask: Optional[pd.DataFrame] = None,
             weighting_factor: Optional[pqr.factors.Factor] = None,
             is_bigger_better: bool = True,
-    ) -> None:
+    ) -> Benchmark:
         """
         Creates benchmark from stock universe.
 
-        This type of benchmark should be used, when there is no relevant index
-        to compare with portfolios (e.g. if stock universe is too specific or
-        just is severe filtrated). In other cases it is highly recommended to
-        download data for existing benchmark, because it is really hard to
-        accurately replicate any real stock index with factors.
+        This type of a benchmark should be used, when there is no relevant
+        index to compare with portfolios (e.g. if stock universe is too
+        specific or just is severe filtered). In other cases it is highly
+        recommended to download data for some existing benchmark, because it is
+        really hard to accurately replicate any real stock index.
 
-        To build benchmark from stock universe you can use filtration and
-        weighting, but not selecting the stocks. If selecting is needed, just
+        To build a benchmark from stock universe you can use filtration and
+        weighting, but not picking the stocks. If picking is needed, just
         construct the portfolio, it also can be used as benchmark.
 
         Parameters
@@ -107,8 +120,9 @@ class Benchmark:
         else:
             benchmark_portfolio.weigh_equally()
 
-        universe_returns = stock_prices.pct_change().shift(-1)
-        weights = benchmark_portfolio.weights
+        benchmark_portfolio.allocate(stock_prices)
 
-        self.returns = (weights * universe_returns).shift().sum(axis=1)
+        self.returns = benchmark_portfolio.returns
         self.returns.name = self.name
+
+        return self
