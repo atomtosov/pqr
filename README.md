@@ -41,21 +41,19 @@ prices, pe, volume = pqr.replace_with_nan(prices, pe, volume,
 # go to factors
 value = pqr.Factor(pe)
 value.transform(
-    is_dynamic=False,
     looking_back_period=3,
+    method='static',
     lag_period=0,
     holding_period=3
 )
 
-liquidity = pqr.Factor(volume)
-liquidity.look_back()
+liquidity = pqr.Factor(volume).look_back()
 liquidity_filter = liquidity.data >= 10_000_000
 
 value.prefilter(liquidity_filter)
 
 # create custom benchmark from liquid stocks with equal weights
-benchmark = pqr.Benchmark()
-benchmark.from_stock_universe(
+benchmark = pqr.Benchmark().from_stock_universe(
     prices,
     liquidity_filter
 )

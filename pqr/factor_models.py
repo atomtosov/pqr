@@ -18,7 +18,7 @@ method, provided by grid_search() function.
 
 from __future__ import annotations
 
-from typing import Tuple, List, Optional, Iterable, Dict
+from typing import Tuple, List, Optional, Iterable, Dict, Literal
 
 import numpy as np
 import pandas as pd
@@ -118,8 +118,7 @@ def calculate_portfolios_summary_stats(
     """
 
     stats = pd.DataFrame(
-        [pqr.metrics.summary(p.returns, benchmark.returns) for p in portfolios]
-    ).T.round(2)
+        [pqr.metrics.summary(p, benchmark) for p in portfolios]).T.round(2)
     return stats
 
 
@@ -145,18 +144,15 @@ def factor_model_tear_sheet(
 
     stats = calculate_portfolios_summary_stats(*portfolios,
                                                benchmark=benchmark)
-    pqr.visualization.plot_cumulative_returns(
-        *[p.returns for p in portfolios],
-        benchmark_returns=benchmark.returns
-    )
+    pqr.visualization.plot_cumulative_returns(*portfolios, benchmark=benchmark)
     return stats
 
 
 def grid_search(
         stock_prices: pd.DataFrame,
         factor: pd.DataFrame,
-        is_dynamic: bool,
-        looking_periods: Iterable[int],
+        looking_back_periods: Iterable[int],
+        method: Literal['static', 'dynamic'],
         lag_periods: Iterable[int],
         holding_periods: Iterable[int],
         benchmark: pqr.benchmarks.Benchmark,
@@ -175,11 +171,11 @@ def grid_search(
         Prices, representing stock universe.
     factor
         Factor, used to pick stocks from (filtered) stock universe.
-    is_dynamic
+    looking_back_periods
+        Looking back periods for `factor` to be tested.
+    method
         Whether absolute values of `factor` are used to make decision or
         their percentage changes.
-    looking_periods
-        Looking periods for `factor` to be tested.
     lag_periods
         Lag periods for `factor` to be tested.
     holding_periods
@@ -194,11 +190,11 @@ def grid_search(
     """
 
     results = {}
-    for looking in looking_periods:
+    for looking in looking_back_periods:
         for lag in lag_periods:
             for holding in holding_periods:
                 transformed_factor = pqr.factors.Factor(factor)
-                transformed_factor.transform(is_dynamic, looking, lag, holding)
+                transformed_factor.transform(looking, method, lag, holding)
                 if mask is not None:
                     transformed_factor.prefilter(mask)
                 portfolios = fit_factor_model(stock_prices, transformed_factor,

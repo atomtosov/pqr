@@ -23,8 +23,9 @@ __all__ = [
 
 def zero_intelligence_test(stock_prices: pd.DataFrame,
                            portfolio: pqr.portfolios.Portfolio,
-                           target_metric: Callable[[pd.Series],
-                                                   Union[int, float]],
+                           target_metric: Callable[
+                               [pqr.portfolios.AbstractPortfolio],
+                               Union[int, float]],
                            quantiles: int = 10,
                            **kwargs) -> Tuple[pd.Series, np.ndarray]:
     """
@@ -54,7 +55,7 @@ def zero_intelligence_test(stock_prices: pd.DataFrame,
         **kwargs)
 
     target_values = pd.Series(
-        [target_metric(p.returns) for p in random_portfolios])
+        [target_metric(p) for p in random_portfolios])
 
     indices = []
     for q in np.linspace(0, 1, quantiles):

@@ -10,38 +10,37 @@ developed in future.
 from typing import Optional
 
 import matplotlib.pyplot as plt
-import pandas as pd
 
 __all__ = [
     'plot_cumulative_returns',
 ]
 
 import pqr.metrics
+import pqr.portfolios
+import pqr.benchmarks
 
 
 def plot_cumulative_returns(
-        *portfolios_returns: pd.Series,
-        benchmark_returns: Optional[pd.Series] = None
+        *portfolios: pqr.portfolios.AbstractPortfolio,
+        benchmark: Optional[pqr.benchmarks.Benchmark] = None
 ) -> None:
     """
     Plots cumulative returns of portfolios (optionally with a benchmark).
 
     Parameters
     ----------
-    portfolios_returns
-        Portfolios returns, which cumulative returns are plotted.
-    benchmark_returns
-        Benchmark or portfolio returns to plot cumulative returns
-        "reference point".
+    portfolios
+        Portfolios, which cumulative returns are plotted.
+    benchmark
+        Benchmark or portfolio to plot cumulative returns "reference point".
     """
 
-    for portfolio_returns in portfolios_returns:
-        pqr.metrics.cumulative_returns(portfolio_returns).plot()
+    for portfolio in portfolios:
+        pqr.metrics.cumulative_returns(portfolio).plot()
 
-    if benchmark_returns is not None:
-        start_trading = portfolios_returns[0].index[0]
-        benchmark_cum_returns = pqr.metrics.cumulative_returns(
-            benchmark_returns)
+    if benchmark is not None:
+        start_trading = portfolios[0].returns.index[0]
+        benchmark_cum_returns = pqr.metrics.cumulative_returns(benchmark)
         benchmark_cum_returns = (benchmark_cum_returns[start_trading:] -
                                  benchmark_cum_returns[start_trading])
         benchmark_cum_returns.plot(color='gray', alpha=0.8)
