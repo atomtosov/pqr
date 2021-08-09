@@ -1037,10 +1037,10 @@ def _volatility(returns: pd.Series) -> int | float:
 
 
 def _max_drawdown(returns: pd.Series) -> int | float:
-    cum_returns = _cumulative_returns(returns)
-    high_water_mark = cum_returns.cummax()
-    drawdown = (high_water_mark - cum_returns) / high_water_mark
-    return -drawdown.max()
+    equity_curve = _cumulative_returns(returns) + 1
+    high_water_mark = equity_curve.cummax()
+    drawdown = (high_water_mark - equity_curve) / high_water_mark
+    return -drawdown[np.isfinite(drawdown)].max()
 
 
 def _win_rate(returns: pd.Series) -> int | float:
@@ -1086,7 +1086,7 @@ def _sharpe_ratio(
         risk_free_rate: int | float | pd.Series = 0
 ) -> int | float:
     adjusted_returns = _adjust_returns(returns, risk_free_rate)
-    annualization_rate = _get_annualization_factor(adjusted_returns)
+    annualization_rate = np.sqrt(_get_annualization_factor(adjusted_returns))
     return (_mean_return(adjusted_returns) / _volatility(adjusted_returns) *
             annualization_rate)
 
@@ -1163,7 +1163,7 @@ def _alpha_beta(
                                                  risk_free_rate)
     trading_available = adjusted_returns.index.intersection(
         adjusted_benchmark_returns.index)
-    adjusted_benchmark_returns = adjusted_returns[trading_available]
+    adjusted_benchmark_returns = adjusted_benchmark_returns[trading_available]
     x = sm_tools.add_constant(adjusted_benchmark_returns)
     est = sm_linear.OLS(adjusted_returns, x).fit()
     return est.params
