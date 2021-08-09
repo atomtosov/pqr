@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -7,7 +9,7 @@ from pqr import Factor, Portfolio
 
 
 @pytest.mark.parametrize(
-    ['data', 'picks', 'expected'],
+    ['data', 'target', 'weights', 'expected'],
     [
         # test 1
         pytest.param(
@@ -15,15 +17,16 @@ from pqr import Factor, Portfolio
                           [4, 5, 6],
                           [7, 8, 9],
                           [10, 11, 12]]),
-            pd.DataFrame([[True, False, False],
-                          [True, False, False],
-                          [True, False, False],
-                          [True, False, False]]),
+            10,
             pd.DataFrame([[1, 0, 0],
                           [1, 0, 0],
                           [1, 0, 0],
                           [1, 0, 0]]),
-            id='all weights are equal to 1'
+            pd.DataFrame([[0.1, 0, 0],
+                          [0.4, 0, 0],
+                          [0.7, 0, 0],
+                          [1, 0, 0]]),
+            id='simple scaling'
         ),
         # test 2
         pytest.param(
@@ -31,15 +34,16 @@ from pqr import Factor, Portfolio
                           [4, 5, 6],
                           [7, 8, 9],
                           [10, 11, 12]]),
-            pd.DataFrame([[True, True, False],
-                          [True, True, False],
-                          [True, True, False],
-                          [True, True, False]]),
+            5,
             pd.DataFrame([[1 / 3, 2 / 3, 0],
                           [4 / 9, 5 / 9, 0],
                           [7 / 15, 8 / 15, 0],
                           [10 / 21, 11 / 21, 0]]),
-            id='different weights'
+            pd.DataFrame([[1 / 15, 4 / 15, 0],
+                          [16 / 45, 5 / 9, 0],
+                          [49 / 75, 64 / 75, 0],
+                          [20 / 21, 121 / 105, 0]]),
+            id='different scales'
         ),
         # test 3
         pytest.param(
@@ -47,25 +51,27 @@ from pqr import Factor, Portfolio
                           [4, np.nan, 6],
                           [7, 8, 9],
                           [np.nan, np.nan, 12]]),
-            pd.DataFrame([[True, True, False],
-                          [True, True, False],
-                          [True, True, False],
-                          [True, True, False]]),
-            pd.DataFrame([[0, 1, 0],
+            10,
+            pd.DataFrame([[1, 0, 0],
                           [1, 0, 0],
                           [7 / 15, 8 / 15, 0],
                           [0, 0, 0]]),
-            id='different weights with nans'
+            pd.DataFrame([[0, 0, 0],
+                          [0.4, 0, 0],
+                          [49 / 150, 64 / 150, 0],
+                          [0, 0, 0]]),
+            id='different scales with nans'
         ),
     ]
 )
-def test_weighing_by_factor(
+def test_scaling_by_factor(
         data: pd.DataFrame,
-        picks: pd.DataFrame,
+        weights: pd.DataFrame,
+        target: int | float,
         expected: pd.DataFrame
 ):
     portfolio = Portfolio()
-    portfolio.picks = picks
+    portfolio.weights = weights
     factor = Factor(data)
-    portfolio.weigh_by_factor(factor)
+    portfolio.scale_weights_by_factor(factor, target)
     assert_allclose(portfolio.weights, expected)

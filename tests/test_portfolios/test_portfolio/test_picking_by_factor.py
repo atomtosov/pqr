@@ -1,3 +1,7 @@
+from __future__ import annotations
+
+from typing import Tuple, Literal
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -6,80 +10,96 @@ from numpy.testing import assert_allclose
 from pqr import Factor, Portfolio
 
 
-test_data = [
-    # test 1: factor q(0, 1/2) equal matrices
-    pytest.param(
-        pd.DataFrame([[1, 1, 1, 1],
-                      [1, 1, 1, 1],
-                      [1, 1, 1, 1],
-                      [1, 1, 1, 1],
-                      [1, 1, 1, 1]]),
-        Factor(pd.DataFrame([[1, 2, 3, 4],
-                             [2, 4, 6, 8],
-                             [6, 8, 12, 16],
-                             [12, 16, 24, 32],
-                             [24, 32, 72, 96]])),
-        Quantiles(0, 1 / 2),
-        pd.DataFrame([[True, True, False, False],
-                      [True, True, False, False],
-                      [True, True, False, False],
-                      [True, True, False, False],
-                      [True, True, False, False]]),
-        id='factor q(0, 1/2) equal matrices'
-    ),
-    # test 2: factor q(0, 1/2) not equal matrices
-    pytest.param(
-        pd.DataFrame([[1, 1, 1, 1],
-                      [1, 1, 1, 1],
-                      [1, 1, 1, 1],
-                      [1, 1, 1, 1],
-                      [1, 1, 1, 1]]),
-        Factor(pd.DataFrame([[1, 6, 11, 16],
-                             [2, 7, 12, 17],
-                             [3, 8, 13, 18],
-                             [4, 9, 14, 19],
-                             [5, 10, 15, 20]]).shift().dropna()),
-        Quantiles(0, 1 / 2),
-        pd.DataFrame([[True, True, False, False],
-                      [True, True, False, False],
-                      [True, True, False, False],
-                      [True, True, False, False]]),
-        id='factor q(0, 1/2) not equal matrices'
-    ),
-    # test 3: factor q(0, 1/2) not equal matrices + corrupted prices
-    pytest.param(
-        pd.DataFrame([[1, 1, 1, 1],
-                      [1, 1, 1, 1],
-                      [1, 1, 1, 1],
-                      [1, np.nan, 1, 1],
-                      [np.nan, 1, 1, 1]]),
-        Factor(pd.DataFrame([[1, 6, 11, 16],
-                             [2, 7, 12, 17],
-                             [3, 8, 13, 18],
-                             [4, 9, 14, 19],
-                             [5, 10, 15, 20]]).shift().dropna()),
-        Quantiles(0, 1 / 2),
-        pd.DataFrame([[True, True, False, False],
-                      [True, True, False, False],
-                      [True, False, True, False],
-                      [False, True, True, False]]),
-        id='factor q(0, 1/2) not equal matrices + corrupted prices'
-    ),
-]
-
-
 @pytest.mark.parametrize(
-    'prices, factor, thresholds, expected',
-    test_data
+    ['data', 'thresholds', 'method', 'expected'],
+    [
+        # test 1
+        pytest.param(
+            pd.DataFrame([[1, 2, 3],
+                          [4, 5, 6],
+                          [7, 8, 9],
+                          [10, 11, 12]]),
+            (0, 1/3), 'quantile',
+            pd.DataFrame([[True, False, False],
+                          [True, False, False],
+                          [True, False, False],
+                          [True, False, False]]),
+            id='q(0, 1/3)'
+        ),
+        # test 2
+        pytest.param(
+            pd.DataFrame([[np.nan, 2, 3],
+                          [4, np.nan, 6],
+                          [7, 8, 9],
+                          [np.nan, np.nan, 12]]),
+            (0, 1/2), 'quantile',
+            pd.DataFrame([[False, True, False],
+                          [True, False, False],
+                          [True, True, False],
+                          [False, False, True]]),
+            id='q(0, 1/2) with nans'
+        ),
+        # test 3
+        pytest.param(
+            pd.DataFrame([[1, 2, 3],
+                          [4, 5, 6],
+                          [7, 8, 9],
+                          [10, 11, 12]]),
+            (1, 2), 'top',
+            pd.DataFrame([[False, True, True],
+                          [False, True, True],
+                          [False, True, True],
+                          [False, True, True]]),
+            id='top(1, 2)'
+        ),
+        # test 4
+        pytest.param(
+            pd.DataFrame([[np.nan, 2, 3],
+                          [4, np.nan, 6],
+                          [7, 8, 9],
+                          [np.nan, np.nan, 12]]),
+            (1, 2), 'top',
+            pd.DataFrame([[False, True, True],
+                          [True, False, True],
+                          [False, True, True],
+                          [False, False, True]]),
+            id='top(1, 2) with nans'
+        ),
+        # test 5
+        pytest.param(
+            pd.DataFrame([[1, 2, 3],
+                          [4, 5, 6],
+                          [7, 8, 9],
+                          [10, 11, 12]]),
+            (2, 8), 'time-series',
+            pd.DataFrame([[False, True, True],
+                          [True, True, True],
+                          [True, True, False],
+                          [False, False, False]]),
+            id='time-series(2, 8)'
+        ),
+        # test 6
+        pytest.param(
+            pd.DataFrame([[np.nan, 2, 3],
+                          [4, np.nan, 6],
+                          [7, 8, 9],
+                          [np.nan, np.nan, 12]]),
+            (2, 8), 'time-series',
+            pd.DataFrame([[False, True, True],
+                          [True, False, True],
+                          [True, True, False],
+                          [False, False, False]]),
+            id='time-series(2, 8) with nans'
+        ),
+    ]
 )
-def test_selecting_by_factor(
-        prices: pd.DataFrame,
-        factor: Factor,
-        thresholds: Thresholds,
+def test_picking_by_factor(
+        data: pd.DataFrame,
+        thresholds: Tuple[int | float, int | float],
+        method: Literal['quantile', 'top', 'time-series'],
         expected: pd.DataFrame
 ):
-    assert_allclose(
-        select(prices, factor, thresholds),
-        expected,
-        equal_nan=True
-    )
+    portfolio = Portfolio()
+    factor = Factor(data)
+    portfolio.pick_stocks_by_factor(factor, thresholds, method)
+    assert_allclose(portfolio.picks, expected)
