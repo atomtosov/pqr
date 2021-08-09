@@ -25,7 +25,7 @@ only for long-only (not wml) portfolios.
 
 from __future__ import annotations
 
-from typing import Protocol, Tuple, Optional, Any, List
+from typing import Protocol, Tuple, Optional, Any, List, Literal
 
 import numpy as np
 import pandas as pd
@@ -89,7 +89,7 @@ class Portfolio(AbstractPortfolio):
             self,
             factor: pqr.factors.Factor,
             thresholds: Tuple[int | float, int | float],
-            method: str = 'quantile'
+            method: Literal['quantile', 'top', 'time-series'] = 'quantile'
     ) -> Portfolio:
         """
         Picks subset of stocks into the portfolio, choosing them by `factor`.
@@ -196,9 +196,9 @@ class Portfolio(AbstractPortfolio):
         Works only for factors with all positive values.
         """
 
-        leveraged_weights = self.weights * factor / target
+        leveraged_weights = self.weights * factor.data / target
 
-        self.weights = leveraged_weights
+        self.weights = leveraged_weights.fillna(0)
 
         return self
 
