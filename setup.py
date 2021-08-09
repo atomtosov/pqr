@@ -7,7 +7,7 @@ with open('README.md') as f:
 
 setuptools.setup(
     name='pqr',
-    version='0.1.0',
+    version='0.1.1',
     description='Library for testing factor strategies',
     long_description=readme,
     long_description_content_type='text/markdown',
