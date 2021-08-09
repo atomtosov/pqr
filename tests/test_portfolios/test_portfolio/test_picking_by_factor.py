@@ -3,8 +3,8 @@ import pandas as pd
 import pytest
 from numpy.testing import assert_allclose
 
-from pqr.factors import Factor, select
-from pqr.thresholds import Thresholds, Quantiles
+from pqr import Factor, Portfolio
+
 
 test_data = [
     # test 1: factor q(0, 1/2) equal matrices

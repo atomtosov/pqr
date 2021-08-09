@@ -74,8 +74,7 @@ class Benchmark:
             self,
             stock_prices: pd.DataFrame,
             mask: Optional[pd.DataFrame] = None,
-            weighting_factor: Optional[pqr.factors.Factor] = None,
-            is_bigger_better: bool = True,
+            weighting_factor: Optional[pqr.factors.Factor] = None
     ) -> Benchmark:
         """
         Creates benchmark from stock universe.
@@ -101,9 +100,6 @@ class Benchmark:
             Factor, weighting positions (if you want to replicate some
             market-cap weighted benchmark). If not passed, weighs positions
             equally.
-        is_bigger_better
-            Whether bigger values of `weighting_factor` will lead to bigger
-            weights for a position or on the contrary to lower.
         """
 
         benchmark_portfolio = pqr.portfolios.Portfolio()
@@ -115,8 +111,7 @@ class Benchmark:
         benchmark_portfolio.picks = picks
 
         if weighting_factor is not None:
-            benchmark_portfolio.weigh_by_factor(weighting_factor,
-                                                is_bigger_better)
+            benchmark_portfolio.weigh_by_factor(weighting_factor)
         else:
             benchmark_portfolio.weigh_equally()
 
