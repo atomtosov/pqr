@@ -27,6 +27,8 @@ weighting and scaling (leveraging) of positions in a portfolio.
 
 from __future__ import annotations
 
+from typing import Literal
+
 import numpy as np
 import pandas as pd
 
@@ -53,8 +55,8 @@ class Factor:
 
     def transform(
             self,
-            is_dynamic: bool = False,
             looking_back_period: int = 1,
+            method: Literal['static', 'dynamic'] = 'static',
             lag_period: int = 0,
             holding_period: int = 1
     ) -> Factor:
@@ -66,51 +68,51 @@ class Factor:
 
         Parameters
         ----------
-        is_dynamic
-            Whether absolute values of `factor` are used to make decision or
-            their percentage changes.
         looking_back_period
             Looking back period for `factor`.
+        method
+            Whether absolute values of `factor` are used to make decision or
+            their percentage changes.
         lag_period
             Delaying period to react on `factor`.
         holding_period
             Number of periods to hold each `factor` value.
         """
 
-        return (self.look_back(is_dynamic, looking_back_period)
+        return (self.look_back(looking_back_period, method)
                 .lag(lag_period)
-                .fill_forward(holding_period))
+                .hold(holding_period))
 
     def look_back(
             self,
-            is_dynamic: bool = False,
-            period: int = 1
+            period: int = 1,
+            method: Literal['static', 'dynamic'] = 'static',
     ) -> Factor:
         """
         Looks back on `factor` for `period` periods.
 
-        If `factor` is dynamic:
+        If `method` is dynamic:
             calculates percentage changes with looking back by `period`
             periods, then values are lagged for 1 period (because in period
             t(0) we can know percentage change from period t(-looking_period)
             only at the end of t(0), so it is needed to avoid look-ahead bias).
 
-        If `factor` is static:
+        If `method` is static:
             all values are shifted for `period`.
 
         Parameters
         ----------
-        is_dynamic
-            Whether absolute values of `factor` are used to make decision or
-            their percentage changes.
         period
             Looking back period for `factor`.
+        method
+            Whether absolute values of `factor` are used to make decision or
+            their percentage changes.
         """
 
-        if is_dynamic:
+        if method == 'dynamic':
             self.data = self.data.pct_change(period)
             self.lag(1)
-        else:
+        else:  # method = 'static'
             self.data = self.data.shift(period)
 
         self.data = self.data.iloc[period:]
@@ -133,7 +135,7 @@ class Factor:
 
         return self
 
-    def fill_forward(self, period: int = 1) -> Factor:
+    def hold(self, period: int = 1) -> Factor:
         """
         Fills forward row-wise `factor` with the periodicity of `period`.
 
@@ -153,8 +155,9 @@ class Factor:
         all_periods[update_periods] = update_periods
         update_mask = np.maximum.accumulate(all_periods[:, np.newaxis], axis=0)
 
-        self.data.values[:] = np.take_along_axis(self.data.values,
-                                                 update_mask, axis=0)
+        self.data = pd.DataFrame(
+            np.take_along_axis(self.data.values, update_mask, axis=0),
+            index=self.data.index, columns=self.data.columns)
 
         return self
 
