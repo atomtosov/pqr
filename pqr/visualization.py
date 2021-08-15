@@ -7,32 +7,26 @@ For now it includes only very simple visualization of results, but it will be
 developed in future.
 """
 
-from typing import Optional
-
 import matplotlib.pyplot as plt
+
+import pqr.metrics
 
 __all__ = [
     'plot_cumulative_returns',
+    'plot_underwater',
 ]
 
-import pqr.metrics
-import pqr.portfolios
-import pqr.benchmarks
 
-
-def plot_cumulative_returns(
-        *portfolios: pqr.portfolios.AbstractPortfolio,
-        benchmark: Optional[pqr.benchmarks.Benchmark] = None
-) -> None:
+def plot_cumulative_returns(portfolios, benchmark=None):
     """
     Plots cumulative returns of portfolios (optionally with a benchmark).
 
     Parameters
     ----------
-    portfolios
-        Portfolios, which cumulative returns are plotted.
-    benchmark
-        Benchmark or portfolio to plot cumulative returns "reference point".
+    portfolios : iterable of pqr.AbstractPortfolio
+        Allocated portfolios.
+    benchmark : pqr.AbstractPortfolio or pqr.Benchmark
+        "Risk-free" alternative for the `portfolios`.
     """
 
     for portfolio in portfolios:
@@ -46,5 +40,25 @@ def plot_cumulative_returns(
         benchmark_cum_returns.plot(color='gray', alpha=0.8)
 
     plt.title('Portfolio Cumulative Returns', fontsize=25)
+    plt.grid()
+    plt.legend()
+
+
+def plot_underwater(portfolios):
+    """
+    Plots underwater of portfolios.
+
+    Parameters
+    ----------
+    portfolios : iterable of pqr.AbstractPortfolio
+        Allocated portfolios.
+    """
+
+    for portfolio in portfolios:
+        cumsum_returns = portfolio.returns.cumsum()
+        underwater = cumsum_returns - cumsum_returns.cummax()
+        underwater.plot()
+
+    plt.title('Portfolio Underwater Plot', fontsize=25)
     plt.grid()
     plt.legend()
