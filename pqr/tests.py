@@ -1,33 +1,26 @@
 """
 This module contains instruments to test, whether performance of a portfolio is
-statistically significant or not. The process of statistical testing is
-significant part, when developing a portfolio, because it is very easy to fall
+statistically significant or not. The process of statistical testing is an
+important part, when developing a portfolio, because it is very easy to fall
 into the trap: you can get a portfolio with very high total returns, but these
 returns are gotten randomly, so it is not likely that you wanna use this
 strategy in future.
-
-For now, it has only 1 test - random test, but more will be added soon.
 """
-
-from typing import Tuple, Callable, Union
 
 import numpy as np
 import pandas as pd
+import scipy.stats
 
 import pqr.portfolios
 
 __all__ = [
     'zero_intelligence_test',
+    't_test',
 ]
 
 
-def zero_intelligence_test(stock_prices: pd.DataFrame,
-                           portfolio: pqr.portfolios.Portfolio,
-                           target_metric: Callable[
-                               [pqr.portfolios.AbstractPortfolio],
-                               Union[int, float]],
-                           quantiles: int = 10,
-                           **kwargs) -> Tuple[pd.Series, np.ndarray]:
+def zero_intelligence_test(stock_prices, portfolio, target_metric, quantiles,
+                           **kwargs):
     """
     Creates random portfolios, replicating positions of `portfolio`.
 
@@ -36,26 +29,28 @@ def zero_intelligence_test(stock_prices: pd.DataFrame,
 
     Parameters
     ----------
-    stock_prices
+    stock_prices : pd.DataFrame
         Prices, representing stock universe.
-    portfolio
+    portfolio : pqr.Portfolio
         Portfolio, to be tested (replicated by random portfolios).
-    target_metric
-        Function-like object, computing some number (e.g. value of metric). It
-        must get Portfolio and return int or float.
-    quantiles
+    target_metric : callable
+        Function-like object, computing some metric (e.g. value of metric). It
+        must get a portfolio and return a number - value of the metric.
+    quantiles : int > 1
         How many quantile-bounds to generate.
     **kwargs
         Keyword arguments for building up portfolios. See random_portfolios().
+
+    Returns
+    -------
+    dict
     """
 
-    random_portfolios = pqr.portfolios.generate_random_portfolios(
-        stock_prices,
-        portfolio,
-        **kwargs)
+    random_portfolios = pqr.portfolios.generate_random_portfolios(stock_prices,
+                                                                  portfolio,
+                                                                  **kwargs)
 
-    target_values = pd.Series(
-        [target_metric(p) for p in random_portfolios])
+    target_values = pd.Series([target_metric(p) for p in random_portfolios])
 
     indices = []
     for q in np.linspace(0, 1, quantiles):
@@ -66,3 +61,26 @@ def zero_intelligence_test(stock_prices: pd.DataFrame,
 
     return (target_quantiles,
             np.array(random_portfolios)[target_quantiles.index])
+
+
+def t_test(portfolio, risk_free_rate=0):
+    """
+    Calculates t-statistic and p-value of portfolio returns.
+
+    Implements one-sided t-test. Null hypothesis is that `portfolio` returns
+    are greater than `risk_free_rate`.
+
+    Parameters
+    ----------
+    portfolio : pqr.AbstractPortfolio
+        An allocated portfolio.
+    risk_free_rate : array_like, default=0
+        Indicative rate of guaranteed returns (e.g. US government bond rate).
+
+    Returns
+    -------
+    tuple of float
+    """
+
+    return scipy.stats.ttest_1samp(portfolio.returns, risk_free_rate,
+                                   alternative='greater')
