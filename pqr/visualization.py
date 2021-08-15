@@ -23,7 +23,7 @@ def plot_cumulative_returns(portfolios, benchmark=None):
 
     Parameters
     ----------
-    portfolios : iterable of pqr.AbstractPortfolio
+    portfolios : sequence of pqr.AbstractPortfolio
         Allocated portfolios.
     benchmark : pqr.AbstractPortfolio or pqr.Benchmark
         "Risk-free" alternative for the `portfolios`.
@@ -50,7 +50,7 @@ def plot_underwater(portfolios):
 
     Parameters
     ----------
-    portfolios : iterable of pqr.AbstractPortfolio
+    portfolios : sequence of pqr.AbstractPortfolio
         Allocated portfolios.
     """
 
