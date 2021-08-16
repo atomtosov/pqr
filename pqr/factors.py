@@ -1,33 +1,24 @@
 """
-This module contains stuff to work with factors data. Factors are drivers of
-returns on the stock (and any other) market, explaining the risks of investing
-into assets. We assume that a factor can be presented by simple table (pandas
-DataFrame), where each row represents a timestamp, each column - a stock
-(ticker) and each cell - value of the factor for the stock in the timestamp.
+This module contains stuff to work with factors data. Factors are drivers of returns on the stock
+(and any other) market, explaining the risks of investing into assets. We assume that a factor can
+be presented by simple table (pandas DataFrame), where each row represents a timestamp, each
+column - a stock (ticker) and each cell - value of the factor for the stock in the timestamp.
 
-You must be accurate to work with such type of data, because it is very easy to
-forget about look-ahead bias and to build very profitable, but unrealistic
-factor model or portfolio. There are already included "batteries" to transform
-factors with looking, lag and holding periods to avoid it.
+You must be accurate to work with such type of data, because it is very easy to forget about
+look-ahead bias and to build very profitable, but unrealistic factor model or portfolio. There are
+already included "batteries" to transform factors with looking, lag and holding periods to avoid it.
 
-Factors can be dynamic or static. Static factor is a factor, for which is not
-necessary to calculate the change, its value can be compared across the stocks
-straightly (e.g. P/E). Dynamic factor is a factor, which values must be
-recalculated to get the percentage changes to work with them (e.g. Momentum).
-Start of testing for dynamic factors will be 1 period later to avoid look-ahead
+Factors can be dynamic or static. Static factor is a factor, for which is not necessary to calculate
+the change, its value can be compared across the stocks straightly (e.g. P/E). Dynamic factor is
+a factor, which values must be recalculated to get the percentage changes to work with them
+(e.g. Momentum). Start of testing for dynamic factors will be 1 period later to avoid look-ahead
 bias.
 
-Factors also have one more characteristic - whether values of factor is better
-to be bigger or lower. For example, we usually want to pick into portfolio
-stocks with low P/E, hence, this factor is "lower better", whereas stocks with
-high ROA are usually more preferable, hence, this factor is "bigger better".
-This characteristic affects building wml-portfolios for factor model and
-weighting and scaling (leveraging) of positions in a portfolio.
+Factors also have one more characteristic - whether values of factor is better to be bigger or
+lower. For example, we usually want to pick into portfolio stocks with low P/E, hence, this factor
+is "lower better", whereas stocks with high ROA are usually more preferable, hence, this factor is
+"bigger better". This characteristic affects building wml-portfolios.
 """
-
-from __future__ import annotations
-
-from typing import Literal
 
 import numpy as np
 import pandas as pd
@@ -43,70 +34,40 @@ class Factor:
 
     Parameters
     ----------
-    data
+    data : pd.DataFrame
         Matrix of factor values.
     """
 
     data: pd.DataFrame
     """Factor values."""
 
-    def __init__(self, data: pd.DataFrame):
+    def __init__(self, data):
         self.data = data.copy()
 
-    def transform(
-            self,
-            looking_back_period: int = 1,
-            method: Literal['static', 'dynamic'] = 'static',
-            lag_period: int = 0,
-            holding_period: int = 1
-    ) -> Factor:
-        """
-        Transforms `factor` into appropriate for decision-making format.
-
-        This function helps to preprocess `factor` before using it to make a
-        portfolio and prevents from look-ahead bias.
-
-        Parameters
-        ----------
-        looking_back_period
-            Looking back period for `factor`.
-        method
-            Whether absolute values of `factor` are used to make decision or
-            their percentage changes.
-        lag_period
-            Delaying period to react on `factor`.
-        holding_period
-            Number of periods to hold each `factor` value.
-        """
-
-        return (self.look_back(looking_back_period, method)
-                .lag(lag_period)
-                .hold(holding_period))
-
-    def look_back(
-            self,
-            period: int = 1,
-            method: Literal['static', 'dynamic'] = 'static',
-    ) -> Factor:
+    def look_back(self, period=1, method='static'):
         """
         Looks back on `factor` for `period` periods.
 
         If `method` is dynamic:
-            calculates percentage changes with looking back by `period`
-            periods, then values are lagged for 1 period (because in period
-            t(0) we can know percentage change from period t(-looking_period)
-            only at the end of t(0), so it is needed to avoid look-ahead bias).
+            calculates percentage changes with looking back by `period` periods, then values are
+            lagged for 1 period (because in period t(0) we can know percentage change from period
+            t(-looking_period) only at the end of t(0), so it is needed to avoid look-ahead bias).
 
         If `method` is static:
             all values are shifted for `period`.
 
         Parameters
         ----------
-        period
+        period : int > 0, default=1
             Looking back period for `factor`.
-        method
-            Whether absolute values of `factor` are used to make decision or
-            their percentage changes.
+        method : {'static', 'dynamic'}, default='static'
+            Whether absolute values of `factor` are used to make decision or their percentage
+            changes.
+
+        Returns
+        -------
+        Factor
+            Factor with transformed data.
         """
 
         if method == 'dynamic':
@@ -119,7 +80,7 @@ class Factor:
 
         return self
 
-    def lag(self, period: int = 0) -> Factor:
+    def lag(self, period=0):
         """
         Simply shifts the `factor` for `period` periods.
 
@@ -127,15 +88,20 @@ class Factor:
 
         Parameters
         ----------
-        period
+        period : int >= 0, default=0
             Delaying period to react on `factor`.
+
+        Returns
+        -------
+        Factor
+            Factor with transformed data.
         """
 
         self.data = self.data.shift(period).iloc[period:]
 
         return self
 
-    def hold(self, period: int = 1) -> Factor:
+    def hold(self, period=1):
         """
         Fills forward row-wise `factor` with the periodicity of `period`.
 
@@ -143,39 +109,47 @@ class Factor:
 
         Parameters
         ----------
-        period
+        period : int > 0, default=1
             Number of periods to hold each `factor` value.
+
+        Returns
+        -------
+        Factor
+            Factor with transformed data.
         """
 
+        # to avoid useless computations below
         if period == 1:
             return self
 
-        all_periods = np.zeros(len(self.data), dtype=int)
+        periods = np.zeros(len(self.data), dtype=int)
         update_periods = np.arange(len(self.data), step=period)
-        all_periods[update_periods] = update_periods
-        update_mask = np.maximum.accumulate(all_periods[:, np.newaxis], axis=0)
+        periods[update_periods] = update_periods
+        update_mask = np.maximum.accumulate(periods[:, np.newaxis], axis=0)
 
         self.data = pd.DataFrame(
             np.take_along_axis(self.data.values, update_mask, axis=0),
-            index=self.data.index, columns=self.data.columns)
+            index=self.data.index, columns=self.data.columns
+        )
 
         return self
 
-    def prefilter(
-            self,
-            mask: pd.DataFrame
-    ) -> Factor:
+    def prefilter(self, mask):
         """
         Filters the `factor` by given `mask`.
 
-        Simply deletes (replaces with np.nan) cells, where the `mask` equals
-        to False.
+        Simply deletes (replaces with np.nan) cells, where the `mask` equals to False.
 
         Parameters
         ----------
-        mask
-            Matrix of True/False, where True means that a value should remain
-            in `factor` and False - that a value should be deleted.
+        mask : pd.DataFrame
+            Matrix of True/False, where True means that a value should remain in `factor` and
+            False - that a value should be deleted.
+
+        Returns
+        -------
+        Factor
+            Factor with transformed data.
         """
 
         self.data[~mask] = np.nan
