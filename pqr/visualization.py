@@ -23,18 +23,18 @@ def plot_cumulative_returns(portfolios, benchmark=None):
 
     Parameters
     ----------
-    portfolios : sequence of pqr.AbstractPortfolio
+    portfolios : sequence of AbstractPortfolio
         Allocated portfolios.
-    benchmark : pqr.AbstractPortfolio or pqr.Benchmark
+    benchmark : AbstractPortfolio or Benchmark
         "Risk-free" alternative for the `portfolios`.
     """
 
     for portfolio in portfolios:
-        pqr.metrics.cumulative_returns(portfolio).plot()
+        pqr.metrics.cumulative_returns(portfolio.returns).plot()
 
     if benchmark is not None:
-        start_trading = portfolios[0].returns.index[0]
-        benchmark_cum_returns = pqr.metrics.cumulative_returns(benchmark)
+        start_trading = min(portfolio.returns.index[0] for portfolio in portfolios)
+        benchmark_cum_returns = pqr.metrics.cumulative_returns(benchmark.returns)
         benchmark_cum_returns = (benchmark_cum_returns[start_trading:] -
                                  benchmark_cum_returns[start_trading])
         benchmark_cum_returns.plot(color='gray', alpha=0.8)
@@ -50,7 +50,7 @@ def plot_underwater(portfolios):
 
     Parameters
     ----------
-    portfolios : sequence of pqr.AbstractPortfolio
+    portfolios : sequence of AbstractPortfolio
         Allocated portfolios.
     """
 
