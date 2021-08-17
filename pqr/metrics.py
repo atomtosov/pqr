@@ -897,7 +897,8 @@ def alpha(returns, benchmark, risk_free_rate=0):
         Alpha.
     """
 
-    return _alpha_beta(returns, benchmark, risk_free_rate).iloc[0]
+    annualization_rate = _get_annualization_factor(returns)
+    return _alpha_beta(returns, benchmark, risk_free_rate).iloc[0] * annualization_rate
 
 
 def rolling_alpha(returns, benchmark, risk_free_rate=0, window=None):
