@@ -57,7 +57,7 @@ def fit_factor_model(stock_prices, factor, weighting_factor=None, balance=None, 
 
     Returns
     -------
-    list of AbstractPortfolio
+    list of Portfolio
         Factor portfolios, covering all stock universe (optionally, with wml-portfolio).
     """
 
@@ -76,10 +76,17 @@ def fit_factor_model(stock_prices, factor, weighting_factor=None, balance=None, 
         portfolios.append(portfolio)
 
     if add_wml:
+        wml = pqr.portfolios.Portfolio('wml')
         if is_bigger_better:
-            wml = pqr.portfolios.WmlPortfolio(portfolios[-1], portfolios[0])
+            wml.pick_stocks_wml(portfolios[-1], portfolios[0])
         else:
-            wml = pqr.portfolios.WmlPortfolio(portfolios[0], portfolios[-1])
+            wml.pick_stocks_wml(portfolios[0], portfolios[-1])
+        if weighting_factor is not None:
+            wml.weigh_by_factor(weighting_factor)
+        else:
+            wml.weigh_equally()
+        wml.allocate(stock_prices, balance, fee_rate)
+
         portfolios.append(wml)
 
     return portfolios
@@ -93,9 +100,9 @@ def calculate_portfolios_summary_stats(portfolios, benchmark):
 
     Parameters
     ----------
-    portfolios : AbstractPortfolio
+    portfolios : Portfolio
         Portfolios, for which summary stats are calculated.
-    benchmark : AbstractPortfolio or Benchmark
+    benchmark : Portfolio or Benchmark
         Benchmark to compute some metrics.
 
     Returns
@@ -118,7 +125,7 @@ def factor_model_tear_sheet(portfolios, benchmark):
 
     Parameters
     ----------
-    portfolios : sequence of AbstractPortfolio
+    portfolios : sequence of Portfolio
         Portfolios, included into the factor model.
     benchmark : AbstractPortfolio or Benchmark
         Benchmark to compute some metrics.

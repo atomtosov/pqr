@@ -12,7 +12,6 @@ metrics/plotting the performance. If you want to create benchmark with selecting
 construct the portfolio.
 """
 
-import numpy as np
 import pandas as pd
 
 import pqr.portfolios
@@ -100,18 +99,11 @@ class Benchmark:
         """
 
         benchmark_portfolio = pqr.portfolios.Portfolio()
-
-        if mask is not None:
-            stock_prices[~mask] = np.nan
-
-        picks = ~stock_prices.isna()
-        benchmark_portfolio.picks = picks
-
+        benchmark_portfolio.pick_all_stocks(stock_prices, mask)
         if weighting_factor is not None:
             benchmark_portfolio.weigh_by_factor(weighting_factor)
         else:
             benchmark_portfolio.weigh_equally()
-
         benchmark_portfolio.allocate(stock_prices)
 
         self.returns = benchmark_portfolio.returns
