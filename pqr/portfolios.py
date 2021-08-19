@@ -9,36 +9,28 @@ period returns are reinvested). Money portfolio is a more realistic portfolio, w
 real balance, which imposes restrictions on the process of investing: practically never weights of
 positions are equal to theoretical weights (because of indivisibility of stocks). Money portfolio is
 going close to relative one with initial balance going to infinity.
-
-Also, portfolio can be winners-minus-losers if you construct a factor model. This type of portfolio
-is supported, but without real allocation: positions of winners and losers portfolios a simply used
-as positions for the wml-portfolio. Moreover, this portfolio is always theoretical, as it is assumed
-as self-financing portfolio (money from shorts are used to long stocks).
-
-Random portfolios to test performance of your portfolio are also supported, but only for long-only
-(not wml) portfolios.
 """
 
-import abc
-
-import numpy as np
 import pandas as pd
+import numpy as np
+
+from .utils import align
+
 
 __all__ = [
-    'AbstractPortfolio',
     'Portfolio',
-    'WmlPortfolio',
-    'RandomPortfolio',
-    'generate_random_portfolios',
+    'generate_random_portfolios'
 ]
 
 
-class AbstractPortfolio(abc.ABC):
+class Portfolio:
     """
-    Abstract class for portfolios.
+    Class for factor portfolios.
 
-    Describes, what fields must be included into concrete portfolios and realizes methods for fancy
-    printing.
+    Parameters
+    ----------
+    name : str, default='portfolio'
+        Name of the portfolio.
     """
 
     name: str
@@ -52,23 +44,6 @@ class AbstractPortfolio(abc.ABC):
     returns: pd.Series
     """Periodical returns of the portfolio (non-cumulative)."""
 
-    def __repr__(self):
-        return f'{type(self).__name__}({repr(self.name)})'
-
-    def __str__(self):
-        return self.name
-
-
-class Portfolio(AbstractPortfolio):
-    """
-    Class for factor long-only portfolios.
-
-    Parameters
-    ----------
-    name : str, default='portfolio'
-        Name of the portfolio.
-    """
-
     def __init__(self, name='portfolio'):
         self.name = name
 
@@ -76,6 +51,37 @@ class Portfolio(AbstractPortfolio):
         self.weights = pd.DataFrame()
         self.positions = pd.DataFrame()
         self.returns = pd.Series()
+
+    def __repr__(self):
+        return f'Portfolio({repr(self.name)})'
+
+    def __str__(self):
+        return self.name
+
+    def pick_all_stocks(self, stock_prices, mask=None):
+        """
+        Picks all available for trading stocks for long positions.
+
+        Parameters
+        ----------
+        stock_prices : pd.DataFrame
+            Prices, representing stock universe.
+        mask : pd.DataFrame, optional
+            Mask to filter stock universe.
+
+        Returns
+        -------
+        Portfolio
+            Portfolio with filled picks.
+        """
+
+        picks = ~stock_prices.isna()
+        if mask is not None:
+            picks, mask = align(picks, mask)
+            picks &= mask
+        self.picks = picks.astype(int)
+
+        return self
 
     def pick_stocks_by_factor(self, factor, thresholds, method='quantile'):
         """
@@ -118,7 +124,93 @@ class Portfolio(AbstractPortfolio):
         else:  # method = 'time-series'
             lower_threshold, upper_threshold = thresholds
 
-        self.picks = (lower_threshold <= factor.data) & (factor.data <= upper_threshold)
+        self.picks = ((lower_threshold <= factor.data) &
+                      (factor.data <= upper_threshold)).astype(int)
+
+        return self
+
+    def pick_stocks_wml(self, winners, losers):
+        """
+        Constructs long-short picks from 2 long-portfolios.
+
+        Parameters
+        ----------
+        winners : Portfolio
+            A portfolio, which picks will be long-positions.
+        losers : Portfolio
+            A portfolio, which picks will be short-positions.
+
+        Returns
+        -------
+        Portfolio
+            Portfolio with filled picks.
+        """
+
+        self.picks = (winners.picks - losers.picks).fillna(0)
+
+        return self
+
+    def pick_stocks_randomly(self, picks, mask=None):
+        """
+        Pick stocks randomly, but in the same quantity as in the `picks`.
+
+        In each period collects number of picked stocks and randomly pick the same amount of stocks
+        into a random portfolio.
+
+        Parameters
+        ----------
+        picks : pd.DataFrame
+            Picks to replicate by the random portfolio.
+        mask : pd.DataFrame, optional
+            Matrix to prohibit pick stock during periods, when they are not
+            really available for trading. Also can be used to filter stock
+            universe.
+
+        Returns
+        -------
+        Portfolio
+            Portfolio with filled picks.
+        """
+
+        picks = picks.copy().astype(float)
+        if mask is not None:
+            picks[~mask] = np.nan
+
+        def random_pick(row: np.ndarray, indices=np.indices((picks.shape[1],))[0]):
+            random_picks = np.zeros_like(row, dtype=bool)
+
+            long = (row == 1).sum()
+            long_choice = np.random.choice(indices[~np.isnan(row)], long)
+            random_picks[long_choice] = 1
+
+            short = (row == -1).sum()
+            short_choice = np.random.choice(indices[~np.isnan(row) & (random_picks == 0)], short)
+            random_picks[short_choice] = -1
+            return random_picks
+
+        self.picks = pd.DataFrame(
+            np.apply_along_axis(random_pick, axis=1, arr=picks.values),
+            index=picks.index, columns=picks.columns
+        ).astype(int)
+
+        return self
+
+    def weigh_equally(self):
+        """
+        Weighs the `picks` equally: all stocks will have the same weights.
+
+        Returns
+        -------
+        Portfolio
+            Portfolio with filled weights.
+        """
+
+        weights = self.picks * np.ones_like(self.picks, dtype=float)
+        long, short = weights == 1, weights == -1
+        weights[long] /= np.nansum(weights[long], axis=1, keepdims=True)
+        weights[short] /= -np.nansum(weights[short], axis=1, keepdims=True)
+
+        self.weights = weights
 
         return self
 
@@ -137,36 +229,19 @@ class Portfolio(AbstractPortfolio):
         -------
         Portfolio
             Portfolio with filled weights.
-
-        Notes
-        -----
-        Works only for factors with all positive values.
         """
 
-        raw_weights = self.picks * factor.data.loc[self.picks.index[0]:]
-        normalizer = np.nansum(raw_weights, axis=1, keepdims=True)
+        picks, factor_data = align(self.picks, factor.data)
+        weights = picks * factor_data
+        long, short = weights > 0, weights < 0
+        weights[long] /= np.nansum(weights[long], axis=1, keepdims=True)
+        weights[short] /= -np.nansum(weights[short], axis=1, keepdims=True)
 
-        self.weights = (raw_weights / normalizer).fillna(0)
+        self.weights = weights.fillna(0)
 
         return self
 
-    def weigh_equally(self):
-        """
-        Weighs the `picks` equally: all stocks will have the same weights.
-
-        Returns
-        -------
-        Portfolio
-            Portfolio with filled weights.
-        """
-
-        raw_weights = self.picks * np.ones_like(self.picks, dtype=int)
-        normalizer = np.nansum(raw_weights, axis=1, keepdims=True)
-        self.weights = (raw_weights / normalizer).fillna(0)
-
-        return self
-
-    def scale_weights_by_factor(self, factor, target=1):
+    def scale_by_factor(self, factor, target=1):
         """
         Scale the `weights` by `target` of `factor`.
 
@@ -189,7 +264,8 @@ class Portfolio(AbstractPortfolio):
         Works only for factors with all positive values.
         """
 
-        leveraged_weights = self.weights * factor.data / target
+        weights, factor_data = align(self.weights, factor.data)
+        leveraged_weights = weights * factor_data / target
 
         self.weights = leveraged_weights.fillna(0)
 
@@ -236,180 +312,47 @@ class Portfolio(AbstractPortfolio):
         return self
 
     def _allocate_relatively(self, stock_prices, fee_rate):
-        stock_prices = stock_prices.loc[self.weights.index[0]:]
-        self.positions = self.weights
+        weights, stock_prices = align(self.weights, stock_prices)
+        self.positions = weights * (1 - fee_rate)
         universe_returns = stock_prices.pct_change().shift(-1)
-        portfolio_returns = (
-            (self.weights * universe_returns).shift().sum(axis=1))
+        portfolio_returns = (self.positions * universe_returns).shift().sum(axis=1)
 
-        self.returns = portfolio_returns * (1 - fee_rate)
+        self.returns = portfolio_returns
 
     def _allocate_with_money(self, stock_prices, balance, fee_rate):
-        stock_prices = stock_prices.loc[self.weights.index[0]:]
+        weights, stock_prices = align(self.weights, stock_prices)
 
-        portfolio = self.weights.copy()
-        returns = pd.Series(index=portfolio.index)
+        positions = pd.DataFrame(index=weights.index, columns=weights.columns)
+        equity = pd.Series(index=positions.index, dtype=float)
+        equity.iloc[0] = balance
 
-        portfolio.values[0] = portfolio.values[0] * balance // stock_prices.values[0]
-        returns.values[0] = 0
-        cash = balance - np.nansum(portfolio.values[0] * stock_prices.values[0] * (1 + fee_rate))
-        prev_balance = balance
-        for i in range(1, len(portfolio)):
-            w = portfolio.values[i]
+        cash = balance
+        for i in range(len(weights)):
+            w = weights.values[i]
             prices = stock_prices.values[i]
-            prev_alloc = portfolio.values[i - 1]
+            prev_alloc = np.zeros_like(w) if i == 0 else positions.values[i - 1]
 
-            cur_balance = cash + np.nansum(prev_alloc * prices)
-            alloc = w * cur_balance // prices
+            current_balance = cash + np.nansum(prev_alloc * prices)
 
-            alloc_diff = alloc - prev_alloc
-            cash_diff = -(alloc_diff * prices)
-            commission = np.abs(cash_diff) * fee_rate
+            ideal_allocation = np.nan_to_num(w * current_balance / prices).astype(int)
+            ideal_allocation_diff = ideal_allocation - prev_alloc
+            ideal_cash_diff = -(ideal_allocation_diff * prices)
+            ideal_commission = np.nansum(np.abs(ideal_cash_diff) * fee_rate)
 
-            cash += np.nansum(cash_diff - commission)
+            max_allowed_capital = current_balance - ideal_commission
 
-            portfolio.values[i] = alloc
-            returns.values[i] = cur_balance / prev_balance - 1
+            allocation = np.nan_to_num(w * max_allowed_capital / prices).astype(int)
+            allocation_diff = allocation - prev_alloc
+            cash_diff = -(allocation_diff * prices)
+            commission = np.nansum(np.abs(cash_diff) * fee_rate)
 
-            prev_balance = cur_balance
+            cash += np.nansum(cash_diff) - commission
 
-        self.positions = portfolio
-        self.returns = returns
+            positions.iloc[i] = allocation
+            equity.iloc[i] = current_balance - commission
 
-
-class WmlPortfolio(AbstractPortfolio):
-    """
-    Class for WML (winners-minus-losers) portfolios.
-
-    This type of portfolio is always treated as theoretical (self-financing), and that is why it
-    assumes that given portfolios are relevant: they are built with the same balance, or both of
-    them are relative. Actually, it simply subtracts `losers_portfolio` from `winners_portfolio`.
-
-    Parameters
-    ----------
-    winners_portfolio : Portfolio
-        Portfolio of winners by some factor. Positions of this portfolio will be long-positions for
-        a wml-portfolio.
-    losers_portfolio : Portfolio
-        Portfolio of losers by the same factor. Positions of this portfolio will be short-positions
-        for a wml-portfolio.
-    name : str, default='wml'
-        Name of the wml-portfolio.
-    """
-
-    def __init__(self, winners_portfolio, losers_portfolio, name='wml'):
-        self.name = name
-
-        self.picks = winners_portfolio.picks.astype(int) - losers_portfolio.picks.astype(int)
-        self.weights = winners_portfolio.weights - losers_portfolio.weights
-        self.positions = winners_portfolio.positions - losers_portfolio.positions
-        self.returns = winners_portfolio.returns - losers_portfolio.returns
-        self.returns.name = self.name
-
-
-class RandomPortfolio(AbstractPortfolio):
-    """
-    Class for random portfolios, replicating picks of a portfolio.
-
-    It implements the delegation pattern, so it has the same interface as Portfolio with the only
-    exception: the method :meth:`~pqr.portfolios.Portfolio.pick_stocks_by_factor` is replaced with
-    the method :meth:`~pqr.portfolios.Portfolio.pick_stocks_randomly`.
-
-    Parameters
-    ----------
-    name : str, default='random'
-        Name of the random portfolio.
-    random_seed : int, optional
-        Random seed to make random deterministic.
-    """
-
-    def __init__(self, name='random', random_seed=None):
-        self._portfolio = Portfolio(name)
-
-        if random_seed is not None:
-            np.random.seed(random_seed)
-
-    def __getattr__(self, name):
-        if name == 'pick_stocks_by_factor':
-            raise AttributeError('\'RandomPortfolio\' object has no attribute '
-                                 '\'pick_stocks_by_factor\'')
-        return getattr(self._portfolio, name)
-
-    def pick_stocks_randomly(self, picks, mask=None):
-        """
-        Pick stocks randomly, but in the same quantity as in the `picks`.
-
-        In each period collects number of picked stocks and randomly pick the same amount of stocks
-        into a random portfolio.
-
-        Parameters
-        ----------
-        picks : pd.DataFrame
-            Picks to replicate by the random portfolio.
-        mask : pd.DataFrame, optional
-            Matrix to prohibit pick stock during periods, when they are not
-            really available for trading. Also can be used to filter stock
-            universe.
-
-        Returns
-        -------
-        RandomPortfolio
-            Portfolio with filled picks.
-        """
-
-        picks = picks.copy().astype(float)
-        if mask is not None:
-            picks[~mask] = np.nan
-
-        def random_pick(row: np.ndarray, indices=np.indices((picks.shape[1],))[0]):
-            picked = (row > 0).sum()
-            choice = np.random.choice(indices[~np.isnan(row)], picked)
-            random_picks = np.zeros_like(row, dtype=bool)
-            random_picks[choice] = True
-            return random_picks
-
-        self._portfolio.picks = pd.DataFrame(
-            np.apply_along_axis(random_pick, axis=1, arr=picks.values),
-            index=picks.index, columns=picks.columns
-        )
-
-        return self
-
-    def weigh_by_factor(self, factor):
-        """
-        See :meth:`~pqr.portfolios.Portfolio.weigh_by_factor`.
-        """
-
-        self._portfolio.weigh_by_factor(factor)
-
-        return self
-
-    def weigh_equally(self):
-        """
-        See :meth:`~pqr.portfolios.Portfolio.weigh_equally`.
-        """
-
-        self._portfolio.weigh_equally()
-
-        return self
-
-    def scale_weights_by_factor(self, factor, target=1):
-        """
-        See :meth:`~pqr.portfolios.Portfolio.scale_weights_by_factor`.
-        """
-
-        self._portfolio.scale_weights_by_factor(factor, target)
-
-        return self
-
-    def allocate(self, stock_prices, balance=None, fee_rate=0):
-        """
-        See :meth:`~pqr.portfolios.Portfolio.allocate`.
-        """
-
-        self._portfolio.allocate(stock_prices, balance, fee_rate)
-
-        return self
+        self.positions = positions
+        self.returns = equity.pct_change().fillna(0)
 
 
 def generate_random_portfolios(stock_prices, portfolio, mask=None, weighting_factor=None,
@@ -445,7 +388,7 @@ def generate_random_portfolios(stock_prices, portfolio, mask=None, weighting_fac
 
     Returns
     -------
-    list of RandomPortfolio
+    list of Portfolio
         Generated random portfolios.
     """
 
@@ -458,14 +401,14 @@ def generate_random_portfolios(stock_prices, portfolio, mask=None, weighting_fac
 
     portfolios = []
     for i in range(n):
-        random_portfolio = RandomPortfolio()
+        random_portfolio = Portfolio('random')
         random_portfolio.pick_stocks_randomly(picks)
         if weighting_factor is not None:
             random_portfolio.weigh_by_factor(weighting_factor)
         else:
             random_portfolio.weigh_equally()
         if scaling_factor is not None:
-            random_portfolio.scale_weights_by_factor(scaling_factor, target)
+            random_portfolio.scale_by_factor(scaling_factor, target)
         random_portfolio.allocate(stock_prices, balance, fee_rate)
 
         portfolios.append(random_portfolio)
