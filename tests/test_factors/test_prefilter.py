@@ -48,8 +48,7 @@ from pqr import Factor
             pd.DataFrame([[False, True, False],
                           [True, True, True],
                           [False, False, False]], index=[1, 2, 3]),
-            pd.DataFrame([[1, 1, 1],
-                          [np.nan, 2, np.nan],
+            pd.DataFrame([[np.nan, 2, np.nan],
                           [3, 3, 3],
                           [np.nan, np.nan, np.nan]]),
             id='mask\'s shape < factor\'s shape'

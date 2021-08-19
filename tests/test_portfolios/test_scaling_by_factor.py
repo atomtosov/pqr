@@ -73,5 +73,5 @@ def test_scaling_by_factor(
     portfolio = Portfolio()
     portfolio.weights = weights
     factor = Factor(data)
-    portfolio.scale_weights_by_factor(factor, target)
+    portfolio.scale_by_factor(factor, target)
     assert_allclose(portfolio.weights, expected)
