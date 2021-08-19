@@ -6,26 +6,10 @@ pqr package
    :undoc-members:
    :show-inheritance:
 
-pqr.preprocessing module
-------------------------
-
-.. automodule:: pqr.preprocessing
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
 pqr.factors module
 ------------------
 
 .. automodule:: pqr.factors
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-pqr.factor\_models module
--------------------------
-
-.. automodule:: pqr.factor_models
    :members:
    :undoc-members:
    :show-inheritance:
@@ -46,14 +30,6 @@ pqr.benchmarks module
    :undoc-members:
    :show-inheritance:
 
-pqr.visualization module
-------------------------
-
-.. automodule:: pqr.visualization
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
 pqr.metrics module
 ------------------
 
@@ -62,10 +38,34 @@ pqr.metrics module
    :undoc-members:
    :show-inheritance:
 
+pqr.plotting module
+-------------------
+
+.. automodule:: pqr.plotting
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+pqr.factor\_models module
+-------------------------
+
+.. automodule:: pqr.factor_models
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 pqr.tests module
 ----------------
 
 .. automodule:: pqr.tests
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+pqr.attribution module
+----------------------
+
+.. automodule:: pqr.attribution
    :members:
    :undoc-members:
    :show-inheritance:
