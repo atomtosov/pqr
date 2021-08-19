@@ -69,9 +69,9 @@ def summary(portfolio, benchmark):
 
     Parameters
     ----------
-    portfolio : AbstractPortfolio
+    portfolio : Portfolio
         Portfolio, for which metrics are calculated.
-    benchmark : Benchmark or AbstractPortfolio
+    benchmark : Benchmark or Portfolio
         Benchmark, which used as the alternative for the `portfolio` to calculate some metrics.
 
     Returns

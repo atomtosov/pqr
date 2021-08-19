@@ -127,7 +127,7 @@ def factor_model_tear_sheet(portfolios, benchmark):
     ----------
     portfolios : sequence of Portfolio
         Portfolios, included into the factor model.
-    benchmark : AbstractPortfolio or Benchmark
+    benchmark : Portfolio or Benchmark
         Benchmark to compute some metrics.
 
     Returns

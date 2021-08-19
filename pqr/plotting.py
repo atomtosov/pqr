@@ -23,9 +23,9 @@ def plot_cumulative_returns(portfolios, benchmark=None):
 
     Parameters
     ----------
-    portfolios : sequence of AbstractPortfolio
+    portfolios : sequence of Portfolio
         Allocated portfolios.
-    benchmark : AbstractPortfolio or Benchmark
+    benchmark : Portfolio or Benchmark
         "Risk-free" alternative for the `portfolios`.
     """
 
@@ -50,7 +50,7 @@ def plot_underwater(portfolios):
 
     Parameters
     ----------
-    portfolios : sequence of AbstractPortfolio
+    portfolios : sequence of Portfolio
         Allocated portfolios.
     """
 

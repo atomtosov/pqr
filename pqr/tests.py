@@ -65,7 +65,7 @@ def t_test(portfolio, risk_free_rate=0):
 
     Parameters
     ----------
-    portfolio : AbstractPortfolio
+    portfolio : Portfolio
         An allocated portfolio.
     risk_free_rate : array_like, default=0
         Indicative rate of guaranteed returns (e.g. US government bond rate).
