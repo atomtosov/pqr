@@ -14,6 +14,8 @@ import pandas as pd
 import statsmodels.regression.linear_model as sm_linear
 import statsmodels.tools.tools as sm_tools
 
+from .utils import get_annualization_factor, align
+
 __all__ = [
     'summary',
 
@@ -166,7 +168,7 @@ def annual_return(returns):
         Annual Return.
     """
 
-    annualization_factor = _get_annualization_factor(returns)
+    annualization_factor = get_annualization_factor(returns)
     years = len(returns) / annualization_factor
     return (1 + total_return(returns)) ** (1 / years) - 1
 
@@ -191,7 +193,7 @@ def annual_volatility(returns):
         Annual Volatility.
     """
 
-    annualization_rate = np.sqrt(_get_annualization_factor(returns))
+    annualization_rate = np.sqrt(get_annualization_factor(returns))
     return volatility(returns) * annualization_rate
 
 
@@ -627,7 +629,7 @@ def sharpe_ratio(returns, risk_free_rate=0):
     """
 
     adjusted_returns = _adjust_returns(returns, risk_free_rate)
-    annualization_rate = np.sqrt(_get_annualization_factor(adjusted_returns))
+    annualization_rate = np.sqrt(get_annualization_factor(adjusted_returns))
     return mean_return(adjusted_returns) / volatility(adjusted_returns) * annualization_rate
 
 
@@ -653,7 +655,8 @@ def rolling_sharpe_ratio(returns, risk_free_rate=0, window=None) -> pd.Series:
         Rolling Sharpe Ratio.
     """
 
-    return _roll(returns, metric=sharpe_ratio, window=window, risk_free_rate=risk_free_rate)
+    returns = _adjust_returns(returns, risk_free_rate)
+    return _roll(returns, metric=sharpe_ratio, window=window, risk_free_rate=0)
 
 
 def omega_ratio(returns, required_return=0):
@@ -708,7 +711,8 @@ def rolling_omega_ratio(returns, required_return=0, window=None) -> pd.Series:
         Rolling Omega Ratio.
     """
 
-    return _roll(returns, metric=omega_ratio, window=window, required_return=required_return)
+    returns = _adjust_returns(returns, required_return)
+    return _roll(returns, metric=omega_ratio, window=window, required_return=0)
 
 
 def sortino_ratio(returns, minimum_acceptable_return=0):
@@ -735,7 +739,7 @@ def sortino_ratio(returns, minimum_acceptable_return=0):
     """
 
     adjusted_returns = _adjust_returns(returns, minimum_acceptable_return)
-    annualization_rate = np.sqrt(_get_annualization_factor(adjusted_returns))
+    annualization_rate = np.sqrt(get_annualization_factor(adjusted_returns))
 
     returns_under_mar = np.clip(adjusted_returns, a_min=-np.inf, a_max=0)
     downside_risk_ = np.sqrt((returns_under_mar ** 2).mean())
@@ -765,8 +769,8 @@ def rolling_sortino_ratio(returns, minimum_acceptable_return=0, window=None):
         Rolling Sortino Ratio.
     """
 
-    return _roll(returns, metric=sortino_ratio, window=window,
-                 minimum_acceptable_return=minimum_acceptable_return)
+    returns = _adjust_returns(returns, minimum_acceptable_return)
+    return _roll(returns, metric=sortino_ratio, window=window, minimum_acceptable_return=0)
 
 
 def mean_excess_return(returns, benchmark):
@@ -897,8 +901,7 @@ def alpha(returns, benchmark, risk_free_rate=0):
         Alpha.
     """
 
-    annualization_rate = _get_annualization_factor(returns)
-    return _alpha_beta(returns, benchmark, risk_free_rate).iloc[0] * annualization_rate
+    return _alpha_beta(returns, benchmark, risk_free_rate).iloc[0]
 
 
 def rolling_alpha(returns, benchmark, risk_free_rate=0, window=None):
@@ -925,7 +928,9 @@ def rolling_alpha(returns, benchmark, risk_free_rate=0, window=None):
         Rolling Alpha.
     """
 
-    return _roll(returns, benchmark, metric=alpha, window=window, risk_free_rate=risk_free_rate)
+    returns = _adjust_returns(returns, risk_free_rate)
+    benchmark = _adjust_returns(returns, risk_free_rate)
+    return _roll(returns, benchmark, metric=alpha, window=window, risk_free_rate=0)
 
 
 def beta(returns, benchmark, risk_free_rate=0):
@@ -980,29 +985,29 @@ def rolling_beta(returns, benchmark, risk_free_rate=0, window=None) -> pd.Series
         Rolling Beta
     """
 
-    return _roll(returns, benchmark, metric=beta, window=window, risk_free_rate=risk_free_rate)
+    returns = _adjust_returns(returns, risk_free_rate)
+    benchmark = _adjust_returns(returns, risk_free_rate)
+    return _roll(returns, benchmark, metric=beta, window=window, risk_free_rate=0)
 
 
 def _adjust_returns(returns, adjustment):
     if isinstance(adjustment, pd.Series):
-        available_index = returns.index.intersection(returns.index)
-        adjustment = adjustment[available_index]
+        returns, adjustment = align(returns, adjustment)
     return returns - adjustment
 
 
 def _alpha_beta(returns, benchmark, risk_free_rate=0):
     adjusted_returns = _adjust_returns(returns, risk_free_rate)
-    adjusted_benchmark_returns = _adjust_returns(benchmark, risk_free_rate)
-    trading_available = adjusted_returns.index.intersection(adjusted_benchmark_returns.index)
-    adjusted_benchmark_returns = adjusted_benchmark_returns[trading_available]
-    x = sm_tools.add_constant(adjusted_benchmark_returns)
+    adjusted_benchmark = _adjust_returns(benchmark, risk_free_rate)
+    adjusted_returns, adjusted_benchmark = align(adjusted_returns, adjusted_benchmark)
+    x = sm_tools.add_constant(adjusted_benchmark)
     est = sm_linear.OLS(adjusted_returns, x).fit()
     return est.params
 
 
 def _roll(*returns, metric, window=None, **kwargs):
     if window is None:
-        window = _get_annualization_factor(returns[0])
+        window = get_annualization_factor(returns[0])
 
     common_index = returns[0].index
     for r in returns:
@@ -1014,20 +1019,3 @@ def _roll(*returns, metric, window=None, **kwargs):
         rets = [r.loc[idx] for r in returns]
         values.append(metric(*rets, **kwargs))
     return pd.Series(values, index=common_index)
-
-
-def _get_annualization_factor(data):
-    freq_alias_to_num = {
-        'BA': 1, 'A': 1,     # yearly
-        'BQ': 4, 'Q': 4,     # quarterly
-        'BM': 12, 'M': 12,   # monthly
-        'W': 52,             # weekly
-        'B': 252, 'D': 252,  # daily
-    }
-
-    inferred_freq = getattr(data.index, 'inferred_freq', None)
-    freq_num = freq_alias_to_num.get(inferred_freq)
-    if freq_num is None:
-        raise ValueError('periodicity of given data cannot be defined, '
-                         'try to resample data')
-    return freq_num
