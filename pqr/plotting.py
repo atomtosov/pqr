@@ -39,7 +39,7 @@ def plot_cumulative_returns(portfolios, benchmark=None):
                                  benchmark_cum_returns[start_trading])
         benchmark_cum_returns.plot(color='gray', alpha=0.8)
 
-    plt.title('Portfolio Cumulative Returns', fontsize=25)
+    plt.title('Portfolio Cumulative Returns')
     plt.grid()
     plt.legend()
 
@@ -59,6 +59,6 @@ def plot_underwater(portfolios):
         underwater = cumsum_returns - cumsum_returns.cummax()
         underwater.plot()
 
-    plt.title('Portfolio Underwater Plot', fontsize=25)
+    plt.title('Portfolio Underwater Plot')
     plt.grid()
     plt.legend()

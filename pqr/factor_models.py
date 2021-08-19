@@ -137,7 +137,7 @@ def factor_model_tear_sheet(portfolios, benchmark):
     """
 
     stats = calculate_portfolios_summary_stats(portfolios, benchmark)
-    pqr.visualization.plot_cumulative_returns(portfolios, benchmark)
+    pqr.plotting.plot_cumulative_returns(portfolios, benchmark)
     return stats
 
 

@@ -11,7 +11,7 @@ from .benchmarks import *
 from .factor_models import *
 from .factors import *
 from .metrics import *
+from .plotting import *
 from .portfolios import *
 from .preprocessing import *
 from .tests import *
-from .visualization import *
