@@ -23,6 +23,8 @@ is "lower better", whereas stocks with high ROA are usually more preferable, hen
 import numpy as np
 import pandas as pd
 
+from .utils import align
+
 __all__ = [
     'Factor',
 ]
@@ -151,6 +153,8 @@ class Factor:
         Factor
             Factor with transformed data.
         """
+
+        self.data, mask = align(self.data, mask)
 
         self.data[~mask] = np.nan
 
