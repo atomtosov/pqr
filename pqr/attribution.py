@@ -32,10 +32,11 @@ def explain_alpha(returns, market_returns, factors_returns, risk_free_rate=0):
         Table with alpha and betas on factors with values, showing their statistical significance.
     """
 
+    returns, market_returns, *factors_returns = align(returns, market_returns, *factors_returns)
+
     adjusted_returns = returns - risk_free_rate
     adjusted_market_returns = market_returns - risk_free_rate
 
-    factors_returns = align(*factors_returns)
     factors_returns = pd.DataFrame([adjusted_market_returns] + factors_returns).T
     factors_returns = sm_tools.add_constant(factors_returns)
 
