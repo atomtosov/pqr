@@ -986,7 +986,7 @@ def rolling_beta(returns, benchmark, risk_free_rate=0, window=None) -> pd.Series
     """
 
     returns = _adjust_returns(returns, risk_free_rate)
-    benchmark = _adjust_returns(returns, risk_free_rate)
+    benchmark = _adjust_returns(benchmark, risk_free_rate)
     return _roll(returns, benchmark, metric=beta, window=window, risk_free_rate=0)
 
 
