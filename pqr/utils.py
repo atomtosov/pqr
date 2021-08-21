@@ -5,7 +5,7 @@ def align(*dataframes):
     common_index = dataframes[0].index
     common_columns = slice(None)
 
-    for dataframe in dataframes[1:]:
+    for dataframe in dataframes:
         if isinstance(dataframe, pd.DataFrame):
             common_index = common_index.intersection(dataframe.index)
             try:
