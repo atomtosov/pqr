@@ -28,11 +28,11 @@ def align(*dataframes):
 
 def get_annualization_factor(dataframe):
     freq_alias_to_num = {
-        'BA': 1, 'A': 1,     # yearly
-        'BQ': 4, 'Q': 4,     # quarterly
-        'BM': 12, 'M': 12,   # monthly
-        'W': 52,             # weekly
-        'B': 252, 'D': 252,  # daily
+        'A': 1, 'AS': 1, 'BYS': 1, 'BA': 1, 'BAS': 1, 'RE': 1,          # yearly
+        'Q': 4, 'QS': 4, 'BQ': 4, 'BQS': 4,                             # quarterly
+        'M': 12, 'MS': 12, 'BM': 12, 'BMS': 12, 'CBM': 12, 'CBMS': 12,  # monthly
+        'W': 52,                                                        # weekly
+        'B': 252, 'C': 252, 'D': 252,                                   # daily
     }
 
     inferred_freq = getattr(dataframe.index, 'inferred_freq', None)
