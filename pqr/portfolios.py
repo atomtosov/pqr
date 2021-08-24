@@ -50,7 +50,7 @@ class Portfolio:
         self.picks = pd.DataFrame()
         self.weights = pd.DataFrame()
         self.positions = pd.DataFrame()
-        self.returns = pd.Series()
+        self.returns = pd.Series(dtype=float)
 
     def __repr__(self):
         return f'Portfolio({repr(self.name)})'
@@ -88,7 +88,7 @@ class Portfolio:
 
         return self
 
-    def pick_stocks_by_factor(self, factor, thresholds, method='quantile'):
+    def pick_stocks_by_factor(self, factor, thresholds, method='quantile', is_bigger_better=True):
         """
         Picks subset of stocks into the portfolio, choosing them by `factor`.
 
@@ -106,6 +106,9 @@ class Portfolio:
             Bounds for the set of allowed values of `factor` to pick stocks.
         method : {'quantile', 'top', 'time-series'}, default='quantile'
             Method, used to define subset of stocks to be picked on the basis of given `thresholds`.
+        is_bigger_better: bool, default=True
+            Whether bigger values of factor are treated as better to pick or in contrary as better to 
+            avoid. 
 
         Returns
         -------
@@ -114,16 +117,26 @@ class Portfolio:
         """
 
         if method == 'quantile':
+            if not is_bigger_better:
+                thresholds = (1 - thresholds[1], 1 - thresholds[0])
+
             lower_threshold, upper_threshold = np.nanquantile(
                 factor.data, thresholds, axis=1, keepdims=True
             )
         elif method == 'top':
-            lower_threshold = np.nanmin(
-                factor.data.apply(pd.Series.nlargest, n=thresholds[1], axis=1),
+            if is_bigger_better:
+                top_func = pd.Series.nlargest
+                bound_func = np.nanmin
+            else:
+                top_func = pd.Series.nsmallest
+                bound_func = np.nanmax
+
+            lower_threshold = bound_func(
+                factor.data.apply(top_func, n=thresholds[1], axis=1),
                 axis=1, keepdims=True
             )
-            upper_threshold = np.nanmin(
-                factor.data.apply(pd.Series.nlargest, n=thresholds[0], axis=1),
+            upper_threshold = bound_func(
+                factor.data.apply(top_func, n=thresholds[0], axis=1),
                 axis=1, keepdims=True
             )
         else:  # method = 'time-series'
