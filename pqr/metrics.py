@@ -13,6 +13,7 @@ import numpy as np
 import pandas as pd
 import statsmodels.regression.linear_model as sm_linear
 import statsmodels.tools.tools as sm_tools
+import scipy.stats
 
 from .utils import get_annualization_factor, align
 
@@ -95,9 +96,11 @@ def summary(portfolio, benchmark):
             'Sharpe Ratio': sharpe_ratio(portfolio.returns),
             'Omega Ratio': omega_ratio(portfolio.returns),
             'Sortino Ratio': sortino_ratio(portfolio.returns),
-            'Mean Excess Return, %': mean_excess_return(portfolio.returns, benchmark.returns) * 100,
             'Benchmark Correlation': benchmark_correlation(portfolio.returns, benchmark.returns),
+            'Mean Excess Return, %': mean_excess_return(portfolio.returns, benchmark.returns) * 100,
+            'Excess Returns t-stat': _mean_excess_return_tstat(portfolio.returns, benchmark.returns),
             'Alpha, %': alpha(portfolio.returns, benchmark.returns) * 100,
+            'Alpha t-stat': _alpha_tstat(portfolio.returns, benchmark.returns),
             'Beta': beta(portfolio.returns, benchmark.returns),
         },
         name=portfolio.name
@@ -180,7 +183,7 @@ def annual_volatility(returns):
     Annual Volatility of the portfolio is the annualized standard deviation of portfolio returns:
 
     .. math::
-        \\sigma_r * \\sqrt{Number\;of\;Periods\;in\;a\;Year}
+        \\sigma_r * \\sqrt{Number\\;of\\;Periods\\;in\\;a\\;Year}
 
     Parameters
     ----------
@@ -346,7 +349,7 @@ def max_drawdown(returns):
     (cumulative maximum of the cumulative returns) and cumulative returns:
 
     .. math::
-        MDD = -\max\\left\\{\\frac{HWM - Cumulative\;Returns}{HWM}\\right\\}
+        MDD = -\\max\\left\\{\\frac{HWM - Cumulative\\;Returns}{HWM}\\right\\}
 
     Parameters
     ----------
@@ -396,7 +399,7 @@ def value_at_risk(returns, confidence_level=0.95):
     `confidence_level`:
 
     .. math::
-        VaR = -\\inf\{F_r(r) > Confidence\;Level\}
+        VaR = -\\inf\\{F_r(r) > Confidence\\;Level\\}
 
     Parameters
     ----------
@@ -447,8 +450,7 @@ def expected_tail_loss(returns, confidence_level=0.95):
     given `confidence_level`:
 
     .. math::
-        ETL = \\frac{\\sum_{i=1}^{n}r_i\cdot[r_i \le VaR]}
-        {\\sum_{i=1}^{n}[r_i \le VaR]}
+        ETL = \\frac{\\sum_{i=1}^{n}r_i\\cdot[r_i \\le VaR]}{\\sum_{i=1}^{n}[r_i \\le VaR]}
 
     Parameters
     ----------
@@ -774,57 +776,6 @@ def rolling_sortino_ratio(returns, minimum_acceptable_return=0, window=None):
     return _roll(returns, metric=sortino_ratio, window=window, minimum_acceptable_return=0)
 
 
-def mean_excess_return(returns, benchmark):
-    """
-    Calculates Mean Excess Return of portfolio returns.
-
-    Mean Excess Return is the mean difference between portfolio `returns` and `benchmark` returns:
-
-    .. math::
-        MER = E(r_{portfolio} - r_{benchmark})
-
-    Parameters
-    ----------
-    returns : pd.Series
-        Returns of a portfolio or a benchmark.
-    benchmark : pd.Series
-        Benchmark for the portfolio to beat.
-
-    Returns
-    -------
-    float
-        Mean Excess Return.
-    """
-
-    adjusted_returns = _adjust_returns(returns, benchmark)
-    return mean_return(adjusted_returns)
-
-
-def rolling_mean_excess_return(returns, benchmark, window=None) -> pd.Series:
-    """
-    Calculates rolling Mean Excess Return of portfolio returns.
-
-    See :func:`~pqr.metrics.mean_excess_return`.
-
-    Parameters
-    ----------
-    returns : pd.Series
-        Returns of a portfolio or a benchmark.
-    benchmark : pd.Series
-        Benchmark for the portfolio to beat.
-    window : int > 0, optional
-        Number of observations in a rolling window. If not passed, `window` equals to approximate
-        number of periods in a year.
-
-    Returns
-    -------
-    pd.Series
-        Rolling Mean Excess Return.
-    """
-
-    return _roll(returns, benchmark, metric=mean_excess_return, window=window)
-
-
 def benchmark_correlation(returns, benchmark):
     """
     Calculates Benchmark Correlation of portfolio returns.
@@ -877,6 +828,57 @@ def rolling_benchmark_correlation(returns, benchmark, window=None):
     return _roll(returns, benchmark, metric=benchmark_correlation, window=window)
 
 
+def mean_excess_return(returns, benchmark):
+    """
+    Calculates Mean Excess Return of portfolio returns.
+
+    Mean Excess Return is the mean difference between portfolio `returns` and `benchmark` returns:
+
+    .. math::
+        MER = E(r_{portfolio} - r_{benchmark})
+
+    Parameters
+    ----------
+    returns : pd.Series
+        Returns of a portfolio or a benchmark.
+    benchmark : pd.Series
+        Benchmark for the portfolio to beat.
+
+    Returns
+    -------
+    float
+        Mean Excess Return.
+    """
+
+    adjusted_returns = _adjust_returns(returns, benchmark)
+    return mean_return(adjusted_returns)
+
+
+def rolling_mean_excess_return(returns, benchmark, window=None) -> pd.Series:
+    """
+    Calculates rolling Mean Excess Return of portfolio returns.
+
+    See :func:`~pqr.metrics.mean_excess_return`.
+
+    Parameters
+    ----------
+    returns : pd.Series
+        Returns of a portfolio or a benchmark.
+    benchmark : pd.Series
+        Benchmark for the portfolio to beat.
+    window : int > 0, optional
+        Number of observations in a rolling window. If not passed, `window` equals to approximate
+        number of periods in a year.
+
+    Returns
+    -------
+    pd.Series
+        Rolling Mean Excess Return.
+    """
+
+    return _roll(returns, benchmark, metric=mean_excess_return, window=window)
+
+
 def alpha(returns, benchmark, risk_free_rate=0):
     """
     Calculates Alpha of portfolio returns.
@@ -902,7 +904,7 @@ def alpha(returns, benchmark, risk_free_rate=0):
         Alpha.
     """
 
-    return _alpha_beta(returns, benchmark, risk_free_rate).iloc[0]
+    return _alpha_beta(returns, benchmark, risk_free_rate).params.iloc[0]
 
 
 def rolling_alpha(returns, benchmark, risk_free_rate=0, window=None):
@@ -959,7 +961,7 @@ def beta(returns, benchmark, risk_free_rate=0):
         Beta.
     """
 
-    return _alpha_beta(returns, benchmark, risk_free_rate).iloc[1]
+    return _alpha_beta(returns, benchmark, risk_free_rate).params.iloc[1]
 
 
 def rolling_beta(returns, benchmark, risk_free_rate=0, window=None) -> pd.Series:
@@ -991,6 +993,15 @@ def rolling_beta(returns, benchmark, risk_free_rate=0, window=None) -> pd.Series
     return _roll(returns, benchmark, metric=beta, window=window, risk_free_rate=0)
 
 
+def _alpha_tstat(returns, benchmark, risk_free_rate=0):
+    return _alpha_beta(returns, benchmark, risk_free_rate).tvalues.iloc[0]
+
+
+def _mean_excess_return_tstat(returns, benchmark):
+    excess_returns = _adjust_returns(returns, benchmark)
+    return scipy.stats.ttest_1samp(excess_returns, 0, alternative='greater').statistic
+
+
 def _adjust_returns(returns, adjustment):
     if isinstance(adjustment, pd.Series):
         returns, adjustment = align(returns, adjustment)
@@ -1003,7 +1014,7 @@ def _alpha_beta(returns, benchmark, risk_free_rate=0):
     adjusted_returns, adjusted_benchmark = align(adjusted_returns, adjusted_benchmark)
     x = sm_tools.add_constant(adjusted_benchmark)
     est = sm_linear.OLS(adjusted_returns, x).fit()
-    return est.params
+    return est
 
 
 def _roll(*returns, metric, window=None, **kwargs):
