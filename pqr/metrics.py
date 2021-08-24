@@ -359,9 +359,10 @@ def max_drawdown(returns):
         Maximum Drawdown.
     """
 
-    cumsum_returns = returns.cumsum()
-    underwater = cumsum_returns - cumsum_returns.cummax()
-    return underwater.min()
+    equity = cumulative_returns(returns) + 1
+    high_water_mark = equity.cummax()
+    drawdown = (high_water_mark - equity) / high_water_mark
+    return -drawdown.max()
 
 
 def rolling_max_drawdown(returns, window=None):
