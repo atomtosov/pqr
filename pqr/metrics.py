@@ -45,8 +45,7 @@ __all__ = [
 
 
 def summary(portfolio, benchmark):
-    """
-    Calculates summary statistics for a `portfolio`.
+    """Calculates summary statistics for a `portfolio`.
 
     Computed metrics:
 
@@ -108,8 +107,7 @@ def summary(portfolio, benchmark):
 
 
 def cumulative_returns(returns):
-    """
-    Calculates Cumulative Returns of portfolio returns.
+    """Calculates Cumulative Returns of portfolio returns.
 
     Parameters
     ----------
@@ -130,8 +128,7 @@ def cumulative_returns(returns):
 
 
 def total_return(returns):
-    """
-    Calculates Total Return of portfolio returns.
+    """Calculates Total Return of portfolio returns.
 
     Parameters
     ----------
@@ -152,8 +149,7 @@ def total_return(returns):
 
 
 def annual_return(returns):
-    """
-    Calculates Annual Return of portfolio returns as CAGR.
+    """Calculates Annual Return of portfolio returns as CAGR.
 
     CAGR (Compounded Annual Growth Rate) calculated as:
 
@@ -177,8 +173,7 @@ def annual_return(returns):
 
 
 def annual_volatility(returns):
-    """
-    Calculates Annual Volatility of portfolio returns.
+    """Calculates Annual Volatility of portfolio returns.
 
     Annual Volatility of the portfolio is the annualized standard deviation of portfolio returns:
 
@@ -201,8 +196,7 @@ def annual_volatility(returns):
 
 
 def mean_return(returns):
-    """
-    Calculates Mean Return of portfolio returns.
+    """Calculates Mean Return of portfolio returns.
 
     Mean Return is simple expected value:
 
@@ -224,8 +218,7 @@ def mean_return(returns):
 
 
 def rolling_mean_return(returns, window=None):
-    """
-    Calculates rolling Mean Return of portfolio returns.
+    """Calculates rolling Mean Return of portfolio returns.
 
     See :func:`~pqr.metrics.mean_return`.
 
@@ -247,8 +240,7 @@ def rolling_mean_return(returns, window=None):
 
 
 def win_rate(returns):
-    """
-    Calculates Win Rate of portfolio returns.
+    """Calculates Win Rate of portfolio returns.
 
     Win Rate of a portfolio is simple ratio of number of periods with positive returns and total
     number of trading periods:
@@ -273,8 +265,7 @@ def win_rate(returns):
 
 
 def rolling_win_rate(returns, window=None):
-    """
-    Calculates rolling Win Rate of portfolio returns.
+    """Calculates rolling Win Rate of portfolio returns.
 
     See :func:`~pqr.metrics.win_rate`.
 
@@ -296,8 +287,7 @@ def rolling_win_rate(returns, window=None):
 
 
 def volatility(returns):
-    """
-    Calculates Volatility of portfolio returns.
+    """Calculates Volatility of portfolio returns.
 
     Volatility of the portfolio returns is the standard deviation:
 
@@ -319,8 +309,7 @@ def volatility(returns):
 
 
 def rolling_volatility(returns, window=None):
-    """
-    Calculates rolling Volatility of a `portfolio`.
+    """Calculates rolling Volatility of a `portfolio`.
 
     See :func:`~pqr.metrics.volatility`.
 
@@ -342,8 +331,7 @@ def rolling_volatility(returns, window=None):
 
 
 def max_drawdown(returns):
-    """
-    Calculates Maximum Drawdown of portfolio returns.
+    """Calculates Maximum Drawdown of portfolio returns.
 
     Maximum Drawdown of portfolio is the highest relative difference between high water mark
     (cumulative maximum of the cumulative returns) and cumulative returns:
@@ -369,8 +357,7 @@ def max_drawdown(returns):
 
 
 def rolling_max_drawdown(returns, window=None):
-    """
-    Calculates rolling Maximum Drawdown of portfolio returns.
+    """Calculates rolling Maximum Drawdown of portfolio returns.
 
     See :func:`~pqr.metrics.max_drawdown`.
 
@@ -392,8 +379,7 @@ def rolling_max_drawdown(returns, window=None):
 
 
 def value_at_risk(returns, confidence_level=0.95):
-    """
-    Calculates Value at Risk of portfolio returns.
+    """Calculates Value at Risk of portfolio returns.
 
     VaR shows the amount of potential loss that could happen in a portfolio with given
     `confidence_level`:
@@ -418,8 +404,7 @@ def value_at_risk(returns, confidence_level=0.95):
 
 
 def rolling_value_at_risk(returns, confidence_level=0.95, window=None):
-    """
-    Calculates rolling Value at Risk of portfolio returns.
+    """Calculates rolling Value at Risk of portfolio returns.
 
     See :func:`~pqr.metrics.value_at_risk`.
 
@@ -443,8 +428,7 @@ def rolling_value_at_risk(returns, confidence_level=0.95, window=None):
 
 
 def expected_tail_loss(returns, confidence_level=0.95):
-    """
-    Calculates Expected Tail Loss of portfolio returns.
+    """Calculates Expected Tail Loss of portfolio returns.
 
     Expected Tail Loss shows the average of the values that fall beyond the VaR, calculated with
     given `confidence_level`:
@@ -470,8 +454,7 @@ def expected_tail_loss(returns, confidence_level=0.95):
 
 
 def rolling_expected_tail_loss(returns, confidence_level=0.95, window=None):
-    """
-    Calculates rolling Expected Tail Loss of portfolio returns.
+    """Calculates rolling Expected Tail Loss of portfolio returns.
 
     See :func:`~pqr.metrics.expected_tail_loss`.
 
@@ -496,8 +479,7 @@ def rolling_expected_tail_loss(returns, confidence_level=0.95, window=None):
 
 
 def rachev_ratio(returns, reward_cutoff=0.95, risk_cutoff=0.05, risk_free_rate=0):
-    """
-    Calculates Rachev Ratio (R-Ratio) of portfolio returns.
+    """Calculates Rachev Ratio (R-Ratio) of portfolio returns.
 
     Rachev Ratio calculated as ETR (Expected Tail Return) divided by ETL (Expected Tail Return) of
     adjusted by `risk_free_rate` returns:
@@ -532,8 +514,7 @@ def rachev_ratio(returns, reward_cutoff=0.95, risk_cutoff=0.05, risk_free_rate=0
 
 def rolling_rachev_ratio(returns, reward_cutoff=0.95, risk_cutoff=0.05, risk_free_rate=0,
                          window=None):
-    """
-    Calculates rolling Rachev Ratio (R-Ratio) of portfolio returns.
+    """Calculates rolling Rachev Ratio (R-Ratio) of portfolio returns.
 
     See :func:`~pqr.metrics.rachev_ratio`.
 
@@ -563,8 +544,7 @@ def rolling_rachev_ratio(returns, reward_cutoff=0.95, risk_cutoff=0.05, risk_fre
 
 
 def calmar_ratio(returns):
-    """
-    Calculates Calmar Ratio of portfolio returns.
+    """Calculates Calmar Ratio of portfolio returns.
 
     Calmar Ratio is annual return (CAGR) divided by maximum drawdown of the period:
 
@@ -586,8 +566,7 @@ def calmar_ratio(returns):
 
 
 def rolling_calmar_ratio(returns, window=None):
-    """
-    Calculates rolling Calmar Ratio of portfolio returns.
+    """Calculates rolling Calmar Ratio of portfolio returns.
 
     See :func:`~pqr.metrics.calmar_ratio`.
 
@@ -609,8 +588,7 @@ def rolling_calmar_ratio(returns, window=None):
 
 
 def sharpe_ratio(returns, risk_free_rate=0):
-    """
-    Calculates Sharpe Ratio of portfolio returns.
+    """Calculates Sharpe Ratio of portfolio returns.
 
     Sharpe Ratio calculated as annualized ratio between mean and volatility of adjusted by
     `risk_free_rate` returns:
@@ -637,8 +615,7 @@ def sharpe_ratio(returns, risk_free_rate=0):
 
 
 def rolling_sharpe_ratio(returns, risk_free_rate=0, window=None) -> pd.Series:
-    """
-    Calculates rolling Sharpe Ratio of portfolio returns.
+    """Calculates rolling Sharpe Ratio of portfolio returns.
 
     See :func:`~pqr.metrics.sharpe_ratio`.
 
@@ -663,8 +640,7 @@ def rolling_sharpe_ratio(returns, risk_free_rate=0, window=None) -> pd.Series:
 
 
 def omega_ratio(returns, required_return=0):
-    """
-    Calculates Omega Ratio of portfolio returns.
+    """Calculates Omega Ratio of portfolio returns.
 
     Omega Ratio calculated as the area of the probability distribution function of returns above
     `required_return` divided by the area under `required_return`:
@@ -693,8 +669,7 @@ def omega_ratio(returns, required_return=0):
 
 
 def rolling_omega_ratio(returns, required_return=0, window=None) -> pd.Series:
-    """
-    Calculates rolling Omega Ratio of a portfolio returns.
+    """Calculates rolling Omega Ratio of a portfolio returns.
 
     See :func:`~pqr.metrics.omega_ratio`.
 
@@ -719,8 +694,7 @@ def rolling_omega_ratio(returns, required_return=0, window=None) -> pd.Series:
 
 
 def sortino_ratio(returns, minimum_acceptable_return=0):
-    """
-    Calculates Sortino Ratio of portfolio returns.
+    """Calculates Sortino Ratio of portfolio returns.
 
     Sortino Ratio is the mean of adjusted by `minimum_acceptable_return` (mar) `portfolio` returns
     divided by Downside Risk:
@@ -751,8 +725,7 @@ def sortino_ratio(returns, minimum_acceptable_return=0):
 
 
 def rolling_sortino_ratio(returns, minimum_acceptable_return=0, window=None):
-    """
-    Calculates rolling Sortino Ratio of portfolio returns.
+    """Calculates rolling Sortino Ratio of portfolio returns.
 
     See :func:`~pqr.metrics.sortino_ratio`.
 
@@ -777,8 +750,7 @@ def rolling_sortino_ratio(returns, minimum_acceptable_return=0, window=None):
 
 
 def benchmark_correlation(returns, benchmark):
-    """
-    Calculates Benchmark Correlation of portfolio returns.
+    """Calculates Benchmark Correlation of portfolio returns.
 
     Benchmark Correlation is the simple spearman correlation between portfolio `returns` and
     `benchmark` returns:
@@ -804,8 +776,7 @@ def benchmark_correlation(returns, benchmark):
 
 
 def rolling_benchmark_correlation(returns, benchmark, window=None):
-    """
-    Calculates rolling Benchmark Correlation of portfolio returns.
+    """Calculates rolling Benchmark Correlation of portfolio returns.
 
     See :func:`~pqr.metrics.benchmark_correlation`.
 
@@ -829,8 +800,7 @@ def rolling_benchmark_correlation(returns, benchmark, window=None):
 
 
 def mean_excess_return(returns, benchmark):
-    """
-    Calculates Mean Excess Return of portfolio returns.
+    """Calculates Mean Excess Return of portfolio returns.
 
     Mean Excess Return is the mean difference between portfolio `returns` and `benchmark` returns:
 
@@ -855,8 +825,7 @@ def mean_excess_return(returns, benchmark):
 
 
 def rolling_mean_excess_return(returns, benchmark, window=None) -> pd.Series:
-    """
-    Calculates rolling Mean Excess Return of portfolio returns.
+    """Calculates rolling Mean Excess Return of portfolio returns.
 
     See :func:`~pqr.metrics.mean_excess_return`.
 
@@ -880,8 +849,7 @@ def rolling_mean_excess_return(returns, benchmark, window=None) -> pd.Series:
 
 
 def alpha(returns, benchmark, risk_free_rate=0):
-    """
-    Calculates Alpha of portfolio returns.
+    """Calculates Alpha of portfolio returns.
 
     Alpha is the coefficient :math:`\\alpha` in the estimated regression of portfolio `returns` per
     `benchmark` returns (both are adjusted by `risk_free_rate`):
@@ -908,8 +876,7 @@ def alpha(returns, benchmark, risk_free_rate=0):
 
 
 def rolling_alpha(returns, benchmark, risk_free_rate=0, window=None):
-    """
-    Calculates rolling Alpha of portfolio returns.
+    """Calculates rolling Alpha of portfolio returns.
 
     See :func:`~pqr.metrics.alpha`.
 
@@ -937,8 +904,7 @@ def rolling_alpha(returns, benchmark, risk_free_rate=0, window=None):
 
 
 def beta(returns, benchmark, risk_free_rate=0):
-    """
-    Calculates Beta of portfolio returns.
+    """Calculates Beta of portfolio returns.
 
     Beta is the coefficient :math:`\\beta` in the estimated regression of portfolio `returns` per
     `benchmark` returns (both are adjusted by `risk_free_rate`):
@@ -965,8 +931,7 @@ def beta(returns, benchmark, risk_free_rate=0):
 
 
 def rolling_beta(returns, benchmark, risk_free_rate=0, window=None) -> pd.Series:
-    """
-    Calculates rolling Beta of portfolio returns.
+    """Calculates rolling Beta of portfolio returns.
 
     See :func:`~pqr.metrics.beta`.
 

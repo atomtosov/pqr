@@ -31,8 +31,7 @@ __all__ = [
 
 
 class Factor:
-    """
-    Class for factors, represented by matrix of numeric values.
+    """Class for factors, represented by matrix of numeric values.
 
     Parameters
     ----------
@@ -47,8 +46,7 @@ class Factor:
         self.data = data.copy()
 
     def look_back(self, period=1, method='static'):
-        """
-        Looks back on `factor` for `period` periods.
+        """Looks back on `factor` for `period` periods.
 
         If `method` is dynamic:
             calculates percentage changes with looking back by `period` periods, then values are
@@ -83,8 +81,7 @@ class Factor:
         return self
 
     def lag(self, period=0):
-        """
-        Simply shifts the `factor` for `period` periods.
+        """Simply shifts the `factor` for `period` periods.
 
         Can be used to simulate delayed reaction on `factor` values.
 
@@ -104,8 +101,7 @@ class Factor:
         return self
 
     def hold(self, period=1):
-        """
-        Fills forward row-wise `factor` with the periodicity of `period`.
+        """Fills forward row-wise `factor` with the periodicity of `period`.
 
         Can be used to simulate periodical updates of `factor`.
 
@@ -137,8 +133,7 @@ class Factor:
         return self
 
     def prefilter(self, mask):
-        """
-        Filters the `factor` by given `mask`.
+        """Filters the `factor` by given `mask`.
 
         Simply deletes (replaces with np.nan) cells, where the `mask` equals to False.
 

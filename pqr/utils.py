@@ -38,6 +38,5 @@ def get_annualization_factor(dataframe):
     inferred_freq = getattr(dataframe.index, 'inferred_freq', None)
     freq_num = freq_alias_to_num.get(inferred_freq)
     if freq_num is None:
-        raise ValueError('periodicity of given dataframe cannot be defined, '
-                         'try to resample data')
+        raise ValueError('periodicity of given dataframe cannot be defined, try to resample data')
     return freq_num

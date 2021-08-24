@@ -18,8 +18,7 @@ __all__ = [
 
 
 def plot_cumulative_returns(portfolios, benchmark=None):
-    """
-    Plots cumulative returns of portfolios (optionally with a benchmark).
+    """Plots cumulative returns of portfolios (optionally with a benchmark).
 
     Parameters
     ----------
@@ -45,8 +44,7 @@ def plot_cumulative_returns(portfolios, benchmark=None):
 
 
 def plot_underwater(portfolios):
-    """
-    Plots underwater of portfolios.
+    """Plots underwater of portfolios.
 
     Parameters
     ----------
@@ -55,8 +53,9 @@ def plot_underwater(portfolios):
     """
 
     for portfolio in portfolios:
-        cumsum_returns = portfolio.returns.cumsum()
-        underwater = cumsum_returns - cumsum_returns.cummax()
+        equity = pqr.metrics.cumulative_returns(portfolio.returns) + 1
+        high_water_mark = equity.cummax()
+        underwater = -(high_water_mark - equity) / high_water_mark
         underwater.plot()
 
     plt.title('Portfolio Underwater Plot')

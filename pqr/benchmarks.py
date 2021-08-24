@@ -22,8 +22,7 @@ __all__ = [
 
 
 class Benchmark:
-    """
-    Class for benchmarks.
+    """Class for benchmarks.
 
     Parameters
     ----------
@@ -48,8 +47,7 @@ class Benchmark:
         return self.name
 
     def from_index(self, index_values):
-        """
-        Creates benchmark from existing index (e.g. S&P500 or IMOEX).
+        """Creates benchmark from existing index (e.g. S&P500 or IMOEX).
 
         Parameters
         ----------
@@ -69,8 +67,7 @@ class Benchmark:
         return self
 
     def from_stock_universe(self, stock_prices, mask=None, weighting_factor=None):
-        """
-        Creates benchmark from stock universe.
+        """Creates benchmark from stock universe.
 
         This type of a benchmark should be used, when there is no relevant index to compare with
         portfolios (e.g. if stock universe is too specific or just is severe filtered). In other

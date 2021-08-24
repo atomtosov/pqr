@@ -24,8 +24,7 @@ __all__ = [
 
 
 class Portfolio:
-    """
-    Class for factor portfolios.
+    """Class for factor portfolios.
 
     Parameters
     ----------
@@ -59,8 +58,7 @@ class Portfolio:
         return self.name
 
     def pick_all_stocks(self, stock_prices, mask=None, direction='long'):
-        """
-        Picks all available for trading stocks for `direction` positions.
+        """Picks all available for trading stocks for `direction` positions.
 
         Parameters
         ----------
@@ -89,8 +87,7 @@ class Portfolio:
         return self
 
     def pick_stocks_by_factor(self, factor, thresholds, method='quantile', is_bigger_better=True):
-        """
-        Picks subset of stocks into the portfolio, choosing them by `factor`.
+        """Picks subset of stocks into the portfolio, choosing them by `factor`.
 
         Supports 3 methods to pick stocks:
 
@@ -147,8 +144,7 @@ class Portfolio:
         return self
 
     def pick_stocks_wml(self, winners, losers):
-        """
-        Constructs long-short picks from 2 long-portfolios.
+        """Constructs long-short picks from 2 long-portfolios.
 
         Parameters
         ----------
@@ -168,8 +164,7 @@ class Portfolio:
         return self
 
     def pick_stocks_randomly(self, picks, mask=None):
-        """
-        Pick stocks randomly, but in the same quantity as in the `picks`.
+        """Pick stocks randomly, but in the same quantity as in the `picks`.
 
         In each period collects number of picked stocks and randomly pick the same amount of stocks
         into a random portfolio.
@@ -213,8 +208,7 @@ class Portfolio:
         return self
 
     def weigh_equally(self):
-        """
-        Weighs the `picks` equally: all stocks will have the same weights.
+        """Weighs the `picks` equally: all stocks will have the same weights.
 
         Returns
         -------
@@ -232,8 +226,7 @@ class Portfolio:
         return self
 
     def weigh_by_factor(self, factor):
-        """
-        Weighs the `picks` by `factor`.
+        """Weighs the `picks` by `factor`.
 
         Finds linear weights: simply divides each value in a row by the sum of the row.
 
@@ -259,8 +252,7 @@ class Portfolio:
         return self
 
     def scale_by_factor(self, factor, target=1):
-        """
-        Scale the `weights` by `target` of `factor`.
+        """Scale the `weights` by `target` of `factor`.
 
         Simply divides each value in a row by `target`.
 
@@ -289,8 +281,7 @@ class Portfolio:
         return self
 
     def allocate(self, stock_prices, balance=None, fee_rate=0):
-        """
-        Allocates positions, based on `weights`.
+        """Allocates positions, based on `weights`.
 
         If `balance` is None:
             positions will be equal to weights with correction on commission.
@@ -375,8 +366,7 @@ class Portfolio:
 def generate_random_portfolios(stock_prices, portfolio, mask=None, weighting_factor=None,
                                scaling_factor=None, target=1, balance=None, fee_rate=0, n=100,
                                random_seed=None):
-    """
-    Creates `n` random portfolios, replicating portfolio `picks`.
+    """Creates `n` random portfolios, replicating portfolio `picks`.
 
     Parameters
     ----------

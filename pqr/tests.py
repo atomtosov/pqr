@@ -19,8 +19,7 @@ __all__ = [
 
 
 def zero_intelligence_test(stock_prices, portfolio, target_metric, quantiles, **kwargs):
-    """
-    Creates random portfolios, replicating positions of `portfolio`.
+    """Creates random portfolios, replicating positions of `portfolio`.
 
     After creating random portfolios, calculates target for each of them. Then,
     selects `n_quantiles` portfolios by quantiles of target.
@@ -32,8 +31,8 @@ def zero_intelligence_test(stock_prices, portfolio, target_metric, quantiles, **
     portfolio : Portfolio
         Portfolio, to be tested (replicated by random portfolios).
     target_metric : callable
-        Function-like object, computing some metric (e.g. value of metric). It
-        must get a portfolio and return a number - value of the metric.
+        Function-like object, computing some metric (e.g. value of metric). It must get as input 
+        portfolio returns and return as output a number - value of the metric.
     quantiles : int > 1
         How many quantile-bounds to generate.
     **kwargs
@@ -57,8 +56,7 @@ def zero_intelligence_test(stock_prices, portfolio, target_metric, quantiles, **
 
 
 def t_test(portfolio, risk_free_rate=0):
-    """
-    Calculates t-statistic and p-value of `portfolio` returns.
+    """Calculates t-statistic and p-value of `portfolio` returns.
 
     Implements one-sided t-test. Null hypothesis is that `portfolio` returns are greater than
     `risk_free_rate`.

@@ -12,8 +12,7 @@ from .utils import get_annualization_factor, align
 
 
 def explain_alpha(returns, market_returns, factors_returns, risk_free_rate=0):
-    """
-    Calculates alpha and betas on factors, including overall market.
+    """Calculates alpha and betas on factors, including overall market.
 
     Parameters
     ----------
