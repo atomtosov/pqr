@@ -19,7 +19,7 @@ from .utils import align
 
 __all__ = [
     'Portfolio',
-    'generate_random_portfolios'
+    'generate_random_portfolios',
 ]
 
 
@@ -58,7 +58,7 @@ class Portfolio:
     def __str__(self):
         return self.name
 
-    def pick_all_stocks(self, stock_prices, mask=None):
+    def pick_all_stocks(self, stock_prices, mask=None, direction='long'):
         """
         Picks all available for trading stocks for long positions.
 
@@ -68,6 +68,8 @@ class Portfolio:
             Prices, representing stock universe.
         mask : pd.DataFrame, optional
             Mask to filter stock universe.
+        direction: {'long', 'short'}
+            ...
 
         Returns
         -------
@@ -80,6 +82,9 @@ class Portfolio:
             picks, mask = align(picks, mask)
             picks &= mask
         self.picks = picks.astype(int)
+        
+        if direction == 'short':
+            self.picks *= -1
 
         return self
 
@@ -124,8 +129,7 @@ class Portfolio:
         else:  # method = 'time-series'
             lower_threshold, upper_threshold = thresholds
 
-        self.picks = ((lower_threshold <= factor.data) &
-                      (factor.data <= upper_threshold)).astype(int)
+        self.picks = ((lower_threshold <= factor.data) & (factor.data <= upper_threshold)).astype(int)
 
         return self
 
@@ -177,7 +181,7 @@ class Portfolio:
             picks[~mask] = np.nan
 
         def random_pick(row: np.ndarray, indices=np.indices((picks.shape[1],))[0]):
-            random_picks = np.zeros_like(row, dtype=bool)
+            random_picks = np.zeros_like(row, dtype=int)
 
             long = (row == 1).sum()
             long_choice = np.random.choice(indices[~np.isnan(row)], long)
@@ -400,7 +404,7 @@ def generate_random_portfolios(stock_prices, portfolio, mask=None, weighting_fac
         picks[~mask] = np.nan
 
     portfolios = []
-    for i in range(n):
+    for _ in range(n):
         random_portfolio = Portfolio('random')
         random_portfolio.pick_stocks_randomly(picks)
         if weighting_factor is not None:
