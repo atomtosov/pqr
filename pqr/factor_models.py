@@ -18,10 +18,10 @@ import numpy as np
 import pandas as pd
 
 import pqr.portfolios
+import pqr.factors
 
 __all__ = [
     'fit_factor_model',
-    'calculate_portfolios_summary_stats',
     'factor_model_tear_sheet',
     'grid_search',
 ]
@@ -29,8 +29,7 @@ __all__ = [
 
 def fit_factor_model(stock_prices, factor, is_bigger_better=True, weighting_factor=None, 
                      balance=None, fee_rate=0, quantiles=3, add_wml=False):
-    """
-    Fits factor model with quantile-method.
+    """Fits factor model with quantile-method.
 
     Creates `quantiles` portfolios, covering all stock universe and (optionally) add wml-portfolio.
 
@@ -88,31 +87,8 @@ def fit_factor_model(stock_prices, factor, is_bigger_better=True, weighting_fact
     return portfolios
 
 
-def calculate_portfolios_summary_stats(portfolios, benchmark):
-    """
-    Calculates portfolios summary statistics and gather them into a table.
-
-    See :func:`~pqr.metrics.summary`.
-
-    Parameters
-    ----------
-    portfolios : Portfolio
-        Portfolios, for which summary stats are calculated.
-    benchmark : Portfolio or Benchmark
-        Benchmark to compute some metrics.
-
-    Returns
-    -------
-    pd.DataFrame
-        Table with metrics for all given `portfolios`.
-    """
-
-    return pd.DataFrame([pqr.metrics.summary(p, benchmark) for p in portfolios]).T.round(2)
-
-
 def factor_model_tear_sheet(portfolios, benchmark):
-    """
-    Shows the performance assessment of a factor model' portfolios.
+    """Shows the performance assessment of a factor model' portfolios.
 
     For now:
 
@@ -132,15 +108,13 @@ def factor_model_tear_sheet(portfolios, benchmark):
         Table with summary stats.
     """
 
-    stats = calculate_portfolios_summary_stats(portfolios, benchmark)
+    stats = pd.DataFrame([pqr.metrics.summary(p, benchmark) for p in portfolios]).T.round(2)
     pqr.plotting.plot_cumulative_returns(portfolios, benchmark)
     return stats
 
 
-def grid_search(stock_prices, factor_data, looking_back_periods, method, lag_periods,
-                holding_periods, benchmark, mask=None, **kwargs):
-    """
-    Fits a grid of factor models.
+def grid_search(stock_prices, factor_data, params, target_metric, method='static', mask=None, **kwargs):
+    """Fits a grid of factor models.
 
     Can be used to find the best parameters or just as fast alias to build a
     lot of models with different parameters.
@@ -151,42 +125,40 @@ def grid_search(stock_prices, factor_data, looking_back_periods, method, lag_per
         Prices, representing stock universe.
     factor_data : pd.DataFrame
         Factor, used to pick stocks from (filtered) stock universe.
-    looking_back_periods : sequence of int > 0
-        Looking back periods for `factor` to be tested.
-    method : {'static', 'dynamic'}
-        Whether absolute values of `factor` are used to make decision or
-        their percentage changes.
-    lag_periods : sequence of int >= 0
-        Lag periods for `factor` to be tested.
-    holding_periods : sequence of int > 0
-        Holding periods for `factor` to be tested.
-    benchmark : Benchmark
-        Benchmark to compare with portfolios and calculate some metrics.
+    params : sequence of tuple of int
+        Parameters to iterate over `factor_data` to make it a factor.
+    target_metric : callable
+        Function-like object, computing some metric (e.g. value of metric). It must get as input 
+        portfolio returns and return as output a number - value of the metric.
+    method : {'static', 'dynamic'}, default='static'
+        Whether absolute values of `factor` are used to make decision or their percentage changes.
     mask : pd.DataFrame, optional
-        Matrix of True/False, where True means that a value should remain
-        in `factor` and False - that a value should be deleted.
-    **kwargs
-        Keyword arguments for fitting factor models. See :func:`~pqr.factor_models.fit_factor_model`.
+        Matrix of True/False, where True means that a value should remain in `factor` and False - 
+        that a value should be deleted.
 
     Returns
     -------
-    dict
-        Dict, where key is the combination of looking back, lag and holding periods and value is a
-        table with summary stats.
+    pd.DataFrame
+        Table, where index shows different combinations of given `params`, columns - names of portfolios
+        and on cells values of `target_metric` are presented.
     """
 
-    results = {}
-    for looking in looking_back_periods:
-        for lag in lag_periods:
-            for holding in holding_periods:
-                factor = pqr.factors.Factor(factor_data)
-                factor.look_back(looking, method).lag(lag).hold(holding)
-                if mask is not None:
-                    factor.prefilter(mask)
-                portfolios = fit_factor_model(stock_prices, factor, **kwargs)
-                results[(looking, lag, holding)] = calculate_portfolios_summary_stats(portfolios,
-                                                                                      benchmark)
-    return results
+    metric_rows = []
+    for looking, lag, holding in params:
+        factor = pqr.factors.Factor(factor_data)
+        factor.look_back(looking, method).lag(lag).hold(holding)
+        if mask is not None:
+            factor.prefilter(mask)
+        portfolios = fit_factor_model(stock_prices, factor, **kwargs)
+        
+        metric_values = pd.DataFrame(
+            [[target_metric(portfolio.returns) for portfolio in portfolios]],
+            index=[(looking, lag, holding)], columns=[portfolio.name for portfolio in portfolios]
+        )
+
+        metric_rows.append(metric_values)
+
+    return pd.concat(metric_rows)
 
 
 def _split_quantiles(n):
