@@ -39,7 +39,7 @@ class Benchmark:
     def __init__(self, name='benchmark'):
         self.name = name
 
-        self.returns = pd.Series()
+        self.returns = pd.Series(dtype=float)
 
     def __repr__(self):
         return f'Benchmark({repr(self.name)})'
