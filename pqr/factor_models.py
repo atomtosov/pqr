@@ -64,7 +64,7 @@ def fit_factor_model(stock_prices, factor, is_bigger_better=True, weighting_fact
     portfolios = []
     for q in quantiles_:
         portfolio = pqr.portfolios.Portfolio('q({:.2f}, {:.2f})'.format(*q))
-        portfolio.pick_stocks_by_factor(factor, q, is_bigger_better)
+        portfolio.pick_stocks_by_factor(factor, q, is_bigger_better, method='quantile')
         if weighting_factor is not None:
             portfolio.weigh_by_factor(factor)
         else:

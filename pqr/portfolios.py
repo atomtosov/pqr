@@ -86,7 +86,7 @@ class Portfolio:
 
         return self
 
-    def pick_stocks_by_factor(self, factor, thresholds, method='quantile', is_bigger_better=True):
+    def pick_stocks_by_factor(self, factor, thresholds, is_bigger_better=True, method='quantile'):
         """Picks subset of stocks into the portfolio, choosing them by `factor`.
 
         Supports 3 methods to pick stocks:
@@ -101,12 +101,12 @@ class Portfolio:
             Factor to pick stocks into the portfolio.
         thresholds : tuple of int or float
             Bounds for the set of allowed values of `factor` to pick stocks.
-        method : {'quantile', 'top', 'time-series'}, default='quantile'
-            Method, used to define subset of stocks to be picked on the basis of given `thresholds`.
         is_bigger_better: bool, default=True
             Whether bigger values of factor are treated as better to pick or in contrary as better to 
             avoid. 
-
+        method : {'quantile', 'top', 'time-series'}, default='quantile'
+            Method, used to define subset of stocks to be picked on the basis of given `thresholds`.
+        
         Returns
         -------
         Portfolio
