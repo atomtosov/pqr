@@ -27,13 +27,12 @@ __all__ = [
 ]
 
 
-def fit_factor_model(stock_prices, factor, weighting_factor=None, balance=None, fee_rate=0,
-                     quantiles=3, add_wml=False, is_bigger_better=True):
+def fit_factor_model(stock_prices, factor, is_bigger_better=True, weighting_factor=None, 
+                     balance=None, fee_rate=0, quantiles=3, add_wml=False):
     """
     Fits factor model with quantile-method.
 
-    Creates `quantiles` portfolios, covering all stock universe and
-    (optionally) add wml-portfolio.
+    Creates `quantiles` portfolios, covering all stock universe and (optionally) add wml-portfolio.
 
     Parameters
     ----------
@@ -41,6 +40,9 @@ def fit_factor_model(stock_prices, factor, weighting_factor=None, balance=None, 
         Prices, representing stock universe.
     factor : Factor
         Factor to pick stocks into the portfolio.
+    is_bigger_better : bool, default=True
+        Whether bigger values of factor are treated as better to pick or in contrary as better to 
+        avoid. 
     weighting_factor : Factor, optional
         Factor to weigh picks.
     balance : int or float, optional
@@ -51,9 +53,6 @@ def fit_factor_model(stock_prices, factor, weighting_factor=None, balance=None, 
         Number of portfolios to build for covering stock universe by quantiles.
     add_wml : bool, default=False
         Whether to also create wml-portfolio or not.
-    is_bigger_better : bool, default=True
-        Whether portfolio with highest quantiles will be "winners" for
-        wml-portfolio or with lowest ones.
 
     Returns
     -------
@@ -66,7 +65,7 @@ def fit_factor_model(stock_prices, factor, weighting_factor=None, balance=None, 
     portfolios = []
     for q in quantiles_:
         portfolio = pqr.portfolios.Portfolio('q({:.2f}, {:.2f})'.format(*q))
-        portfolio.pick_stocks_by_factor(factor, q)
+        portfolio.pick_stocks_by_factor(factor, q, is_bigger_better)
         if weighting_factor is not None:
             portfolio.weigh_by_factor(factor)
         else:
@@ -77,10 +76,7 @@ def fit_factor_model(stock_prices, factor, weighting_factor=None, balance=None, 
 
     if add_wml:
         wml = pqr.portfolios.Portfolio('wml')
-        if is_bigger_better:
-            wml.pick_stocks_wml(portfolios[-1], portfolios[0])
-        else:
-            wml.pick_stocks_wml(portfolios[0], portfolios[-1])
+        wml.pick_stocks_wml(portfolios[0], portfolios[-1])
         if weighting_factor is not None:
             wml.weigh_by_factor(weighting_factor)
         else:
@@ -170,8 +166,7 @@ def grid_search(stock_prices, factor_data, looking_back_periods, method, lag_per
         Matrix of True/False, where True means that a value should remain
         in `factor` and False - that a value should be deleted.
     **kwargs
-        Keyword arguments for fitting factor models. See
-        :func:`~pqr.factor_models.fit_factor_model`.
+        Keyword arguments for fitting factor models. See :func:`~pqr.factor_models.fit_factor_model`.
 
     Returns
     -------
