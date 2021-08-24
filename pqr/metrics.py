@@ -346,7 +346,7 @@ def max_drawdown(returns):
     (cumulative maximum of the cumulative returns) and cumulative returns:
 
     .. math::
-        MDD = -\max{\\frac{HWM - Cumulative\;Returns}{HWM}}
+        MDD = -\max\{\\frac{HWM - Cumulative\;Returns}{HWM}\}
 
     Parameters
     ----------
