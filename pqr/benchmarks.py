@@ -99,7 +99,7 @@ class Benchmark:
         """
 
         benchmark_portfolio = pqr.portfolios.Portfolio()
-        benchmark_portfolio.pick_all_stocks(stock_prices, mask)
+        benchmark_portfolio.pick_all_stocks(stock_prices, mask, direction='long')
         if weighting_factor is not None:
             benchmark_portfolio.weigh_by_factor(weighting_factor)
         else:

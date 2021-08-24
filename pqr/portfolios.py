@@ -60,7 +60,7 @@ class Portfolio:
 
     def pick_all_stocks(self, stock_prices, mask=None, direction='long'):
         """
-        Picks all available for trading stocks for long positions.
+        Picks all available for trading stocks for `direction` positions.
 
         Parameters
         ----------
@@ -69,7 +69,7 @@ class Portfolio:
         mask : pd.DataFrame, optional
             Mask to filter stock universe.
         direction: {'long', 'short'}
-            ...
+            Whether to buy or to sell short picked stocks.
 
         Returns
         -------
@@ -82,7 +82,7 @@ class Portfolio:
             picks, mask = align(picks, mask)
             picks &= mask
         self.picks = picks.astype(int)
-        
+
         if direction == 'short':
             self.picks *= -1
 
