@@ -5,8 +5,8 @@ by exposure on some factors.
 """
 
 import pandas as pd
-import statsmodels.regression.linear_model as sm_linear
-import statsmodels.tools.tools as sm_tools
+from statsmodels.regression.linear_model import OLS
+from statsmodels.tools.tools import add_constant
 
 from .utils import get_annualization_factor, align
 
@@ -37,10 +37,10 @@ def explain_alpha(returns, market_returns, factors_returns, risk_free_rate=0):
     adjusted_market_returns = market_returns - risk_free_rate
 
     factors_returns = pd.DataFrame([adjusted_market_returns] + factors_returns).T
-    factors_returns = sm_tools.add_constant(factors_returns)
+    factors_returns = add_constant(factors_returns)
 
     y, x = align(adjusted_returns, factors_returns)
-    est = sm_linear.OLS(y, x).fit()
+    est = OLS(y, x).fit()
     params = est.params.values
     params[0] *= get_annualization_factor(returns)
 

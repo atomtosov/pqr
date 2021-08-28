@@ -11,9 +11,9 @@ you are welcome to create your own metrics and to contribute to source code.
 
 import numpy as np
 import pandas as pd
-import statsmodels.regression.linear_model as sm_linear
-import statsmodels.tools.tools as sm_tools
-import scipy.stats
+from statsmodels.regression.linear_model import OLS
+from statsmodels.tools.tools import add_constant
+from scipy.stats import ttest_1samp
 
 from .utils import get_annualization_factor, align
 
@@ -986,7 +986,7 @@ def _alpha_tstat(returns, benchmark, risk_free_rate=0):
 
 def _mean_excess_return_tstat(returns, benchmark):
     excess_returns = _adjust_returns(returns, benchmark)
-    return scipy.stats.ttest_1samp(excess_returns, 0, alternative='greater').statistic
+    return ttest_1samp(excess_returns, 0, alternative='greater').statistic
 
 
 def _adjust_returns(returns, adjustment):
@@ -999,8 +999,8 @@ def _alpha_beta(returns, benchmark, risk_free_rate=0):
     adjusted_returns = _adjust_returns(returns, risk_free_rate)
     adjusted_benchmark = _adjust_returns(benchmark, risk_free_rate)
     adjusted_returns, adjusted_benchmark = align(adjusted_returns, adjusted_benchmark)
-    x = sm_tools.add_constant(adjusted_benchmark)
-    est = sm_linear.OLS(adjusted_returns, x).fit()
+    x = add_constant(adjusted_benchmark)
+    est = OLS(adjusted_returns, x).fit()
     return est
 
 

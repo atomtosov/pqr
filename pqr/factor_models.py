@@ -17,8 +17,10 @@ grid_search() function.
 import numpy as np
 import pandas as pd
 
-import pqr.portfolios
-import pqr.factors
+from .portfolios import Portfolio
+from .factors import Factor
+from .metrics import summary
+from .plotting import plot_cumulative_returns
 
 __all__ = [
     'fit_factor_model',
@@ -63,7 +65,7 @@ def fit_factor_model(stock_prices, factor, is_bigger_better=True, weighting_fact
 
     portfolios = []
     for q in quantiles_:
-        portfolio = pqr.portfolios.Portfolio('q({:.2f}, {:.2f})'.format(*q))
+        portfolio = Portfolio('q({:.2f}, {:.2f})'.format(*q))
         portfolio.pick_stocks_by_factor(factor, q, is_bigger_better, method='quantile')
         if weighting_factor is not None:
             portfolio.weigh_by_factor(factor)
@@ -74,7 +76,7 @@ def fit_factor_model(stock_prices, factor, is_bigger_better=True, weighting_fact
         portfolios.append(portfolio)
 
     if add_wml:
-        wml = pqr.portfolios.Portfolio('wml')
+        wml = Portfolio('wml')
         wml.pick_stocks_wml(portfolios[0], portfolios[-1])
         if weighting_factor is not None:
             wml.weigh_by_factor(weighting_factor)
@@ -108,8 +110,8 @@ def factor_model_tear_sheet(portfolios, benchmark):
         Table with summary stats.
     """
 
-    stats = pd.DataFrame([pqr.metrics.summary(p, benchmark) for p in portfolios]).T.round(2)
-    pqr.plotting.plot_cumulative_returns(portfolios, benchmark)
+    stats = pd.DataFrame([summary(p, benchmark) for p in portfolios]).T.round(2)
+    plot_cumulative_returns(portfolios, benchmark)
     return stats
 
 
@@ -145,7 +147,7 @@ def grid_search(stock_prices, factor_data, params, target_metric, method='static
 
     metric_rows = []
     for looking, lag, holding in params:
-        factor = pqr.factors.Factor(factor_data)
+        factor = Factor(factor_data)
         factor.look_back(looking, method).lag(lag).hold(holding)
         if mask is not None:
             factor.prefilter(mask)

@@ -8,9 +8,9 @@ strategy in future.
 
 import numpy as np
 import pandas as pd
-import scipy.stats
+from scipy.stats import ttest_1samp
 
-import pqr.portfolios
+from .portfolios import generate_random_portfolios
 
 __all__ = [
     'zero_intelligence_test',
@@ -44,7 +44,7 @@ def zero_intelligence_test(stock_prices, portfolio, target_metric, quantiles, **
     dict
     """
 
-    random_portfolios = pqr.portfolios.generate_random_portfolios(stock_prices, portfolio, **kwargs)
+    random_portfolios = generate_random_portfolios(stock_prices, portfolio, **kwargs)
     target_values = pd.Series([target_metric(p.returns) for p in random_portfolios])
 
     indices = [target_values[target_values <= target_values.quantile(q)].argmax()
@@ -73,4 +73,4 @@ def t_test(portfolio, risk_free_rate=0):
     tuple of float
     """
 
-    return scipy.stats.ttest_1samp(portfolio.returns, risk_free_rate, alternative='greater')
+    return ttest_1samp(portfolio.returns, risk_free_rate, alternative='greater')
