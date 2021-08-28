@@ -9,7 +9,7 @@ developed in future.
 
 import matplotlib.pyplot as plt
 
-import pqr.metrics
+from .metrics import cumulative_returns, drawdown
 
 __all__ = [
     'plot_cumulative_returns',
@@ -29,12 +29,12 @@ def plot_cumulative_returns(portfolios, benchmark=None):
     """
 
     for portfolio in portfolios:
-        pqr.metrics.cumulative_returns(portfolio.returns).plot()
+        cumulative_returns(portfolio.returns).plot()
 
     if benchmark is not None:
         start_trading = min(portfolio.returns.index[0] for portfolio in portfolios)
-        benchmark_cum_returns = pqr.metrics.cumulative_returns(benchmark.returns)
-        benchmark_cum_returns = (benchmark_cum_returns[start_trading:] -
+        benchmark_cum_returns = cumulative_returns(benchmark.returns)
+        benchmark_cum_returns = (benchmark_cum_returns[start_trading:] - 
                                  benchmark_cum_returns[start_trading])
         benchmark_cum_returns.plot(color='gray', alpha=0.8)
 
@@ -53,9 +53,7 @@ def plot_underwater(portfolios):
     """
 
     for portfolio in portfolios:
-        equity = pqr.metrics.cumulative_returns(portfolio.returns) + 1
-        high_water_mark = equity.cummax()
-        underwater = -(high_water_mark - equity) / high_water_mark
+        underwater = drawdown(portfolio.returns)
         underwater.plot()
 
     plt.title('Portfolio Underwater Plot')

@@ -127,6 +127,31 @@ def cumulative_returns(returns):
     return (1 + returns).cumprod() - 1
 
 
+def drawdown(returns):
+    """Calculates Drawdown of portfolio returns.
+
+    Drawdown of portfolio is the relative difference between high water mark (cumulative maximum of 
+    the cumulative returns) and cumulative returns:
+
+    .. math::
+        DD = -\\frac{High\\;Water\\;Mark - Cumulative\\;Returns}{High\\;Water\\;Mark}
+
+    Parameters
+    ----------
+    returns : pd.Series
+        Returns of a portfolio or a benchmark.
+
+    Returns
+    -------
+    pd.Series
+        Drawdown.
+    """
+
+    equity = cumulative_returns(returns) + 1
+    high_water_mark = equity.cummax()
+    return -(high_water_mark - equity) / high_water_mark
+
+
 def total_return(returns):
     """Calculates Total Return of portfolio returns.
 
@@ -337,7 +362,7 @@ def max_drawdown(returns):
     (cumulative maximum of the cumulative returns) and cumulative returns:
 
     .. math::
-        MDD = -\\max\\left\\{\\frac{HWM - Cumulative\\;Returns}{HWM}\\right\\}
+        MDD = \\max\\{Drawdown\\}
 
     Parameters
     ----------
@@ -350,10 +375,7 @@ def max_drawdown(returns):
         Maximum Drawdown.
     """
 
-    equity = cumulative_returns(returns) + 1
-    high_water_mark = equity.cummax()
-    drawdown = (high_water_mark - equity) / high_water_mark
-    return -drawdown.max()
+    return drawdown(returns).min()
 
 
 def rolling_max_drawdown(returns, window=None):
