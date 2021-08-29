@@ -1,22 +1,21 @@
-import setuptools
-
+from setuptools import setup, find_packages
 
 with open('README.md') as f:
     readme = f.read()
 
 
-setuptools.setup(
+setup(
     name='pqr',
-    version='0.2.1',
+    version='0.2.2',
     description='Library for testing factor strategies',
     long_description=readme,
     long_description_content_type='text/markdown',
-    packages=setuptools.find_packages(),
+    packages=find_packages(),
     install_requires=[
-        'pandas<=1.3.0',
-        'matplotlib<=3.4.2',
-        'numpy<=1.21.0',
-        'statsmodels<=0.12.2',
+        'pandas',
+        'matplotlib',
+        'numpy',
+        'statsmodels',
     ],
     author='eura17, atomtosov',
     license='MIT',
