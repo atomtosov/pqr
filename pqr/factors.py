@@ -132,7 +132,7 @@ class Factor:
 
         return self
 
-    def prefilter(self, mask):
+    def filter(self, mask):
         """Filters the `factor` by given `mask`.
 
         Simply deletes (replaces with np.nan) cells, where the `mask` equals to False.
