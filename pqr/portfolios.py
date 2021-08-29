@@ -57,7 +57,7 @@ class Portfolio:
     def __str__(self):
         return self.name
 
-    def pick_all_stocks(self, stock_prices, mask=None, direction='long'):
+    def pick_all(self, stock_prices, mask=None, direction='long'):
         """Picks all available for trading stocks for `direction` positions.
 
         Parameters
@@ -86,7 +86,7 @@ class Portfolio:
 
         return self
 
-    def pick_stocks_by_factor(self, factor, thresholds, is_bigger_better=True, method='quantile'):
+    def pick_by_factor(self, factor, thresholds, is_bigger_better=True, method='quantile'):
         """Picks subset of stocks into the portfolio, choosing them by `factor`.
 
         Supports 3 methods to pick stocks:
@@ -143,7 +143,7 @@ class Portfolio:
 
         return self
 
-    def pick_stocks_wml(self, winners, losers):
+    def pick_wml(self, winners, losers):
         """Constructs long-short picks from 2 long-portfolios.
 
         Parameters
@@ -163,7 +163,7 @@ class Portfolio:
 
         return self
 
-    def pick_stocks_randomly(self, picks, mask=None):
+    def pick_randomly(self, picks, mask=None):
         """Pick stocks randomly, but in the same quantity as in the `picks`.
 
         In each period collects number of picked stocks and randomly pick the same amount of stocks
@@ -174,9 +174,8 @@ class Portfolio:
         picks : pd.DataFrame
             Picks to replicate by the random portfolio.
         mask : pd.DataFrame, optional
-            Matrix to prohibit pick stock during periods, when they are not
-            really available for trading. Also can be used to filter stock
-            universe.
+            Matrix to prohibit pick stock during periods, when they are not really available for trading. 
+            Also can be used to filter stock universe.
 
         Returns
         -------
@@ -204,6 +203,30 @@ class Portfolio:
             np.apply_along_axis(random_pick, axis=1, arr=picks.values),
             index=picks.index, columns=picks.columns
         ).astype(int)
+
+        return self
+
+
+    def filter(self, mask):
+        """Filters `picks` by given `mask`.
+
+        Simply deletes (replaces with 0) cells, where the `mask` equals to False.
+
+        Parameters
+        ----------
+        mask : pd.DataFrame
+            Matrix of True/False, where True means that a pick should remain in `portfolio` and
+            False - that a value should be deleted.
+
+        Returns
+        -------
+        Portfolio
+            Portfolio with transformed picks.
+        """
+
+        self.picks, mask = align(self.picks, mask)
+
+        self.picks[~mask] = 0
 
         return self
 
@@ -409,7 +432,7 @@ def generate_random_portfolios(stock_prices, portfolio, mask=None, weighting_fac
     portfolios = []
     for _ in range(n):
         random_portfolio = Portfolio('random')
-        random_portfolio.pick_stocks_randomly(picks)
+        random_portfolio.pick_randomly(picks)
         if weighting_factor is not None:
             random_portfolio.weigh_by_factor(weighting_factor)
         else:
