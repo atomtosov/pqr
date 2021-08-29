@@ -114,7 +114,7 @@ class Portfolio:
         """
 
         if method == 'quantile':
-            if not is_bigger_better:
+            if is_bigger_better:
                 thresholds = (1 - thresholds[1], 1 - thresholds[0])
 
             lower_threshold, upper_threshold = np.nanquantile(
@@ -265,6 +265,7 @@ class Portfolio:
         """
 
         picks, factor_data = align(self.picks, factor.data)
+
         weights = picks * factor_data
         long, short = weights > 0, weights < 0
         weights[long] /= np.nansum(weights[long], axis=1, keepdims=True)
@@ -274,7 +275,7 @@ class Portfolio:
 
         return self
 
-    def scale_by_factor(self, factor, target=1):
+    def scale_by_factor(self, factor, target=1, leverage_limits=(-np.inf, np.inf)):
         """Scale the `weights` by `target` of `factor`.
 
         Simply divides each value in a row by `target`.
@@ -285,6 +286,8 @@ class Portfolio:
             Factor to scale (leverage) positions weights.
         target : array_like, default=1
             Target of `factor`.
+        leverage_limits : tuple of int or float, default=(-np.inf, np.inf)
+            Thresholds to limit min and max leverage for positions weights.
 
         Returns
         -------
@@ -297,9 +300,17 @@ class Portfolio:
         """
 
         weights, factor_data = align(self.weights, factor.data)
-        leveraged_weights = weights * factor_data / target
 
-        self.weights = leveraged_weights.fillna(0)
+        weights = weights.multiply(factor_data / target, axis=0)
+        leverage = weights.sum(axis=1)
+
+        lower_limit, upper_limit = leverage_limits
+        exceed_lower = leverage < lower_limit
+        exceed_upper = leverage > upper_limit
+        weights[exceed_lower] = weights[exceed_lower].divide(leverage[exceed_lower] / lower_limit, axis=0)
+        weights[exceed_upper] = weights[exceed_upper].divide(leverage[exceed_upper] / upper_limit, axis=0)
+
+        self.weights = weights.fillna(0)
 
         return self
 
