@@ -66,7 +66,7 @@ def fit_factor_model(stock_prices, factor, is_bigger_better=True, weighting_fact
     portfolios = []
     for q in quantiles_:
         portfolio = Portfolio('q({:.2f}, {:.2f})'.format(*q))
-        portfolio.pick_stocks_by_factor(factor, q, is_bigger_better, method='quantile')
+        portfolio.pick_by_factor(factor, q, is_bigger_better, method='quantile')
         if weighting_factor is not None:
             portfolio.weigh_by_factor(factor)
         else:
@@ -77,7 +77,7 @@ def fit_factor_model(stock_prices, factor, is_bigger_better=True, weighting_fact
 
     if add_wml:
         wml = Portfolio('wml')
-        wml.pick_stocks_wml(portfolios[0], portfolios[-1])
+        wml.pick_wml(portfolios[0], portfolios[-1])
         if weighting_factor is not None:
             wml.weigh_by_factor(weighting_factor)
         else:
@@ -137,6 +137,8 @@ def grid_search(stock_prices, factor_data, params, target_metric, method='static
     mask : pd.DataFrame, optional
         Matrix of True/False, where True means that a value should remain in `factor` and False - 
         that a value should be deleted.
+    **kwargs
+        Keyword arguments for fitting factor models. See :func:`~pqr.factor_models.fit_factor_model`.
 
     Returns
     -------
@@ -150,7 +152,7 @@ def grid_search(stock_prices, factor_data, params, target_metric, method='static
         factor = Factor(factor_data)
         factor.look_back(looking, method).lag(lag).hold(holding)
         if mask is not None:
-            factor.prefilter(mask)
+            factor.filter(mask)
         portfolios = fit_factor_model(stock_prices, factor, **kwargs)
         
         metric_values = pd.DataFrame(

@@ -96,7 +96,7 @@ class Benchmark:
         """
 
         benchmark_portfolio = Portfolio()
-        benchmark_portfolio.pick_all_stocks(stock_prices, mask, direction='long')
+        benchmark_portfolio.pick_all(stock_prices, mask, direction='long')
         if weighting_factor is not None:
             benchmark_portfolio.weigh_by_factor(weighting_factor)
         else:
