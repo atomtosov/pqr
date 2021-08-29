@@ -1008,13 +1008,12 @@ def _roll(*returns, metric, window=None, **kwargs):
     if window is None:
         window = get_annualization_factor(returns[0])
 
-    common_index = returns[0].index
-    for r in returns:
-        common_index = common_index.intersection(r.index)
+    returns = align(*returns)
+    index = returns[0].index
 
-    values = [np.nan] * (window - 1)
-    for i in range(window, len(common_index) + 1):
-        idx = common_index[i - window:i]
+    values = []
+    for i in range(window, len(index) + 1):
+        idx = index[i - window:i]
         rets = [r.loc[idx] for r in returns]
         values.append(metric(*rets, **kwargs))
-    return pd.Series(values, index=common_index)
+    return pd.Series(values, index=index[window-1:])
