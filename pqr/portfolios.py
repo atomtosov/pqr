@@ -11,6 +11,7 @@ positions are equal to theoretical weights (because of indivisibility of stocks)
 going close to relative one with initial balance going to infinity.
 """
 
+from numpy.core.numeric import zeros_like
 import pandas as pd
 import numpy as np
 
@@ -187,7 +188,7 @@ class Portfolio:
         if mask is not None:
             picks[~mask] = np.nan
 
-        def random_pick(row: np.ndarray, indices=np.indices((picks.shape[1],))[0]):
+        def random_pick(row, indices=np.indices((picks.shape[1],))[0]):
             random_picks = np.zeros_like(row, dtype=int)
 
             long = (row == 1).sum()
@@ -206,6 +207,49 @@ class Portfolio:
 
         return self
 
+    def pick_ideally(self, stock_prices, portfolio, mask=None):
+        """Picks stocks ideally in the same quantity as in the `portfolio`.
+
+        In each period simply look forward to stock returns and long stocks with the best performance and
+        short stocks with the worst into an "ideal" portfolio.
+
+        Parameters
+        ----------
+        stock_prices : pd.DataFrame
+            Prices, representing stock universe.
+        portfolio : Portfolio
+            Portfolio to be replicated by "ideal" portfolio.
+        mask : pd.DataFrame, optional
+            Matrix of True/False, where True means that a stock can be picked in that period and
+            False - that a stock cannot be picked.
+
+        Returns
+        -------
+        Portfolio
+            Portfolio with filled picks.
+        """
+
+        stock_returns = stock_prices.pct_change().shift(-1)
+        if mask is not None:
+            stock_returns[~mask] = np.nan
+        stock_returns, picks = align(stock_returns, portfolio.picks)
+
+        ideal_picks = pd.DataFrame(np.zeros_like(picks), index=picks.index, columns=picks.columns)
+        for date in picks.index:
+            row = picks.loc[date]
+            returns = stock_returns.loc[date]
+
+            long = (row == 1).sum()
+            short = (row == -1).sum()
+            long_picks = returns.nlargest(long).index
+            short_picks = returns.nsmallest(short).index
+
+            ideal_picks.loc[date, long_picks] = 1
+            ideal_picks.loc[date, short_picks] = -1
+        
+        self.picks = ideal_picks
+
+        return self
 
     def filter(self, mask):
         """Filters `picks` by given `mask`.
