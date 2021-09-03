@@ -319,10 +319,11 @@ class Portfolio:
 
         return self
 
-    def scale_by_factor(self, factor, target=1, leverage_limits=(-np.inf, np.inf)):
-        """Scale the `weights` by `target` of `factor`.
+    def scale_by_factor(self, factor, target=1, leverage_limits=(-np.inf, np.inf), better='more'):
+        """Scale `weights` by `target` of `factor`.
 
-        Simply divides each value in a row by `target`.
+        Simply divides each value in a row by `target` if `better` equals to 'more', otherwise `target` is
+        simply divided by a row of `factor` values.
 
         Parameters
         ----------
@@ -332,6 +333,8 @@ class Portfolio:
             Target of `factor`.
         leverage_limits : tuple of int or float, default=(-np.inf, np.inf)
             Thresholds to limit min and max leverage for positions weights.
+        better : {'more', 'less'}, default='less'
+            Whether exceeding the `target` will result in a higher leverage or a lower.
 
         Returns
         -------
@@ -345,14 +348,18 @@ class Portfolio:
 
         weights, factor_data = align(self.weights, factor.data)
 
-        weights = weights.multiply(factor_data / target, axis=0)
-        leverage = weights.sum(axis=1)
+        if better == 'more':
+            leverage = factor_data / target
+        else:
+            leverage = target / factor_data
+        weights = weights.multiply(leverage, axis=0)
 
+        total_leverage = weights.sum(axis=1)
         lower_limit, upper_limit = leverage_limits
-        exceed_lower = leverage < lower_limit
-        exceed_upper = leverage > upper_limit
-        weights[exceed_lower] = weights[exceed_lower].divide(leverage[exceed_lower] / lower_limit, axis=0)
-        weights[exceed_upper] = weights[exceed_upper].divide(leverage[exceed_upper] / upper_limit, axis=0)
+        exceed_lower = total_leverage < lower_limit
+        exceed_upper = total_leverage > upper_limit
+        weights[exceed_lower] = weights[exceed_lower].divide(total_leverage[exceed_lower] / lower_limit, axis=0)
+        weights[exceed_upper] = weights[exceed_upper].divide(total_leverage[exceed_upper] / upper_limit, axis=0)
 
         self.weights = weights.fillna(0)
 
@@ -381,11 +388,6 @@ class Portfolio:
         -------
         Portfolio
             Portfolio with filled positions and returns.
-
-        Notes
-        -----
-        For now allocation with money can lead to negative cash if `fee_rate` != 0, but it will be
-        fixed soon.
         """
 
         if balance is None:
