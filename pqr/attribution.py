@@ -5,8 +5,7 @@ by exposure on some factors.
 """
 
 import pandas as pd
-from statsmodels.regression.linear_model import OLS
-from statsmodels.tools.tools import add_constant
+from statsmodels.api import OLS, add_constant
 
 from .utils import get_annualization_factor, align
 

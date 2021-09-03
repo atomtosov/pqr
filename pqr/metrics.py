@@ -11,8 +11,7 @@ you are welcome to create your own metrics and to contribute to source code.
 
 import numpy as np
 import pandas as pd
-from statsmodels.regression.linear_model import OLS
-from statsmodels.tools.tools import add_constant
+from statsmodels.api import OLS, add_constant
 from scipy.stats import ttest_1samp
 
 from .utils import get_annualization_factor, align

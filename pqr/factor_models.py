@@ -19,12 +19,9 @@ import pandas as pd
 
 from .portfolios import Portfolio
 from .factors import Factor
-from .metrics import summary
-from .plotting import plot_cumulative_returns
 
 __all__ = [
     'fit_factor_model',
-    'factor_model_tear_sheet',
     'grid_search',
 ]
 
@@ -87,32 +84,6 @@ def fit_factor_model(stock_prices, factor, better='less', weighting_factor=None,
         portfolios.append(wml)
 
     return portfolios
-
-
-def factor_model_tear_sheet(portfolios, benchmark):
-    """Shows the performance assessment of a factor model' portfolios.
-
-    For now:
-
-    * shows summary stats table
-    * plots cumulative returns
-
-    Parameters
-    ----------
-    portfolios : sequence of Portfolio
-        Portfolios, included into the factor model.
-    benchmark : Portfolio or Benchmark
-        Benchmark to compute some metrics.
-
-    Returns
-    -------
-    pd.DataFrame
-        Table with summary stats.
-    """
-
-    stats = pd.DataFrame([summary(p, benchmark) for p in portfolios]).T.round(2)
-    plot_cumulative_returns(portfolios, benchmark)
-    return stats
 
 
 def grid_search(stock_prices, factor_data, params, target_metric, method='static', mask=None, **kwargs):

@@ -14,4 +14,5 @@ from .factors import *
 from .metrics import *
 from .plotting import *
 from .portfolios import *
+from .tear_sheets import *
 from .tests import *
