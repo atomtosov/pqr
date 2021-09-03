@@ -29,7 +29,7 @@ __all__ = [
 ]
 
 
-def fit_factor_model(stock_prices, factor, is_bigger_better=True, weighting_factor=None, 
+def fit_factor_model(stock_prices, factor, better='less', weighting_factor=None, 
                      balance=None, fee_rate=0, quantiles=3, add_wml=False):
     """Fits factor model with quantile-method.
 
@@ -41,7 +41,7 @@ def fit_factor_model(stock_prices, factor, is_bigger_better=True, weighting_fact
         Prices, representing stock universe.
     factor : Factor
         Factor to pick stocks into the portfolio.
-    is_bigger_better : bool, default=True
+    better: {'more', 'less'}, default='more'
         Whether bigger values of factor are treated as better to pick or in contrary as better to 
         avoid. 
     weighting_factor : Factor, optional
@@ -66,7 +66,7 @@ def fit_factor_model(stock_prices, factor, is_bigger_better=True, weighting_fact
     portfolios = []
     for q in quantiles_:
         portfolio = Portfolio('q({:.2f}, {:.2f})'.format(*q))
-        portfolio.pick_by_factor(factor, q, is_bigger_better, method='quantile')
+        portfolio.pick_by_factor(factor, q, better, method='quantile')
         if weighting_factor is not None:
             portfolio.weigh_by_factor(factor)
         else:

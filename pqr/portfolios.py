@@ -87,7 +87,7 @@ class Portfolio:
 
         return self
 
-    def pick_by_factor(self, factor, thresholds, is_bigger_better=True, method='quantile'):
+    def pick_by_factor(self, factor, thresholds, better='more', method='quantile'):
         """Picks subset of stocks into the portfolio, choosing them by `factor`.
 
         Supports 3 methods to pick stocks:
@@ -102,7 +102,7 @@ class Portfolio:
             Factor to pick stocks into the portfolio.
         thresholds : tuple of int or float
             Bounds for the set of allowed values of `factor` to pick stocks.
-        is_bigger_better: bool, default=True
+        better: {'more', 'less'}, default='more'
             Whether bigger values of factor are treated as better to pick or in contrary as better to 
             avoid. 
         method : {'quantile', 'top', 'time-series'}, default='quantile'
@@ -115,17 +115,17 @@ class Portfolio:
         """
 
         if method == 'quantile':
-            if is_bigger_better:
+            if better == 'more':
                 thresholds = (1 - thresholds[1], 1 - thresholds[0])
 
             lower_threshold, upper_threshold = np.nanquantile(
                 factor.data, thresholds, axis=1, keepdims=True
             )
         elif method == 'top':
-            if is_bigger_better:
+            if better == 'more':
                 top_func = pd.Series.nlargest
                 bound_func = np.nanmin
-            else:
+            else:  # better == 'less'
                 top_func = pd.Series.nsmallest
                 bound_func = np.nanmax
 
