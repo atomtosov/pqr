@@ -45,22 +45,22 @@ class Factor:
     def __init__(self, data):
         self.data = data.copy()
 
-    def look_back(self, period=1, method='static'):
+    def look_back(self, period=1, approach='static'):
         """Looks back on `factor` for `period` periods.
 
-        If `method` is dynamic:
+        If `approach` is dynamic:
             calculates percentage changes with looking back by `period` periods, then values are
             lagged for 1 period (because in period t(0) we can know percentage change from period
             t(-looking_period) only at the end of t(0), so it is needed to avoid look-ahead bias).
 
-        If `method` is static:
+        If `approach` is static:
             all values are shifted for `period`.
 
         Parameters
         ----------
         period : int > 0, default=1
             Looking back period for `factor`.
-        method : {'static', 'dynamic'}, default='static'
+        approach : {'static', 'dynamic'}, default='static'
             Whether absolute values of `factor` are used to make decision or their percentage
             changes.
 
@@ -70,10 +70,10 @@ class Factor:
             Factor with transformed data.
         """
 
-        if method == 'dynamic':
+        if approach == 'dynamic':
             self.data = self.data.pct_change(period)
             self.lag(1)
-        else:  # method = 'static'
+        else:  # approach = 'static'
             self.data = self.data.shift(period)
 
         self.data = self.data.iloc[period:]
@@ -150,7 +150,6 @@ class Factor:
         """
 
         self.data, mask = align(self.data, mask)
-
         self.data[~mask] = np.nan
 
         return self

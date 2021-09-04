@@ -17,8 +17,8 @@ grid_search() function.
 import numpy as np
 import pandas as pd
 
-from .portfolios import Portfolio
 from .factors import Factor
+from .portfolios import Portfolio
 
 __all__ = [
     'fit_factor_model',
@@ -86,7 +86,7 @@ def fit_factor_model(stock_prices, factor, better='less', weighting_factor=None,
     return portfolios
 
 
-def grid_search(stock_prices, factor_data, params, target_metric, method='static', mask=None, **kwargs):
+def grid_search(stock_prices, factor_data, params, target_metric, approach='static', mask=None, **kwargs):
     """Fits a grid of factor models.
 
     Can be used to find the best parameters or just as fast alias to build a
@@ -103,7 +103,7 @@ def grid_search(stock_prices, factor_data, params, target_metric, method='static
     target_metric : callable
         Function-like object, computing some metric (e.g. value of metric). It must get as input 
         portfolio returns and return as output a number - value of the metric.
-    method : {'static', 'dynamic'}, default='static'
+    approach : {'static', 'dynamic'}, default='static'
         Whether absolute values of `factor` are used to make decision or their percentage changes.
     mask : pd.DataFrame, optional
         Matrix of True/False, where True means that a value should remain in `factor` and False - 
@@ -121,7 +121,7 @@ def grid_search(stock_prices, factor_data, params, target_metric, method='static
     metric_rows = []
     for looking, lag, holding in params:
         factor = Factor(factor_data)
-        factor.look_back(looking, method).lag(lag).hold(holding)
+        factor.look_back(looking, approach).lag(lag).hold(holding)
         if mask is not None:
             factor.filter(mask)
         portfolios = fit_factor_model(stock_prices, factor, **kwargs)
