@@ -155,19 +155,19 @@ class Factor:
         return self
 
     def __eq__(self, other):
-        return self.data.__eq__(other)
+        return self.data == other
 
     def __ne__(self, other):
-        return self.data.__ne__(other)
+        return self.data != other
 
     def __lt__(self, other):
-        return self.data.__lt__(other)
+        return self.data < other
 
     def __gt__(self, other):
-        return self.data.__gt__(other)
+        return self.data > other
     
     def __le__(self, other):
-        return self.data.__le__(other)
+        return self.data <= other
     
     def __ge__(self, other):
-        return self.data.__ge__(other)
+        return self.data >= other
