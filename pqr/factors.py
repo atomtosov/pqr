@@ -155,19 +155,95 @@ class Factor:
         return self
 
     def __eq__(self, other):
+        if isinstance(other, Factor):
+            return self.data == other.data
         return self.data == other
 
     def __ne__(self, other):
+        if isinstance(other, Factor):
+            return self.data != other.data
         return self.data != other
 
     def __lt__(self, other):
+        if isinstance(other, Factor):
+            return self.data < other.data
         return self.data < other
 
     def __gt__(self, other):
+        if isinstance(other, Factor):
+            return self.data > other.data
         return self.data > other
     
     def __le__(self, other):
+        if isinstance(other, Factor):
+            return self.data <= other.data
         return self.data <= other
     
     def __ge__(self, other):
+        if isinstance(other, Factor):
+            return self.data >= other.data
         return self.data >= other
+
+    def __add__(self, other):
+        if isinstance(other, Factor):
+            return Factor(self.data + other.data)
+        return Factor(self.data + other)
+
+    __radd__ = __add__
+
+    def __sub__(self, other):
+        if isinstance(other, Factor):
+            return Factor(self.data - other.data)
+        return Factor(self.data - other)
+
+    def __rsub__(self, other):
+        if isinstance(other, Factor):
+            return Factor(other.data - self.data)
+        return Factor(other - self.data)
+    
+    def __mul__(self, other):
+        if isinstance(other, Factor):
+            return Factor(self.data * other.data)
+        return Factor(self.data * other)
+
+    __rmul__ = __mul__
+
+    def __floordiv__(self, other):
+        if isinstance(other, Factor):
+            return Factor(self.data // other.data)
+        return Factor(self.data // other)
+
+    def __rfloordiv__(self, other):
+        if isinstance(other, Factor):
+            return Factor(other.data // self.data)
+        return Factor(other // self.data)
+    
+    def __truediv__(self, other):
+        if isinstance(other, Factor):
+            return Factor(self.data / other.data)
+        return Factor(self.data / other)
+
+    def __rtruediv__(self, other):
+        if isinstance(other, Factor):
+            return Factor(other.data / self.data)
+        return Factor(other / self.data)
+
+    def __mod__(self, other):
+        if isinstance(other, Factor):
+            return Factor(self.data % other.data)
+        return Factor(self.data % other)
+
+    def __rmod__(self, other):
+        if isinstance(other, Factor):
+            return Factor(other.data % self.data)
+        return Factor(other % self.data)
+    
+    def __pow__(self, other):
+        if isinstance(other, Factor):
+            return Factor(self.data ** other.data)
+        return Factor(self.data ** other)
+
+    def __rpow__(self, other):
+        if isinstance(other, Factor):
+            return Factor(other.data ** self.data)
+        return Factor(other ** self.data)
