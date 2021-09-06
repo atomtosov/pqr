@@ -1,4 +1,11 @@
+"""
+This module contains presets to visualize analysis of portfolios performance and compare them. These presets are
+supposed to be used in Jupyter Notebook.
+"""
+
+from IPython.display import display
 import pandas as pd
+import matplotlib.pyplot as plt
 
 from .metrics import summary
 from .plotting import plot_cumulative_returns
@@ -22,13 +29,10 @@ def summary_tear_sheet(portfolios, benchmark):
         Portfolios, included into the factor model.
     benchmark : Portfolio or Benchmark
         Benchmark to compute some metrics.
-
-    Returns
-    -------
-    pd.DataFrame
-        Table with summary stats.
     """
 
     stats = pd.DataFrame([summary(p, benchmark) for p in portfolios]).T.round(2)
+    display(stats)
+
     plot_cumulative_returns(portfolios, benchmark)
-    return stats
+    plt.show()

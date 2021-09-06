@@ -43,6 +43,8 @@ def zero_intelligence_test(stock_prices, portfolio, target_metric, quantiles, **
     Returns
     -------
     dict
+        Dict, where keys are values of tops of quantiles of target metric and values are portfolios, achieving 
+        these values.
     """
 
     random_portfolios = generate_random_portfolios(stock_prices, portfolio, **kwargs)
@@ -104,6 +106,7 @@ def t_test(portfolio, risk_free_rate=0):
     Returns
     -------
     tuple of float
+        Tuple with results of t-test.
     """
 
     return ttest_1samp(portfolio.returns, risk_free_rate, alternative='greater')

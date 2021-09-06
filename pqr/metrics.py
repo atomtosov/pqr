@@ -76,6 +76,7 @@ def summary(portfolio, benchmark):
     Returns
     -------
     pd.Series
+        Series with index, representing metrics and values - values of the metrics.
     """
 
     return pd.Series(

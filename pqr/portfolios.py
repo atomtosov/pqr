@@ -11,7 +11,6 @@ positions are equal to theoretical weights (because of indivisibility of stocks)
 going close to relative one with initial balance going to infinity.
 """
 
-from numpy.core.numeric import zeros_like
 import pandas as pd
 import numpy as np
 

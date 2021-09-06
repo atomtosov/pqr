@@ -38,8 +38,7 @@ def explain_alpha(returns, market_returns, factors_returns, risk_free_rate=0):
     factors_returns = pd.DataFrame([adjusted_market_returns] + factors_returns).T
     factors_returns = add_constant(factors_returns)
 
-    y, x = align(adjusted_returns, factors_returns)
-    est = OLS(y, x).fit()
+    est = OLS(adjusted_returns, adjusted_market_returns).fit()
     params = est.params.values
     params[0] *= get_annualization_factor(returns)
 
