@@ -46,6 +46,14 @@ pqr.plotting module
    :undoc-members:
    :show-inheritance:
 
+pqr.tear\_sheets module
+-----------------------
+
+.. automodule:: pqr.tear_sheets
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 pqr.factor\_models module
 -------------------------
 
