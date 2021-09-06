@@ -5,6 +5,8 @@ Provides:
   3. Fancy visualization of results
 
 Source: https://github.com/atomtosov/pqr/tree/dev
+
+Affilation: https://fmlab.hse.ru/
 """
 
 from .attribution import *
