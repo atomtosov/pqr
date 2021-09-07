@@ -122,20 +122,23 @@ class Portfolio:
             )
         elif method == 'top':
             if better == 'more':
-                top_func = pd.Series.nlargest
-                bound_func = np.nanmin
+                lower_threshold = np.nanmin(
+                    factor.data.apply(pd.Series.nlargest, n=thresholds[1], axis=1),
+                    axis=1, keepdims=True
+                )
+                upper_threshold = np.nanmin(
+                    factor.data.apply(pd.Series.nlargest, n=thresholds[0], axis=1),
+                    axis=1, keepdims=True
+                )
             else:  # better == 'less'
-                top_func = pd.Series.nsmallest
-                bound_func = np.nanmax
-
-            lower_threshold = bound_func(
-                factor.data.apply(top_func, n=thresholds[1], axis=1),
-                axis=1, keepdims=True
-            )
-            upper_threshold = bound_func(
-                factor.data.apply(top_func, n=thresholds[0], axis=1),
-                axis=1, keepdims=True
-            )
+                lower_threshold = np.nanmax(
+                    factor.data.apply(pd.Series.nsmallest, n=thresholds[0], axis=1),
+                    axis=1, keepdims=True
+                )
+                upper_threshold = np.nanmax(
+                    factor.data.apply(pd.Series.nsmallest, n=thresholds[1], axis=1),
+                    axis=1, keepdims=True
+                )
         else:  # method = 'time-series'
             lower_threshold, upper_threshold = thresholds
 
