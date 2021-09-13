@@ -1,5 +1,4 @@
-"""
-This module contains all necessary graphics to visualize. Visualization is very
+"""This module contains all necessary graphics to visualize. Visualization is very
 important while assessing performance of a portfolio or a factor model. Some
 features or simply errors can be found only by eye.
 

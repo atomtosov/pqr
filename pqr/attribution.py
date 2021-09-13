@@ -1,7 +1,7 @@
-"""
-This module includes instruments to analyze, what are the drivers of returns of a portfolio. It can
+"""This module includes tools to analyze, what are the drivers of returns of a portfolio. It can
 be used to identify, whether excess returns are achieved by skills of portfolio managing or simply
-by exposure on some factors.
+by exposure on some factors. This also can help to more accurately understand the startegy itself and
+its differences from simple investing into a factor.
 """
 
 import pandas as pd

@@ -1,5 +1,4 @@
-"""
-This module contains stuff to create portfolios of stocks. Portfolio is a rebalancing each period
+"""This module contains tools to create portfolios of stocks. Portfolio is a rebalancing each period
 batch of stocks. So, portfolio can be represented as matrix with zeros on cells, where a stock is
 not picked, and weights (or lots) on cells, where a stock is picked into a portfolio.
 

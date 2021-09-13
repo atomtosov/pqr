@@ -1,5 +1,4 @@
-"""
-This module contains all necessary functionality to create factor models. Factor model is the set of
+"""This module contains all necessary instruments to create factor models. Factor model is the set of
 portfolios, covering all stock universe in each period. It is used to test whether any factor is
 present on the market or not, that is why full coverage of stock universe is important.
 
@@ -89,15 +88,15 @@ def fit_factor_model(stock_prices, factor, better='less', weighting_factor=None,
 def grid_search(stock_prices, factor_data, params, target_metric, approach='static', mask=None, **kwargs):
     """Fits a grid of factor models.
 
-    Can be used to find the best parameters or just as fast alias to build a
-    lot of models with different parameters.
+    Can be used to find the best parameters or just as fast alias to build a lot of models with different 
+    parameters.
 
     Parameters
     ----------
     stock_prices : pd.DataFrame
         Prices, representing stock universe.
     factor_data : pd.DataFrame
-        Factor, used to pick stocks from (filtered) stock universe.
+        Factor values, used to pick stocks from (filtered) stock universe.
     params : sequence of tuple of int
         Parameters to iterate over `factor_data` to make it a factor.
     target_metric : callable

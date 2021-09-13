@@ -1,5 +1,4 @@
-"""
-This module provides instruments to create benchmarks. Benchmarks treated as theoretical portfolios,
+"""This module provides instruments to create benchmarks. Benchmarks treated as theoretical portfolios,
 which each investor dreams to beat. Usually there are already good benchmarks - indices
 (e.g. S&P 500 or IMOEX). But if for some reason you cannot find suitable benchmark you can build it
 from stock universe (with filters and weights, but without selecting stocks). The benchmark will

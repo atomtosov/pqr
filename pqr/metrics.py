@@ -1,5 +1,4 @@
-"""
-This module contains metrics and statistics to assess performance of a portfolio. Usual metrics are
+"""This module contains metrics and statistics to assess performance of a portfolio. Usual metrics are
 always numbers (int or float), but also rolling metrics are supported. Rolling metrics by default
 are calculated to estimate annual performance of a portfolio in each trading period: every period
 gather not all points of returns but only for 1 year (e.g. if returns are monthly, rolling window

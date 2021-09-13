@@ -1,6 +1,6 @@
-"""
-This module contains presets to visualize analysis of portfolios performance and compare them. These presets are
-supposed to be used in Jupyter Notebook.
+"""This module contains presets to visualize analysis of portfolios performance and compare them. These presets 
+are supposed to be used in Jupyter Notebook to fastly estimate which portfolios are really profitable and which of
+them do not deserve attention.
 """
 
 from IPython.display import display

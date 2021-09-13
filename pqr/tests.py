@@ -1,5 +1,4 @@
-"""
-This module contains instruments to test, whether performance of a portfolio is statistically
+"""This module contains tests to estimate, whether performance of a portfolio is statistically
 significant or not. The process of statistical testing is an important part, when developing
 a portfolio, because it is very easy to fall into the trap: you can get a portfolio with very high
 total returns, but these returns are gotten randomly, so it is not likely that you wanna use this
@@ -43,8 +42,8 @@ def zero_intelligence_test(stock_prices, portfolio, target_metric, quantiles, **
     Returns
     -------
     dict
-        Dict, where keys are values of tops of quantiles of target metric and values are portfolios, achieving 
-        these values.
+        Dict, where keys are values of tops of quantiles of target metric and values are portfolios, 
+        achieving these values.
     """
 
     random_portfolios = generate_random_portfolios(stock_prices, portfolio, **kwargs)
@@ -84,7 +83,10 @@ def prophet_test(stock_prices, portfolio, mask=None):
     ideal_portfolio = Portfolio('ideal')
     ideal_portfolio.pick_ideally(stock_prices, portfolio, mask)
 
-    match_in_picks = (ideal_portfolio.picks.replace(0, np.nan) == portfolio.picks.replace(0, np.nan)).sum(axis=1)
+    ideal_picks = ideal_portfolio.picks.replace(0, np.nan)
+    portfolio_picks = portfolio.picks.replace(0, np.nan)
+    
+    match_in_picks = (ideal_picks == portfolio_picks).sum(axis=1)
     total_picks = portfolio.picks[portfolio.picks != 0].sum(axis=1)
 
     return (match_in_picks / total_picks).mean()

@@ -1,5 +1,4 @@
-"""
-This module contains stuff to work with factors data. Factors are drivers of returns on the stock
+"""This module contains stuff to work with factors data. Factors are drivers of returns on the stock
 (and any other) market, explaining the risks of investing into assets. We assume that a factor can
 be presented by simple table (pandas DataFrame), where each row represents a timestamp, each
 column - a stock (ticker) and each cell - value of the factor for the stock in the timestamp.
