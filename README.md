@@ -39,13 +39,12 @@ pe = pe.replace(0, np.nan)
 volume = volume.replace(0, np.nan)
 
 # go to factors
-value = pqr.Factor(pe)
-value.look_back(3, 'static').lag(0).hold(3)
+value = pqr.Factor(pe).look_back(3, 'static').lag(0).hold(3)
 
 liquidity = pqr.Factor(volume).look_back()
-liquidity_filter = liquidity.data >= 10_000_000
+liquidity_filter = liquidity >= 10_000_000
 
-value.prefilter(liquidity_filter)
+value.filter(liquidity_filter)
 
 # create custom benchmark from liquid stocks with equal weights
 benchmark = pqr.Benchmark().from_stock_universe(prices,liquidity_filter)
@@ -54,7 +53,7 @@ benchmark = pqr.Benchmark().from_stock_universe(prices,liquidity_filter)
 # after fit we will get 3 quantile portfolios
 portfolios = pqr.fit_factor_model(prices, value)
 # fetch the table with summary statistics and plot cumulative returns
-pqr.factor_model_tear_sheet(portfolios, benchmark)
+pqr.summary_tear_sheet(portfolios, benchmark)
 ```
 
 You can also see this example on real data with output in

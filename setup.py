@@ -6,7 +6,7 @@ with open('README.md') as f:
 
 setup(
     name='pqr',
-    version='0.2.2',
+    version='0.2.3',
     description='Library for testing factor strategies',
     long_description=readme,
     long_description_content_type='text/markdown',
@@ -16,6 +16,7 @@ setup(
         'matplotlib',
         'numpy',
         'statsmodels',
+        'IPython',
     ],
     author='eura17, atomtosov',
     license='MIT',
