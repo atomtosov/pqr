@@ -62,7 +62,7 @@ def prophet_test(stock_prices, portfolio, mask=None):
 
     "Ideal" portfolio is a portfolio, which always long stocks with the highest returns in the next period and
     short stocks with the lowest. It has the same amount of stocks in long and short as the given `portfolio`.
-    The result of the test is represented as the mean share of matching picks to total picks.
+    The result of the test is represented as the share of matching picks to total picks.
 
     Parameters
     ----------
@@ -89,7 +89,7 @@ def prophet_test(stock_prices, portfolio, mask=None):
     match_in_picks = (ideal_picks == portfolio_picks).sum(axis=1)
     total_picks = portfolio.picks[portfolio.picks != 0].sum(axis=1)
 
-    return (match_in_picks / total_picks).mean()
+    return match_in_picks / total_picks
 
 
 def t_test(portfolio, risk_free_rate=0):
