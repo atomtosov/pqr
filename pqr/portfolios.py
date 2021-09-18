@@ -13,9 +13,6 @@ going close to relative one with initial balance going to infinity.
 import pandas as pd
 import numpy as np
 
-from .utils import align
-
-
 __all__ = [
     'Portfolio',
     'generate_random_portfolios',
@@ -76,7 +73,7 @@ class Portfolio:
 
         picks = ~stock_prices.isna()
         if mask is not None:
-            picks, mask = align(picks, mask)
+            picks, mask = picks.align(mask, join='inner')
             picks &= mask
         self.picks = picks.astype(int)
 
@@ -185,7 +182,7 @@ class Portfolio:
             Portfolio with filled picks.
         """
 
-        picks = picks.copy().astype(float)
+        picks = picks.astype(float)
         if mask is not None:
             picks[~mask] = np.nan
 
@@ -233,7 +230,7 @@ class Portfolio:
         stock_returns = stock_prices.pct_change().shift(-1)
         if mask is not None:
             stock_returns[~mask] = np.nan
-        stock_returns, picks = align(stock_returns, portfolio.picks)
+        stock_returns, picks = stock_returns.align(portfolio.picks, join='inner')
 
         ideal_picks = pd.DataFrame(np.zeros_like(picks), index=picks.index, columns=picks.columns)
         for date in picks.index:
@@ -269,7 +266,7 @@ class Portfolio:
             Portfolio with transformed picks.
         """
 
-        self.picks, mask = align(self.picks, mask)
+        self.picks, mask = self.picks.align(mask, join='inner')
 
         self.picks[~mask] = 0
 
@@ -284,12 +281,20 @@ class Portfolio:
             Portfolio with filled weights.
         """
 
-        weights = self.picks * np.ones_like(self.picks, dtype=float)
-        long, short = weights == 1, weights == -1
-        weights[long] /= np.nansum(weights[long], axis=1, keepdims=True)
-        weights[short] /= -np.nansum(weights[short], axis=1, keepdims=True)
+        weights = self.picks.values * np.ones_like(self.picks, dtype=float)
 
-        self.weights = weights
+        long, short = weights == 1, weights == -1
+        weights_long = np.where(long, weights, 0)
+        weights_short = np.where(short, weights, 0)
+        
+        with np.errstate(divide='ignore', invalid='ignore'):
+            weights_long /= np.nansum(weights_long, axis=1, keepdims=True)
+            weights_long = np.nan_to_num(weights_long)
+            weights_short /= -np.nansum(weights_short, axis=1, keepdims=True)
+            weights_short = np.nan_to_num(weights_short)
+
+        self.weights = pd.DataFrame(weights_long + weights_short,
+                                    index=self.picks.index, columns=self.picks.columns)
 
         return self
 
@@ -309,14 +314,22 @@ class Portfolio:
             Portfolio with filled weights.
         """
 
-        picks, factor_data = align(self.picks, factor.data)
+        picks, factor_data = self.picks.align(factor.data, join='inner')
 
-        weights = picks * factor_data
-        long, short = weights > 0, weights < 0
-        weights[long] /= np.nansum(weights[long], axis=1, keepdims=True)
-        weights[short] /= -np.nansum(weights[short], axis=1, keepdims=True)
+        weights = (picks.values * factor_data.values).astype(float)
 
-        self.weights = weights.fillna(0)
+        long, short = picks == 1, picks == -1
+        weights_long = np.where(long, weights, 0)
+        weights_short = np.where(short, weights, 0)
+
+        with np.errstate(divide='ignore', invalid='ignore'):
+            weights_long /= np.nansum(weights_long, axis=1, keepdims=True)
+            weights_long = np.nan_to_num(weights_long)
+            weights_short /= -np.nansum(weights_short, axis=1, keepdims=True)
+            weights_short = np.nan_to_num(weights_short)
+
+        self.weights = pd.DataFrame(weights_long + weights_short,
+                                    index=self.picks.index, columns=self.picks.columns)
 
         return self
 
@@ -347,7 +360,7 @@ class Portfolio:
         Works only for factors with all positive values.
         """
 
-        weights, factor_data = align(self.weights, factor.data)
+        weights, factor_data = self.weights.align(factor.data, join='inner')
 
         if better == 'more':
             leverage = factor_data / target
@@ -401,7 +414,7 @@ class Portfolio:
         return self
 
     def _allocate_relatively(self, stock_prices, fee_rate):
-        weights, stock_prices = align(self.weights, stock_prices)
+        weights, stock_prices = self.weights.align(stock_prices, join='inner')
         self.positions = weights * (1 - fee_rate)
         universe_returns = stock_prices.pct_change().shift(-1)
         portfolio_returns = (self.positions * universe_returns).shift().sum(axis=1)
@@ -409,7 +422,7 @@ class Portfolio:
         self.returns = portfolio_returns
 
     def _allocate_with_money(self, stock_prices, balance, fee_rate):
-        weights, stock_prices = align(self.weights, stock_prices)
+        weights, stock_prices = self.weights.align(stock_prices, join='inner')
 
         positions = pd.DataFrame(index=weights.index, columns=weights.columns)
         equity = pd.Series(index=positions.index, dtype=float)
