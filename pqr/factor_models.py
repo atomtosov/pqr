@@ -20,13 +20,14 @@ from .factors import Factor
 from .portfolios import Portfolio
 
 __all__ = [
-    'fit_factor_model',
+    'fit_quantile_factor_model',
+    'fit_time_series_factor_model',
     'grid_search',
 ]
 
 
-def fit_factor_model(stock_prices, factor, better='less', weighting_factor=None, 
-                     balance=None, fee_rate=0, quantiles=3, add_wml=False):
+def fit_quantile_factor_model(stock_prices, factor, better='less', weighting_factor=None, 
+                              balance=None, fee_rate=0, quantiles=3, add_wml=False):
     """Fits factor model with quantile-method.
 
     Creates `quantiles` portfolios, covering all stock universe and (optionally) add wml-portfolio.
@@ -70,10 +71,77 @@ def fit_factor_model(stock_prices, factor, better='less', weighting_factor=None,
         portfolio.allocate(stock_prices, balance, fee_rate)
 
         portfolios.append(portfolio)
+    portfolios[0].name = 'winners'
+    portfolios[-1].name = 'losers'
 
     if add_wml:
         wml = Portfolio('wml')
         wml.pick_wml(portfolios[0], portfolios[-1])
+        if weighting_factor is not None:
+            wml.weigh_by_factor(weighting_factor)
+        else:
+            wml.weigh_equally()
+        wml.allocate(stock_prices, balance, fee_rate)
+
+        portfolios.append(wml)
+
+    return portfolios
+
+
+def fit_time_series_factor_model(stock_prices, factor, better='more', weighting_factor=None, 
+                                 balance=None, fee_rate=0, threshold=0, add_wml=False):
+    """Fits factor model with time-series-method.
+
+    Creates 2 portfolios, covering all stock universe and (optionally) add wml-portfolio.
+
+    Parameters
+    ----------
+    stock_prices : pd.DataFrame
+        Prices, representing stock universe.
+    factor : Factor
+        Factor to pick stocks into the portfolio.
+    better: {'more', 'less'}, default='more'
+        Whether bigger values of factor are treated as better to pick or in contrary as better to 
+        avoid. Affects only building the wml-portfolio.
+    weighting_factor : Factor, optional
+        Factor to weigh picks.
+    balance : int or float, optional
+        Initial balance of the portfolio.
+    fee_rate : int or float, default=0
+        Indicative commission rate for every deal.
+    threshold : array_like, default=0
+        Threshold to split ctock universe into winners and losers.
+    add_wml : bool, default=False
+        Whether to also create wml-portfolio or not.
+
+    Returns
+    -------
+    list of Portfolio
+        Factor portfolios, covering all stock universe (optionally, with wml-portfolio).
+    """
+
+    thresholds = [(-np.inf, threshold), [threshold, np.inf]]
+
+    portfolios = []
+    for threshold in thresholds:
+        portfolio = Portfolio()
+        portfolio.pick_by_factor(factor, threshold, method='time-series')
+        if weighting_factor is not None:
+            portfolio.weigh_by_factor(factor)
+        else:
+            portfolio.weigh_equally()
+        portfolio.allocate(stock_prices, balance, fee_rate)
+
+        portfolios.append(portfolio)
+    portfolios[0].name = 'winners'
+    portfolios[-1].name = 'losers'
+
+    if add_wml:
+        wml = Portfolio('wml')
+        if better == 'more':
+            wml.pick_wml(portfolios[-1], portfolios[0])
+        else:
+            wml.pick_wml(portfolios[0], portfolios[-1])
         if weighting_factor is not None:
             wml.weigh_by_factor(weighting_factor)
         else:
@@ -123,7 +191,11 @@ def grid_search(stock_prices, factor_data, params, target_metric, approach='stat
         factor.look_back(looking, approach).lag(lag).hold(holding)
         if mask is not None:
             factor.filter(mask)
-        portfolios = fit_factor_model(stock_prices, factor, **kwargs)
+
+        if kwargs.get('quantiles'):
+            portfolios = fit_quantile_factor_model(stock_prices, factor, **kwargs)
+        else:
+            portfolios = fit_time_series_factor_model(stock_prices, factor, **kwargs)
         
         metric_values = pd.DataFrame(
             [[target_metric(portfolio.returns) for portfolio in portfolios]],
