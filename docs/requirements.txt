@@ -1,0 +1,7 @@
+numpy
+pandas
+matplotlib
+statsmodels
+IPython
+Sphinx
+sphinx-rtd-theme
