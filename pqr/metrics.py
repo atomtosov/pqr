@@ -893,7 +893,7 @@ def alpha(returns, benchmark, risk_free_rate=0):
         Alpha.
     """
 
-    return _alpha_beta(returns, benchmark, risk_free_rate).params.iloc[0]
+    return _alpha_beta(returns, benchmark, risk_free_rate).params[0]
 
 
 def rolling_alpha(returns, benchmark, risk_free_rate=0, window=None):
@@ -948,7 +948,7 @@ def beta(returns, benchmark, risk_free_rate=0):
         Beta.
     """
 
-    return _alpha_beta(returns, benchmark, risk_free_rate).params.iloc[1]
+    return _alpha_beta(returns, benchmark, risk_free_rate).params[1]
 
 
 def rolling_beta(returns, benchmark, risk_free_rate=0, window=None) -> pd.Series:
@@ -980,7 +980,7 @@ def rolling_beta(returns, benchmark, risk_free_rate=0, window=None) -> pd.Series
 
 
 def _alpha_tstat(returns, benchmark, risk_free_rate=0):
-    return _alpha_beta(returns, benchmark, risk_free_rate).tvalues.iloc[0]
+    return _alpha_beta(returns, benchmark, risk_free_rate).tvalues[0]
 
 
 def _mean_excess_return_tstat(returns, benchmark):
@@ -990,16 +990,16 @@ def _mean_excess_return_tstat(returns, benchmark):
 
 def _adjust_returns(returns, adjustment):
     if isinstance(adjustment, pd.Series):
-        returns, adjustment = align(returns, adjustment)
+        returns, adjustment = returns.align(adjustment, join='inner')
     return returns - adjustment
 
 
 def _alpha_beta(returns, benchmark, risk_free_rate=0):
     adjusted_returns = _adjust_returns(returns, risk_free_rate)
     adjusted_benchmark = _adjust_returns(benchmark, risk_free_rate)
-    adjusted_returns, adjusted_benchmark = align(adjusted_returns, adjusted_benchmark)
-    x = add_constant(adjusted_benchmark)
-    est = OLS(adjusted_returns, x).fit()
+    adjusted_returns, adjusted_benchmark = adjusted_returns.align(adjusted_benchmark, join='inner')
+    x = add_constant(adjusted_benchmark.values)
+    est = OLS(adjusted_returns.values, x).fit()
     return est
 
 
