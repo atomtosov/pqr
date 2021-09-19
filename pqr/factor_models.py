@@ -60,9 +60,11 @@ def fit_quantile_factor_model(stock_prices, factor, better='less', weighting_fac
 
     quantiles_ = _split_quantiles(quantiles)
 
-    portfolios = []
-    for q in quantiles_:
-        portfolio = Portfolio('q({:.2f}, {:.2f})'.format(*q))
+    portfolios = [Portfolio(f'p{i+1}') for i in range(quantiles)]
+    portfolios[0].name = 'winners'
+    portfolios[-1].name = 'losers'
+
+    for portfolio, q in zip(portfolios, quantiles_):
         portfolio.pick_by_factor(factor, q, better, method='quantile')
         if weighting_factor is not None:
             portfolio.weigh_by_factor(factor)
@@ -71,9 +73,7 @@ def fit_quantile_factor_model(stock_prices, factor, better='less', weighting_fac
         portfolio.allocate(stock_prices, balance, fee_rate)
 
         portfolios.append(portfolio)
-    portfolios[0].name = 'winners'
-    portfolios[-1].name = 'losers'
-
+    
     if add_wml:
         wml = Portfolio('wml')
         wml.pick_wml(portfolios[0], portfolios[-1])
@@ -82,8 +82,6 @@ def fit_quantile_factor_model(stock_prices, factor, better='less', weighting_fac
         else:
             wml.weigh_equally()
         wml.allocate(stock_prices, balance, fee_rate)
-
-        portfolios.append(wml)
 
     return portfolios
 
@@ -121,20 +119,16 @@ def fit_time_series_factor_model(stock_prices, factor, better='more', weighting_
     """
 
     thresholds = [(-np.inf, threshold), [threshold, np.inf]]
-
-    portfolios = []
-    for threshold in thresholds:
-        portfolio = Portfolio()
-        portfolio.pick_by_factor(factor, threshold, method='time-series')
+    portfolios = [Portfolio(name) for name in 
+                    (('winners', 'losers') if better == 'less' else ('losers', 'winners'))]
+                    
+    for portfolio, t in zip(portfolios, thresholds):
+        portfolio.pick_by_factor(factor, t, method='time-series')
         if weighting_factor is not None:
             portfolio.weigh_by_factor(factor)
         else:
             portfolio.weigh_equally()
         portfolio.allocate(stock_prices, balance, fee_rate)
-
-        portfolios.append(portfolio)
-    portfolios[0].name = 'winners'
-    portfolios[-1].name = 'losers'
 
     if add_wml:
         wml = Portfolio('wml')
