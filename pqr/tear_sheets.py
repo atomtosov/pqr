@@ -8,7 +8,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 from .metrics import summary
-from .plotting import plot_cumulative_returns
+from .plotting import plot_compound_returns
 
 __all__ = [
     'summary_tear_sheet',
@@ -21,7 +21,7 @@ def summary_tear_sheet(portfolios, benchmark):
     For now:
 
     * shows summary stats table
-    * plots cumulative returns
+    * plots compound returns
 
     Parameters
     ----------
@@ -34,5 +34,5 @@ def summary_tear_sheet(portfolios, benchmark):
     stats = pd.DataFrame([summary(p, benchmark) for p in portfolios]).T.round(2)
     display(stats)
 
-    plot_cumulative_returns(portfolios, benchmark)
+    plot_compound_returns(portfolios, benchmark)
     plt.show()

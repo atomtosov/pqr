@@ -18,7 +18,7 @@ from .utils import get_annualization_factor, align
 __all__ = [
     'summary',
 
-    'cumulative_returns', 'total_return',
+    'compound_returns', 'drawdown', 'total_return',
     'annual_return', 'annual_volatility',
 
     'mean_return', 'rolling_mean_return',
@@ -105,8 +105,8 @@ def summary(portfolio, benchmark):
     ).round(2)
 
 
-def cumulative_returns(returns):
-    """Calculates Cumulative Returns of portfolio returns.
+def compound_returns(returns):
+    """Calculates Compound Returns of portfolio returns.
 
     Parameters
     ----------
@@ -116,7 +116,7 @@ def cumulative_returns(returns):
     Returns
     -------
     pd.Series
-        Cumulative Returns.
+        Compound Returns.
 
     Notes
     -----
@@ -130,10 +130,10 @@ def drawdown(returns):
     """Calculates Drawdown of portfolio returns.
 
     Drawdown of portfolio is the relative difference between high water mark (cumulative maximum of 
-    the cumulative returns) and cumulative returns:
+    the compound returns) and compound returns:
 
     .. math::
-        DD = -\\frac{High\\;Water\\;Mark - Cumulative\\;Returns}{High\\;Water\\;Mark}
+        DD = -\\frac{High\\;Water\\;Mark - Compounded\\;Returns}{High\\;Water\\;Mark}
 
     Parameters
     ----------
@@ -146,7 +146,7 @@ def drawdown(returns):
         Drawdown.
     """
 
-    equity = cumulative_returns(returns) + 1
+    equity = compound_returns(returns) + 1
     high_water_mark = equity.cummax()
     return -(high_water_mark - equity) / high_water_mark
 
@@ -169,7 +169,7 @@ def total_return(returns):
     Shows additional return, not equity curve's state.
     """
 
-    return cumulative_returns(returns).iloc[-1]
+    return compound_returns(returns).iloc[-1]
 
 
 def annual_return(returns):
@@ -358,7 +358,7 @@ def max_drawdown(returns):
     """Calculates Maximum Drawdown of portfolio returns.
 
     Maximum Drawdown of portfolio is the highest relative difference between high water mark
-    (cumulative maximum of the cumulative returns) and cumulative returns:
+    (cumulative maximum of the compound returns) and compound returns:
 
     .. math::
         MDD = \\max\\{Drawdown\\}
