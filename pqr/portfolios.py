@@ -162,7 +162,7 @@ class Portfolio:
 
         return self
 
-    def pick_randomly(self, picks, mask=None):
+    def pick_randomly(self, picks, mask=None, rng=np.random.default_rng()):
         """Pick stocks randomly, but in the same quantity as in the `picks`.
 
         In each period collects number of picked stocks and randomly pick the same amount of stocks
@@ -186,16 +186,16 @@ class Portfolio:
         if mask is not None:
             picks[~mask] = np.nan
 
-        def random_pick(row, indices=np.indices((picks.shape[1],))[0]):
+        def random_pick(row, indices=np.indices((picks.shape[1],))[0], rng=rng):
             random_picks = np.zeros_like(row, dtype=int)
 
             long = (row == 1).sum()
-            long_choice = np.random.choice(indices[~np.isnan(row)], long)
-            random_picks[long_choice] = 1
-
             short = (row == -1).sum()
-            short_choice = np.random.choice(indices[~np.isnan(row) & (random_picks == 0)], short)
-            random_picks[short_choice] = -1
+            total_choice = rng.choice(indices[~np.isnan(row)], long + short, replace=False)
+
+            random_picks[total_choice[:long]] = 1
+            random_picks[total_choice[long:]] = -1
+
             return random_picks
 
         self.picks = pd.DataFrame(
@@ -417,9 +417,10 @@ class Portfolio:
         weights, stock_prices = self.weights.align(stock_prices, join='inner')
         self.positions = weights * (1 - fee_rate)
         universe_returns = stock_prices.pct_change().shift(-1)
-        portfolio_returns = (self.positions * universe_returns).shift().sum(axis=1)
+        portfolio_returns = (self.positions * universe_returns).shift()
 
-        self.returns = portfolio_returns
+        self.returns = pd.Series(np.nansum(portfolio_returns.values, axis=1),
+                                 index=portfolio_returns.index)
 
     def _allocate_with_money(self, stock_prices, balance, fee_rate):
         weights, stock_prices = self.weights.align(stock_prices, join='inner')
@@ -459,7 +460,7 @@ class Portfolio:
 
 def generate_random_portfolios(stock_prices, portfolio, mask=None, weighting_factor=None,
                                scaling_factor=None, target=1, balance=None, fee_rate=0, n=100,
-                               random_seed=None):
+                               seed=None):
     """Creates `n` random portfolios, replicating portfolio `picks`.
 
     Parameters
@@ -493,7 +494,7 @@ def generate_random_portfolios(stock_prices, portfolio, mask=None, weighting_fac
         Generated random portfolios.
     """
 
-    np.random.seed(random_seed)
+    rng = np.random.default_rng(seed)
 
     picks = portfolio.picks.astype(float)
     picks[stock_prices.isna()] = np.nan
@@ -503,7 +504,7 @@ def generate_random_portfolios(stock_prices, portfolio, mask=None, weighting_fac
     portfolios = []
     for _ in range(n):
         random_portfolio = Portfolio('random')
-        random_portfolio.pick_randomly(picks)
+        random_portfolio.pick_randomly(picks, rng=rng)
         if weighting_factor is not None:
             random_portfolio.weigh_by_factor(weighting_factor)
         else:
