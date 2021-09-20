@@ -7,7 +7,7 @@ its differences from simple investing into a factor.
 import pandas as pd
 from statsmodels.api import OLS, add_constant
 
-from .utils import get_annualization_factor, align
+from .utils import align
 
 
 def explain_alpha(returns, market_returns, factors_returns, risk_free_rate=0):
@@ -40,7 +40,6 @@ def explain_alpha(returns, market_returns, factors_returns, risk_free_rate=0):
 
     est = OLS(adjusted_returns, adjusted_market_returns).fit()
     params = est.params.values
-    params[0] *= get_annualization_factor(returns)
 
     return pd.DataFrame(
         [params, est.tvalues.values, est.pvalues.values],

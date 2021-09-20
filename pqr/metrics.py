@@ -870,7 +870,7 @@ def rolling_mean_excess_return(returns, benchmark, window=None) -> pd.Series:
 
 
 def alpha(returns, benchmark, risk_free_rate=0):
-    """Calculates Alpha of portfolio returns.
+    """Calculates Annualized Alpha of portfolio returns.
 
     Alpha is the coefficient :math:`\\alpha` in the estimated regression of portfolio `returns` per
     `benchmark` returns (both are adjusted by `risk_free_rate`):
@@ -892,8 +892,8 @@ def alpha(returns, benchmark, risk_free_rate=0):
     float
         Alpha.
     """
-
-    return _alpha_beta(returns, benchmark, risk_free_rate).params[0]
+    
+    return _alpha_beta(returns, benchmark, risk_free_rate).params[0] * get_annualization_factor(returns)
 
 
 def rolling_alpha(returns, benchmark, risk_free_rate=0, window=None):
