@@ -310,7 +310,10 @@ class Portfolio:
             Portfolio with transformed picks.
         """
 
-        self.picks, mask = self.picks.align(mask, join='inner')
+        if isinstance(mask, pd.DataFrame):
+            self.picks, mask = self.picks.align(mask, join='inner')
+        else:
+            self.picks, mask = self.picks.align(mask, join='inner', axis=0)
 
         self.picks[~mask] = 0
 

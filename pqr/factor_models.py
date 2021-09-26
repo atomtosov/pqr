@@ -107,7 +107,7 @@ def fit_time_series_factor_model(stock_prices, factor, better='more', weighting_
     fee_rate : int or float, default=0
         Indicative commission rate for every deal.
     threshold : array_like, default=0
-        Threshold to split ctock universe into winners and losers.
+        Threshold to split stock universe into winners and losers.
     add_wml : bool, default=False
         Whether to also create wml-portfolio or not.
 
