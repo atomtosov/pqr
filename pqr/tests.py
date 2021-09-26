@@ -57,12 +57,13 @@ def zero_intelligence_test(stock_prices, portfolio, target_metric, quantiles, **
     return {quantile: portfolio for quantile, portfolio in zip(target_quantiles, target_portfolios)}
 
 
-def prophet_test(stock_prices, portfolio, mask=None):
+def prophet_test(stock_prices, portfolio, mask=None, weighting_factor=None):
     """Compare picks of a `portfolio` with "ideal" portfolio.
 
     "Ideal" portfolio is a portfolio, which always long stocks with the highest returns in the next period and
     short stocks with the lowest. It has the same amount of stocks in long and short as the given `portfolio`.
-    The result of the test is represented as the share of matching picks to total picks.
+    The result of the test is represented as the share of portfolio returns to ideal portfolio returns and the
+    absolute difference of them.
 
     Parameters
     ----------
@@ -73,23 +74,27 @@ def prophet_test(stock_prices, portfolio, mask=None):
     mask : pd.DataFrame, optional
         Matrix of True/False, where True means that a stock can be picked in that period and
         False - that a stock cannot be picked.
+    weighting_factor : Factor
+        Factor to weigh picks.
 
     Returns
     -------
-    float
-        Mean share of matching with "ideal" portfolio picks to total picks.
+    pd.Series, pd.Series
+        Ratio of portfolio returns to returns of ideal portfolio and absolute difference 
     """
 
     ideal_portfolio = Portfolio('ideal')
     ideal_portfolio.pick_ideally(stock_prices, portfolio, mask)
+    if weighting_factor is not None:
+        ideal_portfolio.weigh_by_factor(weighting_factor)
+    else:
+        ideal_portfolio.weigh_equally()
+    ideal_portfolio.allocate(stock_prices)
 
-    ideal_picks = ideal_portfolio.picks.replace(0, np.nan)
-    portfolio_picks = portfolio.picks.replace(0, np.nan)
-    
-    match_in_picks = (ideal_picks == portfolio_picks).sum(axis=1)
-    total_picks = portfolio.picks[portfolio.picks != 0].sum(axis=1)
+    prophet_ratio = portfolio.returns / ideal_portfolio.returns
+    lack_of_return = portfolio.returns - ideal_portfolio.returns
 
-    return match_in_picks / total_picks
+    return prophet_ratio, lack_of_return
 
 
 def t_test(portfolio, risk_free_rate=0):
