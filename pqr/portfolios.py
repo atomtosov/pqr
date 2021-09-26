@@ -249,6 +249,50 @@ class Portfolio:
 
         return self
 
+    def pick_worstly(self, stock_prices, portfolio, mask=None):
+        """Picks stocks worstly in the same quantity as in the `portfolio`.
+
+        In each period simply look forward to stock returns and long stocks with the worst performance and
+        short stocks with the best into an "worst" portfolio.
+
+        Parameters
+        ----------
+        stock_prices : pd.DataFrame
+            Prices, representing stock universe.
+        portfolio : Portfolio
+            Portfolio to be replicated by "worst" portfolio.
+        mask : pd.DataFrame, optional
+            Matrix of True/False, where True means that a stock can be picked in that period and
+            False - that a stock cannot be picked.
+
+        Returns
+        -------
+        Portfolio
+            Portfolio with filled picks.
+        """
+
+        stock_returns = stock_prices.pct_change().shift(-1)
+        if mask is not None:
+            stock_returns[~mask] = np.nan
+        stock_returns, picks = stock_returns.align(portfolio.picks, join='inner')
+
+        worst_picks = pd.DataFrame(np.zeros_like(picks), index=picks.index, columns=picks.columns)
+        for date in picks.index:
+            row = picks.loc[date]
+            returns = stock_returns.loc[date]
+
+            long = (row == 1).sum()
+            short = (row == -1).sum()
+            long_picks = returns.nsmallest(long).index
+            short_picks = returns.nlargest(short).index
+
+            worst_picks.loc[date, long_picks] = 1
+            worst_picks.loc[date, short_picks] = -1
+        
+        self.picks = worst_picks
+
+        return self
+
     def filter(self, mask):
         """Filters `picks` by given `mask`.
 
