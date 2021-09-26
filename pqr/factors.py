@@ -148,7 +148,7 @@ class Factor:
             Factor with transformed data.
         """
 
-        self.data, mask = align(self.data, mask)
+        self.data, mask = self.data.align(mask, join='inner')
         self.data[~mask] = np.nan
 
         return self

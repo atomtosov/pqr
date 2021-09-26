@@ -80,6 +80,7 @@ def fit_quantile_factor_model(stock_prices, factor, better='less', weighting_fac
         else:
             wml.weigh_equally()
         wml.allocate(stock_prices, balance, fee_rate)
+        portfolios.append(wml)
 
     return portfolios
 

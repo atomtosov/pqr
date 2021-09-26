@@ -360,7 +360,7 @@ class Portfolio:
         Works only for factors with all positive values.
         """
 
-        weights, factor_data = self.weights.align(factor.data, join='inner')
+        weights, factor_data = self.weights.align(factor.data, join='inner', axis=0)
 
         if better == 'more':
             leverage = factor_data / target
