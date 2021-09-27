@@ -47,11 +47,11 @@ liquidity_filter = liquidity >= 10_000_000
 value.filter(liquidity_filter)
 
 # create custom benchmark from liquid stocks with equal weights
-benchmark = pqr.Benchmark().from_stock_universe(prices,liquidity_filter)
+benchmark = pqr.Benchmark().from_stock_universe(prices, liquidity_filter)
 
 # fitting the factor model on value factor (3-0-3)
 # after fit we will get 3 quantile portfolios
-portfolios = pqr.fit_factor_model(prices, value)
+portfolios = pqr.fit_quantile_factor_model(prices, value)
 # fetch the table with summary statistics and plot cumulative returns
 pqr.summary_tear_sheet(portfolios, benchmark)
 ```

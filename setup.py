@@ -6,7 +6,7 @@ with open('README.md') as f:
 
 setup(
     name='pqr',
-    version='0.2.3',
+    version='0.2.4',
     description='Library for testing factor strategies',
     long_description=readme,
     long_description_content_type='text/markdown',
