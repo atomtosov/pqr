@@ -116,4 +116,6 @@ def t_test(portfolio, risk_free_rate=0):
         Tuple with results of t-test.
     """
 
-    return ttest_1samp(portfolio.returns, risk_free_rate, alternative='greater')
+    ttest_result = ttest_1samp(portfolio.returns, risk_free_rate, alternative='greater')
+    ttest_result.pvalue = (1 - ttest_result.pvalue)
+    return ttest_result
