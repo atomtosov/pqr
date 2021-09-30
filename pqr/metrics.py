@@ -18,8 +18,6 @@ from scipy.stats import ttest_1samp
 from .utils import get_annualization_factor, align
 
 __all__ = [
-    'summary',
-
     'compound_returns', 'drawdown', 
     'total_return', 'cagr',
 
@@ -43,65 +41,6 @@ __all__ = [
     'alpha', 'rolling_alpha',
     'beta', 'rolling_beta',
 ]
-
-
-def summary(portfolio, benchmark):
-    """Calculates summary statistics for a `portfolio`.
-
-    Computed metrics:
-
-    * Total Return, %
-    * Annual Return, %
-    * Mean Return, %
-    * Win Rate, %
-    * Volatility, %
-    * Maximum Drawdown, %
-    * VaR, %
-    * Expected Tail Loss, %
-    * Rachev Ratio
-    * Calmar Ratio
-    * Omega Ratio
-    * Sortino Ratio
-    * Benchmark Correlation
-    * Mean Excess Return, %
-    * Alpha, %
-    * Beta
-
-    Parameters
-    ----------
-    portfolio : Portfolio
-        Portfolio, for which metrics are calculated.
-    benchmark : Benchmark or Portfolio
-        Benchmark, which used as the alternative for the `portfolio` to calculate some metrics.
-
-    Returns
-    -------
-    pd.Series
-        Series with index, representing metrics and values - values of the metrics.
-    """
-
-    return pd.Series(
-        {
-            'Total Return, %': total_return(portfolio.returns) * 100,
-            'CAGR, %': cagr(portfolio.returns) * 100,
-            'Mean Return, %': mean_return(portfolio.returns) * 100,
-            'Volatility, %': volatility(portfolio.returns) * 100,
-            'Win Rate, %': win_rate(portfolio.returns) * 100,
-            'Maximum Drawdown, %': max_drawdown(portfolio.returns) * 100,
-            'VaR, %': value_at_risk(portfolio.returns) * 100,
-            'Expected Tail Loss, %': expected_tail_loss(portfolio.returns) * 100,
-            'Rachev Ratio': rachev_ratio(portfolio.returns),
-            'Calmar Ratio': calmar_ratio(portfolio.returns),
-            'Sharpe Ratio': sharpe_ratio(portfolio.returns),
-            'Omega Ratio': omega_ratio(portfolio.returns),
-            'Sortino Ratio': sortino_ratio(portfolio.returns),
-            'Benchmark Correlation': benchmark_correlation(portfolio.returns, benchmark.returns),
-            'Mean Excess Return, %': mean_excess_return(portfolio.returns, benchmark.returns).value * 100,
-            'Alpha, %': alpha(portfolio.returns, benchmark.returns).value * 100,
-            'Beta': beta(portfolio.returns, benchmark.returns).value,
-        },
-        name=portfolio.name
-    ).round(2)
 
 
 def compound_returns(returns):
