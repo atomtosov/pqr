@@ -8,6 +8,8 @@ For now practically all popular in portfolio management metrics and statistics a
 you are welcome to create your own metrics and to contribute to source code.
 """
 
+from collections import namedtuple
+
 import numpy as np
 import pandas as pd
 from statsmodels.api import OLS, add_constant
@@ -95,11 +97,9 @@ def summary(portfolio, benchmark):
             'Omega Ratio': omega_ratio(portfolio.returns),
             'Sortino Ratio': sortino_ratio(portfolio.returns),
             'Benchmark Correlation': benchmark_correlation(portfolio.returns, benchmark.returns),
-            'Mean Excess Return, %': mean_excess_return(portfolio.returns, benchmark.returns) * 100,
-            'Excess Returns t-stat': _mean_excess_return_tstat(portfolio.returns, benchmark.returns),
-            'Alpha, %': alpha(portfolio.returns, benchmark.returns) * 100,
-            'Alpha t-stat': _alpha_tstat(portfolio.returns, benchmark.returns),
-            'Beta': beta(portfolio.returns, benchmark.returns),
+            'Mean Excess Return, %': mean_excess_return(portfolio.returns, benchmark.returns).value * 100,
+            'Alpha, %': alpha(portfolio.returns, benchmark.returns).value * 100,
+            'Beta': beta(portfolio.returns, benchmark.returns).value,
         },
         name=portfolio.name
     ).round(2)
@@ -841,8 +841,12 @@ def mean_excess_return(returns, benchmark):
         Mean Excess Return.
     """
 
-    adjusted_returns = _adjust_returns(returns, benchmark)
-    return mean_return(adjusted_returns)
+    MeanExcessReturn = namedtuple('MeanExcessReturn', ['value', 't_stat', 'p_value'])
+
+    excess_returns = _adjust_returns(returns, benchmark)
+    ttest = ttest_1samp(excess_returns, 0, alternative='greater').statistic
+    return MeanExcessReturn(value=mean_return(excess_returns) * get_annualization_factor(returns),
+                            t_stat=ttest.statistic, p_value=ttest.pvalue)
 
 
 def rolling_mean_excess_return(returns, benchmark, window=None) -> pd.Series:
@@ -892,8 +896,11 @@ def alpha(returns, benchmark, risk_free_rate=0):
     float
         Alpha.
     """
-    
-    return _alpha_beta(returns, benchmark, risk_free_rate).params[0] * get_annualization_factor(returns)
+
+    Alpha = namedtuple('Alpha', ['value', 't_stat', 'p_value'])
+    ols_est = _alpha_beta(returns, benchmark, risk_free_rate)
+    return Alpha(value=ols_est.params[0] * get_annualization_factor(returns),
+                 t_stat=ols_est.tvalues[0], p_value=ols_est.pvalues[0])
 
 
 def rolling_alpha(returns, benchmark, risk_free_rate=0, window=None):
@@ -921,7 +928,9 @@ def rolling_alpha(returns, benchmark, risk_free_rate=0, window=None):
 
     returns = _adjust_returns(returns, risk_free_rate)
     benchmark = _adjust_returns(returns, risk_free_rate)
-    return _roll(returns, benchmark, metric=alpha, window=window, risk_free_rate=0)
+    return _roll(returns, benchmark, 
+                 metric=lambda r, b, **kw: alpha(r, b, **kw).value, 
+                 window=window, risk_free_rate=0)
 
 
 def beta(returns, benchmark, risk_free_rate=0):
@@ -948,7 +957,10 @@ def beta(returns, benchmark, risk_free_rate=0):
         Beta.
     """
 
-    return _alpha_beta(returns, benchmark, risk_free_rate).params[1]
+    Beta = namedtuple('Beta', ['value', 't_stat', 'p_value'])
+    ols_est = _alpha_beta(returns, benchmark, risk_free_rate)
+    return Beta(value=ols_est.params[1],
+                t_stat=ols_est.tvalues[1], p_value=ols_est.pvalues[1])
 
 
 def rolling_beta(returns, benchmark, risk_free_rate=0, window=None) -> pd.Series:
@@ -976,16 +988,9 @@ def rolling_beta(returns, benchmark, risk_free_rate=0, window=None) -> pd.Series
 
     returns = _adjust_returns(returns, risk_free_rate)
     benchmark = _adjust_returns(benchmark, risk_free_rate)
-    return _roll(returns, benchmark, metric=beta, window=window, risk_free_rate=0)
-
-
-def _alpha_tstat(returns, benchmark, risk_free_rate=0):
-    return _alpha_beta(returns, benchmark, risk_free_rate).tvalues[0]
-
-
-def _mean_excess_return_tstat(returns, benchmark):
-    excess_returns = _adjust_returns(returns, benchmark)
-    return ttest_1samp(excess_returns, 0, alternative='greater').statistic
+    return _roll(returns, benchmark, 
+                 metric=lambda r, b, **kw: beta(r, b, **kw).value, 
+                 window=window, risk_free_rate=0)
 
 
 def _adjust_returns(returns, adjustment):
