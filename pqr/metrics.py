@@ -20,16 +20,17 @@ from .utils import get_annualization_factor, align
 __all__ = [
     'summary',
 
-    'compound_returns', 'drawdown', 'total_return',
-    'annual_return', 'annual_volatility',
+    'compound_returns', 'drawdown', 
+    'total_return', 'cagr',
 
     'mean_return', 'rolling_mean_return',
-    'win_rate', 'rolling_win_rate',
     'volatility', 'rolling_volatility',
+    'win_rate', 'rolling_win_rate',
     'max_drawdown', 'rolling_max_drawdown',
 
     'value_at_risk', 'rolling_value_at_risk',
     'expected_tail_loss', 'rolling_expected_tail_loss',
+    'expected_tail_reward', 'rolling_expected_tail_reward',
     'rachev_ratio', 'rolling_rachev_ratio',
 
     'calmar_ratio', 'rolling_calmar_ratio',
@@ -51,7 +52,6 @@ def summary(portfolio, benchmark):
 
     * Total Return, %
     * Annual Return, %
-    * Annual Volatility, %
     * Mean Return, %
     * Win Rate, %
     * Volatility, %
@@ -62,8 +62,8 @@ def summary(portfolio, benchmark):
     * Calmar Ratio
     * Omega Ratio
     * Sortino Ratio
-    * Mean Excess Return, %
     * Benchmark Correlation
+    * Mean Excess Return, %
     * Alpha, %
     * Beta
 
@@ -83,11 +83,10 @@ def summary(portfolio, benchmark):
     return pd.Series(
         {
             'Total Return, %': total_return(portfolio.returns) * 100,
-            'Annual Return, %': annual_return(portfolio.returns) * 100,
-            'Annual Volatility, %': annual_volatility(portfolio.returns) * 100,
+            'CAGR, %': cagr(portfolio.returns) * 100,
             'Mean Return, %': mean_return(portfolio.returns) * 100,
-            'Win Rate, %': win_rate(portfolio.returns) * 100,
             'Volatility, %': volatility(portfolio.returns) * 100,
+            'Win Rate, %': win_rate(portfolio.returns) * 100,
             'Maximum Drawdown, %': max_drawdown(portfolio.returns) * 100,
             'VaR, %': value_at_risk(portfolio.returns) * 100,
             'Expected Tail Loss, %': expected_tail_loss(portfolio.returns) * 100,
@@ -172,10 +171,10 @@ def total_return(returns):
     return compound_returns(returns).iloc[-1]
 
 
-def annual_return(returns):
-    """Calculates Annual Return of portfolio returns as CAGR.
+def cagr(returns):
+    """Calculates Compounded Annual Growth Rate of portfolio returns.
 
-    CAGR (Compounded Annual Growth Rate) calculated as:
+    CAGR calculated as:
 
     .. math::
         CAGR = (1 + Total Return)^{\\frac{1}{Years}} - 1
@@ -188,35 +187,12 @@ def annual_return(returns):
     Returns
     -------
     float
-        Annual Return.
+        CAGR.
     """
 
     annualization_factor = get_annualization_factor(returns)
     years = len(returns) / annualization_factor
     return (1 + total_return(returns)) ** (1 / years) - 1
-
-
-def annual_volatility(returns):
-    """Calculates Annual Volatility of portfolio returns.
-
-    Annual Volatility of the portfolio is the annualized standard deviation of portfolio returns:
-
-    .. math::
-        \\sigma_r * \\sqrt{Number\\;of\\;Periods\\;in\\;a\\;Year}
-
-    Parameters
-    ----------
-    returns : pd.Series
-        Returns of a portfolio or a benchmark.
-
-    Returns
-    -------
-    float
-        Annual Volatility.
-    """
-
-    annualization_rate = np.sqrt(get_annualization_factor(returns))
-    return volatility(returns) * annualization_rate
 
 
 def mean_return(returns):
@@ -238,7 +214,7 @@ def mean_return(returns):
         Mean Return.
     """
 
-    return returns.mean()
+    return returns.mean() * get_annualization_factor(returns)
 
 
 def rolling_mean_return(returns, window=None):
@@ -261,6 +237,52 @@ def rolling_mean_return(returns, window=None):
     """
 
     return _roll(returns, metric=mean_return, window=window)
+
+
+def volatility(returns):
+    """Calculates Volatility of portfolio returns.
+
+    Volatility of the portfolio is the annualized standard deviation of portfolio returns:
+
+    .. math::
+        \\sigma_r = \\sqrt{\\frac{\\sum_{i=1}^{n}(r_i-\\bar{r})^2}{n-1}} * 
+        \\sqrt{Number\\;of\\;Periods\\;in\\;a\\;Year}
+
+    Parameters
+    ----------
+    returns : pd.Series
+        Returns of a portfolio or a benchmark.
+
+    Returns
+    -------
+    float
+        Volatility.
+    """
+
+    annualization_rate = np.sqrt(get_annualization_factor(returns))
+    return returns.std(ddof=1) * annualization_rate
+
+
+def rolling_volatility(returns, window=None):
+    """Calculates rolling Volatility of a `portfolio`.
+
+    See :func:`~pqr.metrics.volatility`.
+
+    Parameters
+    ----------
+    returns : pd.Series
+        Returns of a portfolio or a benchmark.
+    window : int > 0, optional
+        Number of observations in a rolling window. If not passed, `window` equals to approximate
+        number of periods in a year.
+
+    Returns
+    -------
+    pd.Series
+        Rolling Volatility.
+    """
+
+    return _roll(returns, metric=volatility, window=window)
 
 
 def win_rate(returns):
@@ -310,50 +332,6 @@ def rolling_win_rate(returns, window=None):
     return _roll(returns, metric=win_rate, window=window)
 
 
-def volatility(returns):
-    """Calculates Volatility of portfolio returns.
-
-    Volatility of the portfolio returns is the standard deviation:
-
-    .. math::
-        \\sigma_r = \\sqrt{\\frac{\\sum_{i=1}^{n}(r_i-\\bar{r})^2}{n-1}}
-
-    Parameters
-    ----------
-    returns : pd.Series
-        Returns of a portfolio or a benchmark.
-
-    Returns
-    -------
-    float
-        Volatility.
-    """
-
-    return returns.std(ddof=1)
-
-
-def rolling_volatility(returns, window=None):
-    """Calculates rolling Volatility of a `portfolio`.
-
-    See :func:`~pqr.metrics.volatility`.
-
-    Parameters
-    ----------
-    returns : pd.Series
-        Returns of a portfolio or a benchmark.
-    window : int > 0, optional
-        Number of observations in a rolling window. If not passed, `window` equals to approximate
-        number of periods in a year.
-
-    Returns
-    -------
-    pd.Series
-        Rolling Volatility.
-    """
-
-    return _roll(returns, metric=volatility, window=window)
-
-
 def max_drawdown(returns):
     """Calculates Maximum Drawdown of portfolio returns.
 
@@ -399,11 +377,11 @@ def rolling_max_drawdown(returns, window=None):
     return _roll(returns, metric=max_drawdown, window=window)
 
 
-def value_at_risk(returns, confidence_level=0.95):
+def value_at_risk(returns, cutoff=0.05):
     """Calculates Value at Risk of portfolio returns.
 
     VaR shows the amount of potential loss that could happen in a portfolio with given
-    `confidence_level`:
+    `cutoff`:
 
     .. math::
         VaR = -\\inf\\{F_r(r) > Confidence\\;Level\\}
@@ -412,7 +390,7 @@ def value_at_risk(returns, confidence_level=0.95):
     ----------
     returns : pd.Series
         Returns of a portfolio or a benchmark.
-    confidence_level : float, default=0.95
+    cutoff : float, default=0.05
         The probability, with which the estimation of VaR is true.
 
     Returns
@@ -421,10 +399,10 @@ def value_at_risk(returns, confidence_level=0.95):
         Value at Risk.
     """
 
-    return returns.quantile(1 - confidence_level)
+    return returns.quantile(cutoff) * np.sqrt(get_annualization_factor(returns))
 
 
-def rolling_value_at_risk(returns, confidence_level=0.95, window=None):
+def rolling_value_at_risk(returns, cutoff=0.05, window=None):
     """Calculates rolling Value at Risk of portfolio returns.
 
     See :func:`~pqr.metrics.value_at_risk`.
@@ -433,7 +411,7 @@ def rolling_value_at_risk(returns, confidence_level=0.95, window=None):
     ----------
     returns : pd.Series
         Returns of a portfolio or a benchmark.
-    confidence_level : float, default=0.95
+    cutoff : float, default=0.05
         The probability, with which the estimation of VaR is true.
     window : int > 0, optional
         Number of observations in a rolling window. If not passed, `window` equals to approximate
@@ -445,14 +423,14 @@ def rolling_value_at_risk(returns, confidence_level=0.95, window=None):
         Rolling Value at Risk.
     """
 
-    return _roll(returns, metric=value_at_risk, window=window, confidence_level=confidence_level)
+    return _roll(returns, metric=value_at_risk, window=window, cutoff=cutoff)
 
 
-def expected_tail_loss(returns, confidence_level=0.95):
+def expected_tail_loss(returns, cutoff=0.05):
     """Calculates Expected Tail Loss of portfolio returns.
 
-    Expected Tail Loss shows the average of the values that fall beyond the VaR, calculated with
-    given `confidence_level`:
+    Expected Tail Loss shows the average of the values that fall below the VaR, calculated with
+    given `cutoff`:
 
     .. math::
         ETL = \\frac{\\sum_{i=1}^{n}r_i\\cdot[r_i \\le VaR]}{\\sum_{i=1}^{n}[r_i \\le VaR]}
@@ -461,7 +439,7 @@ def expected_tail_loss(returns, confidence_level=0.95):
     ----------
     returns : pd.Series
         Returns of a portfolio or a benchmark.
-    confidence_level : float, default=0.95
+    cutoff : float, default=0.95
         The probability, with which the estimation of VaR is true.
 
     Returns
@@ -470,11 +448,11 @@ def expected_tail_loss(returns, confidence_level=0.95):
         Expected Tail Loss.
     """
 
-    var = value_at_risk(returns, confidence_level)
-    return returns[returns <= var].mean()
+    var = returns.quantile(cutoff)
+    return returns[returns <= var].mean() * np.sqrt(get_annualization_factor(returns))
 
 
-def rolling_expected_tail_loss(returns, confidence_level=0.95, window=None):
+def rolling_expected_tail_loss(returns, cutoff=0.05, window=None):
     """Calculates rolling Expected Tail Loss of portfolio returns.
 
     See :func:`~pqr.metrics.expected_tail_loss`.
@@ -483,7 +461,7 @@ def rolling_expected_tail_loss(returns, confidence_level=0.95, window=None):
     ----------
     returns : pd.Series
         Returns of a portfolio or a benchmark.
-    confidence_level : float, default=0.95
+    cutoff : float, default=0.05
         The probability, with which the estimation of VaR is true.
     window : int > 0, optional
         Number of observations in a rolling window. If not passed, `window` equals to approximate
@@ -495,8 +473,57 @@ def rolling_expected_tail_loss(returns, confidence_level=0.95, window=None):
         Rolling Expected Tail Loss.
     """
 
-    return _roll(returns, metric=expected_tail_loss, window=window,
-                 confidence_level=confidence_level)
+    return _roll(returns, metric=expected_tail_loss, window=window, cutoff=cutoff)
+
+
+def expected_tail_reward(returns, cutoff=0.95):
+    """Calculates Expected Tail Reward of portfolio returns.
+
+    Expected Tail Loss shows the average of the values that fall beyond the VaR, calculated with
+    given `cutoff`:
+
+    .. math::
+        ETR = \\frac{\\sum_{i=1}^{n}r_i\\cdot[r_i \\ge VaR]}{\\sum_{i=1}^{n}[r_i \\ge VaR]}
+
+    Parameters
+    ----------
+    returns : pd.Series
+        Returns of a portfolio or a benchmark.
+    cutoff : float, default=0.95
+        The probability, with which the estimation of VaR is true.
+
+    Returns
+    -------
+    float
+        Expected Tail Reward.
+    """
+
+    var = returns.quantile(cutoff)
+    return returns[returns >= var].mean() * np.sqrt(get_annualization_factor(returns))
+
+
+def rolling_expected_tail_reward(returns, cutoff=0.05, window=None):
+    """Calculates rolling Expected Tail Reward of portfolio returns.
+
+    See :func:`~pqr.metrics.expected_tail_reward`.
+
+    Parameters
+    ----------
+    returns : pd.Series
+        Returns of a portfolio or a benchmark.
+    cutoff : float, default=0.05
+        The probability, with which the estimation of VaR is true.
+    window : int > 0, optional
+        Number of observations in a rolling window. If not passed, `window` equals to approximate
+        number of periods in a year.
+
+    Returns
+    -------
+    pd.Series
+        Rolling Expected Tail Reward.
+    """
+
+    return _roll(returns, metric=expected_tail_reward, window=window, cutoff=cutoff)
 
 
 def rachev_ratio(returns, reward_cutoff=0.95, risk_cutoff=0.05, risk_free_rate=0):
@@ -515,8 +542,7 @@ def rachev_ratio(returns, reward_cutoff=0.95, risk_cutoff=0.05, risk_free_rate=0
     reward_cutoff : float, default=0.95
         Cutoff to calculate expected tail return.
     risk_cutoff : float, default=0.05
-        Cutoff to calculate expected tail loss. Confidence level to compute it
-        equals to 1 - `risk_cutoff`.
+        Cutoff to calculate expected tail loss. 
     risk_free_rate : array_like, default=0
         Indicative rate of guaranteed returns (e.g. US government bond rate).
 
@@ -527,9 +553,8 @@ def rachev_ratio(returns, reward_cutoff=0.95, risk_cutoff=0.05, risk_free_rate=0
     """
 
     adjusted_returns = _adjust_returns(returns, risk_free_rate)
-    reward_var = value_at_risk(adjusted_returns, 1 - reward_cutoff)
-    etr = adjusted_returns[adjusted_returns >= reward_var].mean()
-    etl = expected_tail_loss(adjusted_returns, 1 - risk_cutoff)
+    etr = expected_tail_reward(adjusted_returns, reward_cutoff)
+    etl = expected_tail_loss(adjusted_returns, risk_cutoff)
     return etr / -etl
 
 
@@ -546,8 +571,7 @@ def rolling_rachev_ratio(returns, reward_cutoff=0.95, risk_cutoff=0.05, risk_fre
     reward_cutoff : float, default=0.95
         Cutoff to calculate expected tail return.
     risk_cutoff : float, default=0.05
-        Cutoff to calculate expected tail loss. Confidence level to compute it
-        equals to 1 - `risk_cutoff`.
+        Cutoff to calculate expected tail loss.
     risk_free_rate : array_like, default=0
         Indicative rate of guaranteed returns (e.g. US government bond rate).
     window : int > 0, optional
@@ -583,7 +607,7 @@ def calmar_ratio(returns):
         Calmar Ratio.
     """
 
-    return annual_return(returns) / -max_drawdown(returns)
+    return cagr(returns) / -max_drawdown(returns)
 
 
 def rolling_calmar_ratio(returns, window=None):
@@ -631,8 +655,7 @@ def sharpe_ratio(returns, risk_free_rate=0):
     """
 
     adjusted_returns = _adjust_returns(returns, risk_free_rate)
-    annualization_rate = np.sqrt(get_annualization_factor(adjusted_returns))
-    return mean_return(adjusted_returns) / volatility(adjusted_returns) * annualization_rate
+    return mean_return(adjusted_returns) / volatility(adjusted_returns)
 
 
 def rolling_sharpe_ratio(returns, risk_free_rate=0, window=None) -> pd.Series:
@@ -740,9 +763,9 @@ def sortino_ratio(returns, minimum_acceptable_return=0):
     annualization_rate = np.sqrt(get_annualization_factor(adjusted_returns))
 
     returns_under_mar = np.clip(adjusted_returns, a_min=-np.inf, a_max=0)
-    downside_risk_ = np.sqrt((returns_under_mar ** 2).mean())
+    downside_risk = np.sqrt((returns_under_mar ** 2).mean())
 
-    return mean_return(adjusted_returns) / downside_risk_ * annualization_rate
+    return adjusted_returns.mean() / downside_risk * annualization_rate
 
 
 def rolling_sortino_ratio(returns, minimum_acceptable_return=0, window=None):
@@ -844,8 +867,8 @@ def mean_excess_return(returns, benchmark):
     MeanExcessReturn = namedtuple('MeanExcessReturn', ['value', 't_stat', 'p_value'])
 
     excess_returns = _adjust_returns(returns, benchmark)
-    ttest = ttest_1samp(excess_returns, 0, alternative='greater').statistic
-    return MeanExcessReturn(value=mean_return(excess_returns) * get_annualization_factor(returns),
+    ttest = ttest_1samp(excess_returns, 0, alternative='greater')
+    return MeanExcessReturn(value=excess_returns.mean() * get_annualization_factor(returns),
                             t_stat=ttest.statistic, p_value=ttest.pvalue)
 
 
