@@ -6,7 +6,7 @@ with open('README.md') as f:
 
 setup(
     name='pqr',
-    version='0.2.4',
+    version='0.2.5',
     description='Library for testing factor strategies',
     long_description=readme,
     long_description_content_type='text/markdown',
@@ -39,6 +39,6 @@ setup(
     project_urls={
             'Bug Tracker': 'https://github.com/atomtosov/pqr/issues',
             'Documentation': 'https://pqr.readthedocs.io/en/latest/index.html',
-            'Source Code': 'https://github.com/atomtosov/pqr/tree/dev',
+            'Source Code': 'https://github.com/atomtosov/pqr/',
         },
 )
