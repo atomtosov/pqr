@@ -56,7 +56,11 @@ def summary_tear_sheet(portfolios, benchmark):
         # add stars and t-stat 
         for name, metric in zip(['Mean Return, %', 'Mean Excess Return, %', 'Alpha, %', 'Beta'],
                                 [mean_return, mean_excess_return, alpha, beta]):
-            metric_values = metric(portfolio.returns, benchmark.returns)
+            if name != 'Mean Return, %':
+                metric_values = metric(portfolio.returns, benchmark.returns)
+            else:
+                metric_values = metric(portfolio.returns)
+                
             portfolio_stats[name] = '{:.2f}{}\n({:.2f})'.format(
                 metric_values.value * (100 if '%' in name else 1), 
                 _stars(metric_values.p_value),
