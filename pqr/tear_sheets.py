@@ -37,7 +37,6 @@ def summary_tear_sheet(portfolios, benchmark):
             {
             'Total Return, %': total_return(portfolio.returns) * 100,
             'CAGR, %': cagr(portfolio.returns) * 100,
-            'Mean Return, %': mean_return(portfolio.returns) * 100,
             'Volatility, %': volatility(portfolio.returns) * 100,
             'Win Rate, %': win_rate(portfolio.returns) * 100,
             'Maximum Drawdown, %': max_drawdown(portfolio.returns) * 100,
@@ -55,8 +54,8 @@ def summary_tear_sheet(portfolios, benchmark):
         ).round(2).astype(str)
 
         # add stars and t-stat 
-        for name, metric in zip(['Mean Excess Return, %', 'Alpha, %', 'Beta'],
-                                [mean_excess_return, alpha, beta]):
+        for name, metric in zip(['Mean Return, %', 'Mean Excess Return, %', 'Alpha, %', 'Beta'],
+                                [mean_return, mean_excess_return, alpha, beta]):
             metric_values = metric(portfolio.returns, benchmark.returns)
             portfolio_stats[name] = '{:.2f}{}\n({:.2f})'.format(
                 metric_values.value * (100 if '%' in name else 1), 
@@ -68,6 +67,7 @@ def summary_tear_sheet(portfolios, benchmark):
     
     display(pd.DataFrame(stats).T.style.set_properties(**{'white-space': 'pre-wrap'}))
 
+    plt.yscale('symlog')
     plot_compound_returns(portfolios, benchmark)
     plt.show()
 
