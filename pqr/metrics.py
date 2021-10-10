@@ -958,10 +958,14 @@ def rolling_beta(returns, benchmark, risk_free_rate=0, window=None) -> pd.Series
 
 def turnover(positions):
     long, short = positions > 0, positions < 0
-    positions_long = positions[long]
-    positions_long /= np.nansum(positions_long, axis=1, keepdims=True)
-    positions_short = positions[short]
-    positions_short /= np.nansum(positions_short, axis=1, keepdims=True)
+    with np.errstate(divide='ignore', invalid='ignore'):
+        positions_long = np.where(long, positions, 0).astype(float)
+        positions_long /= np.nansum(positions_long, axis=1, keepdims=True).astype(float)
+        positions_long = pd.DataFrame(positions_long)
+
+        positions_short = np.where(short, positions, 0).astype(float)
+        positions_short /= np.nansum(positions_short, axis=1, keepdims=True).astype(float)
+        positions_short = pd.DataFrame(positions_short)
 
     turnover_long = np.nansum(positions_long.diff().abs(), axis=0)
     turnover_short = np.nansum(positions_short.diff().abs(), axis=0)
