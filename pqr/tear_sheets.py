@@ -49,6 +49,7 @@ def summary_tear_sheet(portfolios, benchmark):
             'Omega Ratio': omega_ratio(portfolio.returns),
             'Sortino Ratio': sortino_ratio(portfolio.returns),
             'Benchmark Correlation': benchmark_correlation(portfolio.returns, benchmark.returns),
+            'Turnover, %': turnover(portfolio.positions),
         },
         name=portfolio.name
         ).round(2).astype(str)

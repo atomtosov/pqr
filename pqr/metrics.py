@@ -40,6 +40,8 @@ __all__ = [
     'benchmark_correlation', 'rolling_benchmark_correlation',
     'alpha', 'rolling_alpha',
     'beta', 'rolling_beta',
+
+    'turnover',
 ]
 
 
