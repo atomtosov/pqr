@@ -160,7 +160,7 @@ def mean_return(returns):
     ttest = ttest_1samp(returns, 0, alternative='greater')
 
     return MeanReturn(value=returns.mean() * get_annualization_factor(returns),
-                      t_stat=ttest.statistic, p_value=1 - ttest.pvalue)
+                      t_stat=ttest.statistic, p_value=ttest.pvalue)
 
 
 
@@ -816,7 +816,7 @@ def mean_excess_return(returns, benchmark):
     excess_returns = _adjust_returns(returns, benchmark)
     ttest = ttest_1samp(excess_returns, 0, alternative='greater')
     return MeanExcessReturn(value=excess_returns.mean() * get_annualization_factor(returns),
-                            t_stat=ttest.statistic, p_value=1 - ttest.pvalue)
+                            t_stat=ttest.statistic, p_value=ttest.pvalue)
 
 
 def rolling_mean_excess_return(returns, benchmark, window=None) -> pd.Series:
