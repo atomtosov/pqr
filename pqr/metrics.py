@@ -155,7 +155,13 @@ def mean_return(returns):
         Mean Return.
     """
 
-    return returns.mean() * get_annualization_factor(returns)
+    MeanReturn = namedtuple('MeanReturn', ['value', 't_stat', 'p_value'])
+
+    ttest = ttest_1samp(returns, 0, alternative='greater')
+
+    return MeanReturn(value=returns.mean() * get_annualization_factor(returns),
+                      t_stat=ttest.statistic, p_value=1 - ttest.pvalue)
+
 
 
 def rolling_mean_return(returns, window=None):
@@ -177,7 +183,7 @@ def rolling_mean_return(returns, window=None):
         Rolling Mean Return.
     """
 
-    return _roll(returns, metric=mean_return, window=window)
+    return _roll(returns, metric=lambda r: mean_return(r).value, window=window)
 
 
 def volatility(returns):
@@ -596,7 +602,7 @@ def sharpe_ratio(returns, risk_free_rate=0):
     """
 
     adjusted_returns = _adjust_returns(returns, risk_free_rate)
-    return mean_return(adjusted_returns) / volatility(adjusted_returns)
+    return mean_return(adjusted_returns).value / volatility(adjusted_returns)
 
 
 def rolling_sharpe_ratio(returns, risk_free_rate=0, window=None) -> pd.Series:
