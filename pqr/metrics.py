@@ -163,7 +163,6 @@ def mean_return(returns):
                       t_stat=ttest.statistic, p_value=ttest.pvalue)
 
 
-
 def rolling_mean_return(returns, window=None):
     """Calculates rolling Mean Return of portfolio returns.
 
@@ -897,7 +896,7 @@ def rolling_alpha(returns, benchmark, risk_free_rate=0, window=None):
     """
 
     returns = _adjust_returns(returns, risk_free_rate)
-    benchmark = _adjust_returns(returns, risk_free_rate)
+    benchmark = _adjust_returns(benchmark, risk_free_rate)
     return _roll(returns, benchmark, 
                  metric=lambda r, b, **kw: alpha(r, b, **kw).value, 
                  window=window, risk_free_rate=0)

@@ -38,7 +38,7 @@ def explain_alpha(returns, market_returns, factors_returns, risk_free_rate=0):
     factors_returns = pd.DataFrame([adjusted_market_returns] + factors_returns).T
     factors_returns = add_constant(factors_returns)
 
-    est = OLS(adjusted_returns, adjusted_market_returns).fit()
+    est = OLS(adjusted_returns, factors_returns).fit()
     params = est.params.values
 
     return pd.DataFrame(

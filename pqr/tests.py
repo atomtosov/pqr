@@ -8,8 +8,10 @@ strategy in future.
 import numpy as np
 import pandas as pd
 from scipy.stats import ttest_1samp
+from statsmodels.api import add_constant, OLS
 
 from .portfolios import Portfolio, generate_random_portfolios
+from .utils import align
 
 __all__ = [
     'zero_intelligence_test',
@@ -57,7 +59,7 @@ def zero_intelligence_test(stock_prices, portfolio, target_metric, quantiles, **
     return {quantile: portfolio for quantile, portfolio in zip(target_quantiles, target_portfolios)}
 
 
-def prophet_test(stock_prices, portfolio, mask=None, weighting_factor=None):
+def prophet_test(stock_prices, portfolio, target_metric, mask=None, weighting_factor=None):
     """Compare picks of a `portfolio` with "ideal" portfolio.
 
     "Ideal" portfolio is a portfolio, which always long stocks with the highest returns in the next period and
@@ -83,6 +85,8 @@ def prophet_test(stock_prices, portfolio, mask=None, weighting_factor=None):
         Ratio of portfolio returns to returns of ideal portfolio and absolute difference 
     """
 
+    portfolio_metric = target_metric(portfolio.returns)
+
     ideal_portfolio = Portfolio('ideal')
     ideal_portfolio.pick_ideally(stock_prices, portfolio, mask)
     if weighting_factor is not None:
@@ -90,11 +94,25 @@ def prophet_test(stock_prices, portfolio, mask=None, weighting_factor=None):
     else:
         ideal_portfolio.weigh_equally()
     ideal_portfolio.allocate(stock_prices)
+    best_metric = target_metric(ideal_portfolio.returns)
 
-    prophet_ratio = portfolio.returns / ideal_portfolio.returns
-    lack_of_return = portfolio.returns - ideal_portfolio.returns
+    worst_portfolio = Portfolio('worst')
+    worst_portfolio.pick_worstly(stock_prices, portfolio, mask)
+    if weighting_factor is not None:
+        worst_portfolio.weigh_by_factor(weighting_factor)
+    else:
+        worst_portfolio.weigh_equally()
+    worst_portfolio.allocate(stock_prices)
+    worst_metric = target_metric(worst_portfolio.returns)
 
-    return prophet_ratio, lack_of_return
+    return pd.Series(
+        {
+            'best': best_metric,
+            portfolio.name: portfolio_metric,
+            'worst': worst_metric,
+            f'{portfolio.name}_q': (portfolio_metric - worst_metric) / (best_metric - worst_metric)
+        }
+    )
 
 
 def t_test(portfolio, risk_free_rate=0):
