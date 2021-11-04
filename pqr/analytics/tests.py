@@ -8,10 +8,8 @@ strategy in future.
 import numpy as np
 import pandas as pd
 from scipy.stats import ttest_1samp
-from statsmodels.api import add_constant, OLS
 
-from .portfolios import Portfolio, generate_random_portfolios
-from .utils import align
+from pqr.core.portfolio import Portfolio, generate_random_portfolios
 
 __all__ = [
     'zero_intelligence_test',
