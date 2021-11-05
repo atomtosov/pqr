@@ -136,9 +136,13 @@ class Portfolio:
 
         universe_returns = prices.pct_change().to_numpy()[1:]
         portfolio_returns = (positions[:-1] * universe_returns)
-        returns = np.nansum(portfolio_returns, axis=1)
+        dead_returns = np.where(
+            np.isnan(portfolio_returns) & ~np.isclose(positions[:-1], 0),
+            -positions[:-1], 0
+        )
+        returns = np.nansum(portfolio_returns, axis=1) + np.nansum(dead_returns, axis=1)
 
-        self.positions = array_to_alike_df_or_series(positions, self.weights)
+        self.positions = array_to_alike_df_or_series(positions, prices)
         self.returns = array_to_alike_df_or_series(returns, self.positions.iloc[1:])
 
         return self
