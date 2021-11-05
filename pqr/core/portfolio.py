@@ -38,16 +38,19 @@ class Portfolio:
     ) -> Portfolio:
         if long is None and short is None:
             raise ValueError("either long or short must be specified")
+        elif long is not None and short is not None:  # long-short
+            longs, shorts = align(long.values, short.values)
+            longs, shorts = longs.to_numpy(dtype=np.int8), shorts.to_numpy(dtype=np.int8)
+        elif long is not None:  # long-only
+            longs = long.values.to_numpy(dtype=np.int8)
+            shorts = 0
+        else:  # short-only
+            longs = 0
+            shorts = short.values.to_numpy(dtype=np.int8)
 
-        longs: int | pd.DataFrame = 0 if long is None else long.values.astype(np.int8)
-        shorts: int | pd.DataFrame = 0 if short is None else short.values.astype(np.int8)
-
-        if isinstance(longs, pd.DataFrame) and isinstance(shorts, pd.DataFrame):
-            longs, shorts = align(longs, shorts)
-
-        self.picks: pd.DataFrame = array_to_alike_df_or_series(
-            longs.to_numpy() - shorts.to_numpy(),
-            longs
+        self.picks = array_to_alike_df_or_series(
+            longs - shorts,
+            long.values
         )
         self.picks.index.name = self.name
 
@@ -58,27 +61,27 @@ class Portfolio:
         if factor is not None:
             picks, w = [df.to_numpy() for df in align(self.picks, factor.values)]
 
-        w_long: int = 0
+        w_long = 0
         if self.has_longs():
-            w_long: np.ndarray = np.where(picks == 1, w, 0)
+            w_long = np.where(picks == 1, w, 0)
             with np.errstate(divide="ignore", invalid="ignore"):
-                w_long: np.ndarray = np.nan_to_num(
+                w_long = np.nan_to_num(
                     w_long / np.nansum(w_long, axis=1, keepdims=True),
                     nan=0, neginf=0, posinf=0, copy=False
                 )
-        w_short: int = 0
+        w_short = 0
         if self.has_shorts():
-            w_short: np.ndarray = np.where(picks == -1, w, 0)
+            w_short = np.where(picks == -1, w, 0)
             with np.errstate(divide="ignore", invalid="ignore"):
-                w_short: np.ndarray = np.nan_to_num(
+                w_short = np.nan_to_num(
                     w_short / np.nansum(w_short, axis=1, keepdims=True),
                     nan=0, neginf=0, posinf=0, copy=False
                 )
 
-        if w_long == 0 and w_short == 0:
+        if isinstance(w_long, int) and isinstance(w_short, int):
             raise ValueError("could not weigh portfolio without picks")
 
-        self.weights: pd.DataFrame = array_to_alike_df_or_series(w_long + w_short, picks)
+        self.weights = array_to_alike_df_or_series(w_long - w_short, picks)
 
         return self
 
@@ -86,40 +89,40 @@ class Portfolio:
             self,
             factor: Factor,
             target: float = 1.0,
-            better: Literal["better", "more"] = "more",
+            better: Literal["more", "less"] = "more",
             leverage_limits: tuple[float, float] = (-np.inf, np.inf),
     ) -> Portfolio:
         w, factor_values = align(self.weights, factor.values)
 
         if better == "more":
-            leverage: np.ndarray = factor_values.to_numpy() / target
+            leverage = factor_values.to_numpy() / target
         else:
-            leverage: np.ndarray = target / factor_values.to_numpy()
+            leverage = target / factor_values.to_numpy()
         leverage *= w.to_numpy()
-        total_leverage: np.ndarray = np.nansum(leverage, axis=1, keepdims=True)
+        total_leverage = np.nansum(leverage, axis=1, keepdims=True)
 
-        under_lower: int = 0
-        exceed_lower: np.ndarray = total_leverage < leverage_limits[0]
+        under_lower = 0
+        exceed_lower = total_leverage < leverage_limits[0]
         if exceed_lower.any():
-            under_lower: np.ndarray = (
+            under_lower = (
                     np.where(exceed_lower, leverage, 0) /
                     np.where(exceed_lower, total_leverage, 1)
             )
-        above_upper: int = 0
-        exceed_upper: np.ndarray = total_leverage > leverage_limits[1]
+        above_upper = 0
+        exceed_upper = total_leverage > leverage_limits[1]
         if exceed_upper.any():
-            above_upper: np.ndarray = (
+            above_upper = (
                     np.where(exceed_upper, leverage, 0) /
                     np.where(exceed_upper, total_leverage, 1)
             )
 
-        w_leveraged: np.ndarray = (
+        w_leveraged = (
                 np.where(~(exceed_lower & exceed_upper), leverage, 0) +
                 under_lower +
                 above_upper
         )
 
-        self.weights: pd.DataFrame = array_to_alike_df_or_series(w_leveraged, w)
+        self.weights = array_to_alike_df_or_series(w_leveraged, w)
 
         return self
 
@@ -129,14 +132,14 @@ class Portfolio:
             fee: float = 0.0,
     ) -> Portfolio:
         w, prices = align(self.weights, prices)
-        positions: np.ndarray = w.to_numpy() * (1 - fee)
+        positions = w.to_numpy() * (1 - fee)
 
-        universe_returns: np.ndarray = prices.pct_change().to_numpy()[1:]
-        portfolio_returns: np.ndarray = (positions[:-1] * universe_returns)
-        returns: np.ndarray = np.nansum(portfolio_returns, axis=1)
+        universe_returns = prices.pct_change().to_numpy()[1:]
+        portfolio_returns = (positions[:-1] * universe_returns)
+        returns = np.nansum(portfolio_returns, axis=1)
 
-        self.positions: pd.DataFrame = array_to_alike_df_or_series(positions, self.weights)
-        self.returns: pd.Series = array_to_alike_df_or_series(returns, self.positions.iloc[1:])
+        self.positions = array_to_alike_df_or_series(positions, self.weights)
+        self.returns = array_to_alike_df_or_series(returns, self.positions.iloc[1:])
 
         return self
 

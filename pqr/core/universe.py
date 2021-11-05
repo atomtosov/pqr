@@ -16,35 +16,19 @@ class Universe:
     )
 
     def __init__(self, values: pd.DataFrame):
-        self.values: pd.DataFrame = values.astype(bool)
+        self.values = values.astype(bool)
 
     @classmethod
     def from_prices(cls, prices: pd.DataFrame) -> Universe:
         return cls(prices.notnull())
 
-    def filter(self, mask: pd.Series | pd.DataFrame) -> Universe:
-        values, mask = align(self.values, mask)
+    def filter(self, factor_values: pd.DataFrame) -> pd.DataFrame:
+        universe, factor_values = align(self.values, factor_values)
 
-        self.values: pd.DataFrame = array_to_alike_df_or_series(
-            np.where(~(mask.to_numpy()), values.to_numpy(), False),
-            values
+        return array_to_alike_df_or_series(
+            np.where(universe.to_numpy(), factor_values.to_numpy(), np.nan),
+            factor_values
         )
-
-        return self
-
-    def unify(self, *dfs: pd.DataFrame) -> tuple[pd.DataFrame]:
-        dfs: list[pd.DataFrame, ...] = list(dfs)
-        for i, df in enumerate(dfs):
-            df, uni = align(df, self.values)
-            dfs[i]: pd.DataFrame = array_to_alike_df_or_series(
-                np.where(uni.to_numpy(), df.to_numpy(), np.nan),
-                df
-            )
-
-        return tuple(dfs)
-
-    def __copy__(self) -> Universe:
-        return Universe(self.values)
 
     def __invert__(self) -> Universe:
         return Universe(

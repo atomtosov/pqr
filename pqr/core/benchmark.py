@@ -15,8 +15,8 @@ __all__ = [
 
 class Benchmark:
     __slots__ = (
-        "name",
         "returns",
+        "name",
     )
 
     def __init__(
@@ -55,9 +55,9 @@ class Benchmark:
             name: Optional[str] = None,
     ) -> Benchmark:
         if universe is None:
-            universe: Universe = Universe(prices)
+            universe = Universe(prices)
 
-        benchmark: Portfolio = Portfolio(name)
+        benchmark = Portfolio(name)
         benchmark.pick(universe)
         benchmark.weigh(weighting_factor)
         benchmark.allocate(prices)
