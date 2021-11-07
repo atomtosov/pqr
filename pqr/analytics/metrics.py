@@ -15,7 +15,7 @@ import pandas as pd
 from statsmodels.api import OLS, add_constant
 from scipy.stats import ttest_1samp
 
-from .utils import get_annualization_factor, align
+from pqr.utils import get_annualization_factor, align
 
 __all__ = [
     'compound_returns', 'drawdown', 

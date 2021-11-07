@@ -7,7 +7,7 @@ its differences from simple investing into a factor.
 import pandas as pd
 from statsmodels.api import OLS, add_constant
 
-from .utils import align
+from pqr.utils import align
 
 
 def explain_alpha(returns, market_returns, factors_returns, risk_free_rate=0):
