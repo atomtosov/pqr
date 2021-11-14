@@ -3,10 +3,10 @@
   2. A lot of financial metrics to assess portfolios performance
   3. Fancy visualization of results
 
-Source: https://github.com/atomtosov/pqr/tree/dev
+Source: https://github.com/atomtosov/pqr/
 
 Affiliation: https://fmlab.hse.ru/
 """
 
-from .core import *
 from .analytics import *
+from .core import *
