@@ -1,24 +1,29 @@
-from dataclasses import dataclass
 from typing import Sequence
 
 import numpy as np
 import pandas as pd
 import statsmodels.api as sm
 
-from pqr.analytics.utils import adjust
-from pqr.core import Benchmark, Portfolio
-from pqr.utils import align_many
+from pqr.core.benchmark import Benchmark
+from pqr.core.portfolio import Portfolio
+from pqr.utils import adjust, align_many
 
 __all__ = [
     "FamaFrenchRegression",
+    "FamaMacbethRegression",
 ]
 
 
-@dataclass
 class FamaFrenchRegression:
-    market: Benchmark
-    benchmarks: Sequence[Benchmark]
-    rf: float = 0.0
+    def __init__(
+            self,
+            market: Benchmark,
+            benchmarks: Sequence[Benchmark],
+            rf: float = 0.0
+    ):
+        self.market = market
+        self.benchmarks = benchmarks
+        self.rf = rf
 
     def __call__(self, portfolio: Portfolio) -> pd.DataFrame:
         adjusted_returns = adjust(portfolio.returns, self.rf)
@@ -57,3 +62,7 @@ class FamaFrenchRegression:
                 "p_value",
             ]
         )
+
+
+class FamaMacbethRegression:
+    pass
