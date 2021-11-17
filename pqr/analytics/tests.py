@@ -1,9 +1,7 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Callable, Optional
+from typing import Callable, Optional, Literal
 
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from scipy.stats import ttest_1samp
@@ -149,53 +147,58 @@ class RandomPicking:
         return longs, shorts
 
 
-@dataclass
 class ProphetTest:
-    universe: Universe
-    portfolio_builder: PortfolioBuilder
-    target_metric: Callable[[Portfolio], pd.Series]
-    holding: Optional[int] = None
+    def __init__(
+            self,
+            universe: Universe,
+            portfolio_builder: PortfolioBuilder,
+            target_metric: Callable[[Portfolio], pd.Series],
+            holding: Optional[int] = None
+    ):
+        self.universe = universe
+        self.portfolio_builder = portfolio_builder
+        self.target_metric = target_metric
+        self.holding = holding
 
     def __call__(self, portfolio: Portfolio) -> pd.Series:
+        holding = estimate_holding(portfolio.picks) if self.holding is None else self.holding
+
         best_portfolio = self.portfolio_builder(
-            self.prices,
-            *BestPickingStrategy(self.universe, self.prices, self.holding)(portfolio)
+            self.universe,
+            *ProphetPickingStrategy(self.universe, holding, "best")(portfolio)
         )
         worst_portfolio = self.portfolio_builder(
-            self.prices,
-            *WorstPickingStrategy(self.universe, self.prices, self.holding)(portfolio)
+            self.universe,
+            *ProphetPickingStrategy(self.universe, holding, "worst")(portfolio)
         )
 
         best_metric = self.target_metric(best_portfolio)
-        best_metric.plot()
-        plt.show()
         worst_metric = self.target_metric(worst_portfolio)
-        worst_metric.plot()
-        plt.show()
         portfolio_metric = self.target_metric(portfolio)
 
         return (portfolio_metric - worst_metric) / (best_metric - worst_metric)
 
 
-@dataclass
-class BestPickingStrategy:
-    universe: pd.DataFrame
-    prices: pd.DataFrame
-    holding: int
+class ProphetPickingStrategy:
+    def __init__(
+            self,
+            universe: Universe,
+            holding: int,
+            way: Literal["best", "worst"]
+    ):
+        self.universe = universe
+        self.holding = holding
+        self.way = way
 
     def __call__(self, portfolio: Portfolio) -> tuple[pd.DataFrame, pd.DataFrame]:
         longs, shorts = portfolio.get_longs(), portfolio.get_shorts()
-        longs, shorts, universe, prices = align_many(longs, shorts, self.universe, self.prices)
+        longs, shorts, universe, prices = align_many(longs, shorts, self.universe.mask, self.universe.prices)
 
         long_limits = longs.sum(axis=1)
         short_limits = shorts.sum(axis=1)
 
-        if self.adjust_holding:
-            holding = estimate_holding(portfolio.picks)
-            universe_returns = prices.pct_change(holding).shift(-holding)
-            universe_returns = Hold(holding)(universe_returns)
-        else:
-            universe_returns = prices.pct_change().shift(-1)
+        universe_returns = prices.pct_change(self.holding).shift(-self.holding)
+        universe_returns = Hold(self.holding)(universe_returns)
         universe_returns[~universe] = np.nan
 
         longs = pd.DataFrame(
@@ -208,50 +211,14 @@ class BestPickingStrategy:
             index=shorts.index,
             columns=shorts.columns
         )
+
         for date in universe.index:
-            best = universe_returns.loc[date].nlargest(long_limits.loc[date]).index
-            worst = universe_returns.loc[date].nsmallest(short_limits.loc[date]).index
-
-            longs.loc[date, best] = True
-            shorts.loc[date, worst] = True
-
-        return longs, shorts
-
-
-@dataclass
-class WorstPickingStrategy:
-    universe: pd.DataFrame
-    prices: pd.DataFrame
-    adjust_holding: bool = False
-
-    def __call__(self, portfolio: Portfolio) -> tuple[pd.DataFrame, pd.DataFrame]:
-        longs, shorts = portfolio.get_longs(), portfolio.get_shorts()
-        longs, shorts, universe, prices = align_many(longs, shorts, self.universe, self.prices)
-
-        long_limits = longs.sum(axis=1)
-        short_limits = shorts.sum(axis=1)
-
-        if self.adjust_holding:
-            holding = estimate_holding(portfolio.picks)
-            universe_returns = prices.pct_change(holding).shift(-holding)
-            universe_returns = Hold(3)(universe_returns)
-        else:
-            universe_returns = prices.pct_change().shift(-1)
-        universe_returns[~universe] = np.nan
-
-        longs = pd.DataFrame(
-            np.zeros_like(longs, dtype=bool),
-            index=longs.index,
-            columns=longs.columns
-        )
-        shorts = pd.DataFrame(
-            np.zeros_like(shorts, dtype=bool),
-            index=shorts.index,
-            columns=shorts.columns
-        )
-        for date in universe.index:
-            best = universe_returns.loc[date].nsmallest(long_limits.loc[date]).index
-            worst = universe_returns.loc[date].nlargest(short_limits.loc[date]).index
+            if self.way == "best":
+                best = universe_returns.loc[date].nlargest(long_limits.loc[date]).index
+                worst = universe_returns.loc[date].nsmallest(short_limits.loc[date]).index
+            else:
+                best = universe_returns.loc[date].nsmallest(long_limits.loc[date]).index
+                worst = universe_returns.loc[date].nlargest(short_limits.loc[date]).index
 
             longs.loc[date, best] = True
             shorts.loc[date, worst] = True
