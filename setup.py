@@ -5,17 +5,18 @@ with open('README.md') as f:
 
 
 setup(
-    name='pqr',
-    version='0.2.8',
-    description='Library for testing factor strategies',
+    name="pqr",
+    version="0.3.0",
+    description="Library for testing factor strategies",
     long_description=readme,
     long_description_content_type='text/markdown',
     packages=find_packages(),
     install_requires=[
         'pandas',
-        'matplotlib',
         'numpy',
         'statsmodels',
+        "scipy",
+        'matplotlib',
         'IPython',
     ],
     author='eura17, atomtosov',
