@@ -158,7 +158,7 @@ class GridSearch:
             metrics.append(
                 pd.DataFrame(
                     [[target(portfolio) for portfolio in portfolios]],
-                    index=index,
+                    index=[index],
                     columns=[portfolio.name for portfolio in portfolios]
                 )
             )
