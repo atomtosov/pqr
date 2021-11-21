@@ -12,7 +12,7 @@ class PctChange:
         self.period = period
 
     def __call__(self, values: pd.DataFrame) -> pd.DataFrame:
-        return values.pct_change(self.period)
+        return values.pct_change(self.period).iloc[self.period:]
 
 
 class Mean:
