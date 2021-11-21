@@ -53,8 +53,8 @@ class FactorModel:
             portfolios.append(
                 self.portfolio_builder(
                     universe,
-                    longs=portfolios[0].picks,
-                    shorts=portfolios[-1].picks,
+                    longs=portfolios[0].picks.astype(bool),
+                    shorts=portfolios[-1].picks.astype(bool),
                     name="WML"
                 )
             )
@@ -150,17 +150,19 @@ class GridSearch:
     ) -> pd.DataFrame:
         metrics = []
 
-        for index, factorizer in self.factorizers.items():
-            factor = factorizer(factor.values, factor.better)
-
-            portfolios = self.factor_model(factor, universe)
-
+        for name, factorizer in self.factorizers.items():
+            portfolios = self.factor_model(
+                factorizer(factor.values, factor.better),
+                universe
+            )
             metrics.append(
-                pd.DataFrame(
-                    [[target(portfolio) for portfolio in portfolios]],
-                    index=[index],
-                    columns=[portfolio.name for portfolio in portfolios]
+                pd.Series(
+                    {
+                        portfolio.name: target(portfolio)
+                        for portfolio in portfolios
+                    },
+                    name=name
                 )
             )
 
-        return pd.concat(metrics)
+        return pd.DataFrame(metrics)
