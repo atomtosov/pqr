@@ -143,7 +143,7 @@ class WeightsByFactor:
             weights = normalize(longs * factor_values) - normalize(shorts * factor_values)
         elif longs_any:
             factor_values, longs = align(self.factor.values, longs)
-            weights = normalize(longs * longs)
+            weights = normalize(longs * factor_values)
         else:
             factor_values, shorts = align(self.factor.values, shorts)
             weights = -normalize(shorts * factor_values)
@@ -200,7 +200,7 @@ class LeverageLimits:
             under_min = (
                     np.where(exceed_min, w, 0) /
                     np.where(exceed_min, total_leverage, 1)
-            )
+            ) * self.min_leverage
         else:
             under_min = 0
 
@@ -209,13 +209,13 @@ class LeverageLimits:
             above_max = (
                     np.where(exceed_max, w, 0) /
                     np.where(exceed_max, total_leverage, 1)
-            )
+            ) * self.max_leverage
         else:
             above_max = 0
 
         portfolio.set_weights(
             pd.DataFrame(
-                np.where(~(exceed_min & exceed_max), w, 0) +
+                np.where(~(exceed_min | exceed_max), w, 0) +
                 under_min + above_max,
                 index=portfolio.weights.index.copy(),
                 columns=portfolio.weights.columns.copy()
