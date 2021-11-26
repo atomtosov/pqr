@@ -6,9 +6,9 @@ import numpy as np
 import pandas as pd
 from scipy.stats import ttest_1samp
 
-
 from pqr.core import Portfolio, PortfolioBuilder, Universe, Hold
-from pqr.utils import align_many, estimate_holding
+from pqr.utils import align_many
+from .utils import estimate_holding
 
 __all__ = [
     "TTest",

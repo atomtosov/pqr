@@ -6,7 +6,8 @@ import statsmodels.api as sm
 
 from pqr.core.benchmark import Benchmark
 from pqr.core.portfolio import Portfolio
-from pqr.utils import adjust, align_many
+from pqr.utils import align_many
+from .utils import adjust
 
 __all__ = [
     "FamaFrenchRegression",

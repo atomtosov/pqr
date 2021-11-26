@@ -29,6 +29,9 @@ class NumericMetric(Protocol):
 
 
 class TimeSeriesMetric(Protocol):
+    def __call__(self, portfolio: Portfolio) -> pd.Series:
+        pass
+
     def fancy(self, portfolio: Portfolio) -> pd.Series:
         pass
 
@@ -59,8 +62,13 @@ class Graph:
 
     def __call__(self, portfolios: Sequence[Portfolio]) -> None:
         for portfolio in portfolios:
+            if self.log_scale:
+                metric = self.metric(portfolio)
+            else:
+                metric = self.metric.fancy(portfolio)
+
             plt.plot(
-                self.metric.fancy(portfolio),
+                metric,
                 label=portfolio.name
             )
 
@@ -70,8 +78,14 @@ class Graph:
                 self.benchmark.returns[starts_from:],
                 name=self.benchmark.name
             )
+
+            if self.log_scale:
+                metric = self.metric(benchmark)
+            else:
+                metric = self.metric.fancy(benchmark)
+
             plt.plot(
-                self.metric.fancy(benchmark),
+                metric,
                 label=self.benchmark.name,
                 color="gray",
                 alpha=0.8,
@@ -82,7 +96,7 @@ class Graph:
 
         plt.title(f"Portfolios {self.metric.fancy_name}")
         plt.xlabel("Date")
-        plt.ylabel(self.metric.fancy_name)
+        plt.ylabel(f"{self.metric.fancy_name} {'(log scale)' if self.log_scale else ''}")
         plt.legend()
         plt.grid()
 

@@ -7,7 +7,8 @@ import pandas as pd
 from scipy.stats import ttest_1samp
 
 from pqr.core import Portfolio, Benchmark
-from pqr.utils import extract_annualizer, adjust, estimate_ols, stats_container_factory, align
+from pqr.utils import align
+from .utils import extract_annualizer, adjust, estimate_ols, stats_container_factory
 
 __all__ = [
     "CompoundedReturns", "Drawdown", "Turnover",
