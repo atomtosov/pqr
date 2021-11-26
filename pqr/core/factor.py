@@ -120,11 +120,11 @@ class Factorizer:
 
 
 class Filter:
-    def __init__(self, universe: Universe):
-        self.universe = universe
+    def __init__(self, mask: pd.DataFrame):
+        self.mask = mask.astype(bool)
 
     def __call__(self, values: pd.DataFrame) -> pd.DataFrame:
-        universe, values = align(self.universe.mask, values)
+        universe, values = align(self.mask, values)
         return pd.DataFrame(
             np.where(universe.to_numpy(), values.to_numpy(), np.nan),
             index=values.index,
