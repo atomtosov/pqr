@@ -1,21 +1,25 @@
 from __future__ import annotations
 
 import functools as ft
-from typing import Callable, Literal, Optional
+from typing import Callable, Literal
 
 import numpy as np
 import numpy.typing as npt
 import pandas as pd
 
 from pqr.utils import align, compose
-from .universe import Universe
 
 __all__ = [
     "Factor",
 
-    "Factorizer",
+    "FactorPreprocessor",
 
     "Filter",
+    "LookBackPctChange",
+    "LookBackMean",
+    "LookBackMedian",
+    "LookBackMin",
+    "LookBackMax",
     "Lag",
     "Hold",
 ]
@@ -104,9 +108,9 @@ class Factor:
         return np.array([np.nan] * len(n))
 
 
-class Factorizer:
-    def __init__(self, *preprocessors: Callable[[pd.DataFrame], pd.DataFrame]):
-        self._preprocessor = compose(*preprocessors)
+class FactorPreprocessor:
+    def __init__(self, *aggregators: Callable[[pd.DataFrame], pd.DataFrame]):
+        self._aggregator = compose(*aggregators)
 
     def __call__(
             self,
@@ -114,7 +118,7 @@ class Factorizer:
             better: Literal["more", "less"],
     ) -> Factor:
         return Factor(
-            self._preprocessor(values),
+            self._aggregator(values),
             better
         )
 
@@ -130,6 +134,46 @@ class Filter:
             index=values.index,
             columns=values.columns
         )
+
+
+class LookBackPctChange:
+    def __init__(self, period: int):
+        self.period = period
+
+    def __call__(self, values: pd.DataFrame) -> pd.DataFrame:
+        return values.pct_change(self.period).iloc[self.period:]
+
+
+class LookBackMean:
+    def __init__(self, period: int):
+        self.period = period
+
+    def __call__(self, values: pd.DataFrame) -> pd.DataFrame:
+        return values.rolling(self.period + 1, axis=0).mean().iloc[self.period:]
+
+
+class LookBackMedian:
+    def __init__(self, period: int):
+        self.period = period
+
+    def __call__(self, values: pd.DataFrame) -> pd.DataFrame:
+        return values.rolling(self.period + 1, axis=0).median().iloc[self.period:]
+
+
+class LookBackMin:
+    def __init__(self, period: int):
+        self.period = period
+
+    def __call__(self, values: pd.DataFrame) -> pd.DataFrame:
+        return values.rolling(self.period + 1, axis=0).min().iloc[self.period:]
+
+
+class LookBackMax:
+    def __init__(self, period: int):
+        self.period = period
+
+    def __call__(self, values: pd.DataFrame) -> pd.DataFrame:
+        return values.rolling(self.period + 1, axis=0).max().iloc[self.period:]
 
 
 class Lag:
