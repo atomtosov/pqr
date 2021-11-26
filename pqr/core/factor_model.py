@@ -136,10 +136,10 @@ class TimeSeries:
 class GridSearch:
     def __init__(
             self,
-            factor_prerocessors: dict[str, FactorPreprocessor],
+            factor_preprocessors: dict[str, FactorPreprocessor],
             factor_model: FactorModel
     ):
-        self.factor_prerocessors = factor_prerocessors
+        self.factor_preprocessors = factor_preprocessors
         self.factor_model = factor_model
 
     def __call__(
@@ -150,9 +150,9 @@ class GridSearch:
     ) -> pd.DataFrame:
         metrics = []
 
-        for name, factor_prerocessor in self.factor_prerocessors.items():
+        for name, factor_preprocessor in self.factor_preprocessors.items():
             portfolios = self.factor_model(
-                factor_prerocessor(factor.values, factor.better),
+                factor_preprocessor(factor.values, factor.better),
                 universe
             )
 
