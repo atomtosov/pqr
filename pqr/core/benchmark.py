@@ -4,7 +4,6 @@ from typing import Optional, Callable
 
 import pandas as pd
 
-from pqr.utils import align
 from .portfolio import Portfolio, PortfolioBuilder, EqualWeights, TheoreticalAllocation
 from .universe import Universe
 

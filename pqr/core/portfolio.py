@@ -1,4 +1,6 @@
-from typing import Optional, Callable
+from __future__ import annotations
+
+from typing import Optional, Callable, Sequence
 
 import numpy as np
 import pandas as pd
@@ -18,40 +20,30 @@ __all__ = [
 
     "TheoreticalAllocation",
     "CashAllocation",
-
-    "CalculateReturns",
 ]
+
+BuildingStep = Callable[[pd.DataFrame], pd.DataFrame]
 
 
 class Portfolio:
     def __init__(
             self,
             picks: pd.DataFrame,
+            weights: pd.DataFrame,
+            positions: pd.DataFrame,
+            returns: pd.Series,
             name: Optional[str] = None
     ):
         self.picks = picks.astype(np.int8)
+        self.weights = weights.astype(float)
+        self.positions = positions.astype(float)
+        self.returns = returns.astype(float)
+
         self.name = name if name is not None else "Portfolio"
         self.picks.index.name = self.name
-
-        self.weights = pd.DataFrame(dtype=float)
-        self.positions = pd.DataFrame(dtype=float)
-        self.returns = pd.Series(dtype=float)
-
-    def set_picks(self, picks: pd.DataFrame) -> None:
-        self.picks = picks
-        self.picks.index.name = self.name
-
-    def set_weights(self, weights: pd.DataFrame) -> None:
-        self.weights = weights
         self.weights.index.name = self.name
-
-    def set_positions(self, positions: pd.DataFrame) -> None:
-        self.positions = positions
         self.positions.index.name = self.name
-
-    def set_returns(self, returns: pd.Series) -> None:
-        self.returns = returns
-        self.returns.name = self.name
+        self.returns.index.name = self.name
 
     def get_longs(self) -> pd.DataFrame:
         return pd.DataFrame(
@@ -69,8 +61,20 @@ class Portfolio:
 
 
 class PortfolioBuilder:
-    def __init__(self, *building_steps: Callable[[Portfolio], Portfolio]):
-        self._builder = compose(*building_steps)
+    def __init__(
+            self,
+            weighting_strategy: BuildingStep | Sequence[BuildingStep],
+            allocation_strategy: BuildingStep | Sequence[BuildingStep],
+    ):
+        if isinstance(weighting_strategy, Sequence):
+            self.weighting_strategy = compose(*weighting_strategy)
+        else:
+            self.weighting_strategy = weighting_strategy
+
+        if isinstance(allocation_strategy, Sequence):
+            self.allocation_strategy = compose(*allocation_strategy)
+        else:
+            self.allocation_strategy = allocation_strategy
 
     def __call__(
             self,
@@ -102,55 +106,53 @@ class PortfolioBuilder:
                 columns=shorts.columns.copy()
             )
 
-        portfolio = self._builder(Portfolio(picks, name))
+        weights = self.weighting_strategy(picks)
+        positions = self.allocation_strategy(weights)
+        returns = universe(positions)
 
-        return CalculateReturns(universe)(portfolio)
+        return Portfolio(
+            picks,
+            weights,
+            positions,
+            returns,
+            name=name
+        )
 
 
 class EqualWeights:
-    def __call__(self, portfolio: Portfolio) -> Portfolio:
-        longs, shorts = portfolio.get_longs(), portfolio.get_shorts()
-        longs_any, shorts_any = longs.to_numpy().any(), shorts.to_numpy().any()
+    def __call__(self, picks: pd.DataFrame) -> pd.DataFrame:
+        picks_array = picks.to_numpy()
+        longs, shorts = picks_array == 1, picks_array == -1
 
-        if not longs_any and not shorts_any:
+        if not longs.any() and not shorts.any():
             raise ValueError("cannot weigh portfolio without picks")
 
-        elif longs_any and shorts_any:
-            weights = normalize(longs) - normalize(shorts)
-        elif longs_any:
-            weights = normalize(longs)
-        else:
-            weights = -normalize(shorts)
-
-        portfolio.set_weights(weights)
-
-        return portfolio
+        with np.errstate(divide="ignore", invalid="ignore"):
+            return pd.DataFrame(
+                normalize(longs) - normalize(shorts),
+                index=picks.index.copy(),
+                columns=picks.columns.copy()
+            )
 
 
 class WeightsByFactor:
     def __init__(self, factor: Factor):
         self.factor = factor
 
-    def __call__(self, portfolio: Portfolio) -> Portfolio:
-        longs, shorts = portfolio.get_longs(), portfolio.get_shorts()
-        longs_any, shorts_any = longs.to_numpy().any(), shorts.to_numpy().any()
+    def __call__(self, picks: pd.DataFrame) -> pd.DataFrame:
+        picks, factor_values = align(picks, self.factor.values)
+        picks_array, factor_array = picks.to_numpy(), factor_values.to_numpy()
+        longs, shorts = picks_array == 1, picks_array == -1
 
-        if not longs_any and not shorts_any:
+        if not longs.any() and not shorts.any():
             raise ValueError("cannot weigh portfolio without picks")
 
-        elif longs_any and shorts_any:
-            factor_values, longs = align(self.factor.values, longs)
-            weights = normalize(longs * factor_values) - normalize(shorts * factor_values)
-        elif longs_any:
-            factor_values, longs = align(self.factor.values, longs)
-            weights = normalize(longs * factor_values)
-        else:
-            factor_values, shorts = align(self.factor.values, shorts)
-            weights = -normalize(shorts * factor_values)
-
-        portfolio.set_weights(weights)
-
-        return portfolio
+        with np.errstate(divide="ignore", invalid="ignore"):
+            return pd.DataFrame(
+                normalize(longs * factor_array) - normalize(shorts * factor_array),
+                index=picks.index.copy(),
+                columns=picks.columns.copy()
+            )
 
 
 class ScalingByFactor:
@@ -162,24 +164,19 @@ class ScalingByFactor:
         self.factor = factor
         self.target = target
 
-    def __call__(self, portfolio: Portfolio) -> Portfolio:
-        w, factor_values = align(portfolio.weights, self.factor.values)
+    def __call__(self, weights: pd.DataFrame) -> pd.DataFrame:
+        weights, factor_values = align(weights, self.factor.values)
 
         if self.factor.is_better_more():
             leverage = factor_values.to_numpy() / self.target
         else:
             leverage = self.target / factor_values.to_numpy()
-        leveraged_weights = leverage * w.to_numpy()
 
-        portfolio.set_weights(
-            pd.DataFrame(
-                leveraged_weights,
-                index=w.index.copy(),
-                columns=w.columns.copy()
-            )
+        return pd.DataFrame(
+            leverage * weights.to_numpy(),
+            index=weights.index.copy(),
+            columns=weights.columns.copy()
         )
-
-        return portfolio
 
 
 class LeverageLimits:
@@ -191,56 +188,49 @@ class LeverageLimits:
         self.min_leverage = min_leverage
         self.max_leverage = max_leverage
 
-    def __call__(self, portfolio: Portfolio) -> Portfolio:
-        w = portfolio.weights.to_numpy()
+    def __call__(self, weights: pd.DataFrame) -> pd.DataFrame:
+        w = weights.to_numpy()
         total_leverage = np.nansum(w, axis=1, keepdims=True)
 
-        exceed_min = total_leverage < self.min_leverage
-        if exceed_min.any():
+        with np.errstate(divide="ignore", invalid="ignore"):
+            exceed_min = total_leverage < self.min_leverage
             under_min = (
                     np.where(exceed_min, w, 0) /
                     np.where(exceed_min, total_leverage, 1)
             ) * self.min_leverage
-        else:
-            under_min = 0
 
-        exceed_max = total_leverage > self.max_leverage
-        if exceed_max.any():
+            exceed_max = total_leverage > self.max_leverage
             above_max = (
                     np.where(exceed_max, w, 0) /
                     np.where(exceed_max, total_leverage, 1)
             ) * self.max_leverage
-        else:
-            above_max = 0
 
-        portfolio.set_weights(
-            pd.DataFrame(
+        return pd.DataFrame(
                 np.where(~(exceed_min | exceed_max), w, 0) +
                 under_min + above_max,
-                index=portfolio.weights.index.copy(),
-                columns=portfolio.weights.columns.copy()
-            )
+                index=weights.index.copy(),
+                columns=weights.columns.copy()
         )
-
-        return portfolio
 
 
 class TheoreticalAllocation:
     def __init__(self, fee: float = 0.0):
         self.fee = fee
 
-    def __call__(self, portfolio: Portfolio) -> Portfolio:
+    def __call__(self, weights: pd.DataFrame) -> pd.DataFrame:
+        w = weights.to_numpy()
         positions = pd.DataFrame(
-            portfolio.weights.to_numpy() * (1 - self.fee),
-            index=portfolio.weights.index.copy(),
-            columns=portfolio.weights.columns.copy()
+            w * (1 - self.fee),
+            index=weights.index.copy(),
+            columns=weights.columns.copy()
         )
-        # TODO: add correct calculus for leveraged residuals
-        positions.insert(loc=0, column="CASH_RESIDUALS", value=0)
+        positions.insert(
+            loc=0,
+            column="CASH_RESIDUALS",
+            value=(1 - self.fee) - np.nansum(positions, axis=1)
+        )
 
-        portfolio.set_positions(positions)
-
-        return portfolio
+        return positions
 
 
 class CashAllocation:
@@ -293,32 +283,6 @@ class CashAllocation:
                 positions_in_cash / balance[:, np.newaxis],
                 index=weights.index.copy(),
                 columns=["CASH_RESIDUALS"] + list(weights.columns.copy())
-            )
-        )
-
-        return portfolio
-
-
-class CalculateReturns:
-    def __init__(self, universe: Universe):
-        self.universe = universe
-
-    def __call__(self, portfolio: Portfolio) -> Portfolio:
-        prices, positions = align(self.universe.prices, portfolio.positions)
-
-        universe_returns = prices.pct_change().to_numpy()[1:]
-        portfolio_returns = (positions[:-1] * universe_returns)
-
-        dead_returns = np.where(
-            np.isnan(portfolio_returns) & ~np.isclose(positions[:-1], 0),
-            -positions[:-1], 0
-        )
-        returns = np.nansum(portfolio_returns, axis=1) + np.nansum(dead_returns, axis=1)
-
-        portfolio.set_returns(
-            pd.Series(
-                returns,
-                index=portfolio.positions.index[1:].copy()
             )
         )
 
