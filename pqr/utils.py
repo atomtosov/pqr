@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import functools as ft
 from dataclasses import make_dataclass
-from typing import TypeVar, Callable
+from typing import TypeVar, Callable, Any
 from warnings import warn
 
 import numpy as np
@@ -10,6 +10,15 @@ import pandas as pd
 import statsmodels.api as sm
 
 T = TypeVar("T")
+
+
+def replace_with_nan(
+        *df_or_series: pd.DataFrame | pd.Series,
+        to_replace: Any = 0
+):
+    return [
+        data.replace(to_replace, np.nan) for data in df_or_series
+    ]
 
 
 def is_aligned(
