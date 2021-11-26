@@ -5,9 +5,10 @@ from typing import Optional, Callable, Sequence
 import numpy as np
 import pandas as pd
 
-from pqr.utils import align, compose, normalize
+from pqr.utils import align
 from .factor import Factor
 from .universe import Universe
+from .utils import compose, normalize
 
 __all__ = [
     "Portfolio",
@@ -195,21 +196,21 @@ class LeverageLimits:
         with np.errstate(divide="ignore", invalid="ignore"):
             exceed_min = total_leverage < self.min_leverage
             under_min = (
-                    np.where(exceed_min, w, 0) /
-                    np.where(exceed_min, total_leverage, 1)
-            ) * self.min_leverage
+                                np.where(exceed_min, w, 0) /
+                                np.where(exceed_min, total_leverage, 1)
+                        ) * self.min_leverage
 
             exceed_max = total_leverage > self.max_leverage
             above_max = (
-                    np.where(exceed_max, w, 0) /
-                    np.where(exceed_max, total_leverage, 1)
-            ) * self.max_leverage
+                                np.where(exceed_max, w, 0) /
+                                np.where(exceed_max, total_leverage, 1)
+                        ) * self.max_leverage
 
         return pd.DataFrame(
-                np.where(~(exceed_min | exceed_max), w, 0) +
-                under_min + above_max,
-                index=weights.index.copy(),
-                columns=weights.columns.copy()
+            np.where(~(exceed_min | exceed_max), w, 0) +
+            under_min + above_max,
+            index=weights.index.copy(),
+            columns=weights.columns.copy()
         )
 
 

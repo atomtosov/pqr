@@ -7,7 +7,8 @@ import numpy as np
 import numpy.typing as npt
 import pandas as pd
 
-from pqr.utils import align, compose
+from pqr.utils import align
+from .utils import compose
 
 __all__ = [
     "Factor",
