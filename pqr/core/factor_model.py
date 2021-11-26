@@ -5,7 +5,7 @@ from typing import Callable, Sequence
 import numpy as np
 import pandas as pd
 
-from .factor import Factor, Factorizer
+from .factor import Factor, FactorPreprocessor
 from .portfolio import Portfolio, PortfolioBuilder
 from .universe import Universe
 
@@ -136,10 +136,10 @@ class TimeSeries:
 class GridSearch:
     def __init__(
             self,
-            factorizers: dict[str, Factorizer],
+            factor_prerocessors: dict[str, FactorPreprocessor],
             factor_model: FactorModel
     ):
-        self.factorizers = factorizers
+        self.factor_prerocessors = factor_prerocessors
         self.factor_model = factor_model
 
     def __call__(
@@ -150,11 +150,12 @@ class GridSearch:
     ) -> pd.DataFrame:
         metrics = []
 
-        for name, factorizer in self.factorizers.items():
+        for name, factor_prerocessor in self.factor_prerocessors.items():
             portfolios = self.factor_model(
-                factorizer(factor.values, factor.better),
+                factor_prerocessor(factor.values, factor.better),
                 universe
             )
+
             metrics.append(
                 pd.Series(
                     {
