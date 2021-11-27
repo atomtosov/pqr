@@ -8,7 +8,7 @@ from scipy.stats import ttest_1samp
 
 from pqr.core import Portfolio, Benchmark
 from pqr.utils import align
-from .utils import extract_annualizer, adjust, estimate_ols, stats_container_factory
+from .utils import extract_annualizer, adjust, estimate_ols, stats_container_factory, estimate_rolling_ols
 
 __all__ = [
     "CompoundedReturns", "Drawdown", "Turnover",
@@ -47,6 +47,18 @@ class Stats(Protocol):
         pass
 
 
+class CompoundedReturns:
+    def __call__(self, portfolio: Portfolio) -> pd.Series:
+        return (1 + portfolio.returns).cumprod() - 1
+
+    def fancy(self, portfolio: Portfolio) -> pd.Series:
+        return self(portfolio) * 100
+
+    @property
+    def fancy_name(self) -> str:
+        return "Compounded Returns, %"
+
+
 class Drawdown:
     def __call__(self, portfolio: Portfolio) -> pd.Series:
         equity = CompoundedReturns()(portfolio) + 1
@@ -61,18 +73,6 @@ class Drawdown:
         return "Drawdown, %"
 
 
-class CompoundedReturns:
-    def __call__(self, portfolio: Portfolio) -> pd.Series:
-        return (1 + portfolio.returns).cumprod() - 1
-
-    def fancy(self, portfolio: Portfolio) -> pd.Series:
-        return self(portfolio) * 100
-
-    @property
-    def fancy_name(self) -> str:
-        return "Compounded Returns, %"
-
-
 class Turnover:
     def __call__(self, portfolio: Portfolio) -> pd.Series:
         positions = portfolio.positions.to_numpy()
@@ -81,7 +81,7 @@ class Turnover:
             np.abs(np.diff(positions, axis=0)),
             axis=1
         )
-        # add 1st period buys
+        # add 1st period deals
         turnover = np.insert(turnover, 0, values=np.nansum(np.abs(positions[0])))
 
         return pd.Series(
@@ -99,7 +99,7 @@ class Turnover:
 
 class TotalReturn:
     def __call__(self, portfolio: Portfolio) -> pd.Series:
-        return CompoundedReturns()(portfolio).iloc[-1]
+        return CompoundedReturns()(portfolio).iat[-1]
 
     def fancy(self, portfolio: Portfolio) -> str:
         return format(self(portfolio) * 100, ".2f")
@@ -334,9 +334,7 @@ class TrailingWinRate:
         else:
             window = self.window
 
-        return portfolio.returns.rolling(window).apply(
-            lambda r: (r > 0).sum() / window
-        ).iloc[window:]
+        return (portfolio.returns > 0).rolling(window).sum().iloc[window:] / window
 
     def fancy(self, portfolio: Portfolio) -> pd.Series:
         return self(portfolio) * 100
@@ -977,7 +975,8 @@ class Alpha:
         else:
             annualizer = self.annualizer
 
-        est = estimate_ols(portfolio.returns, self.benchmark.returns, self.rf)
+        returns, benchmark = align(portfolio.returns, self.benchmark.returns)
+        est = estimate_ols(returns, benchmark, self.rf)
         alpha = est.params[0] * annualizer
 
         if self.statistics:
@@ -1031,9 +1030,17 @@ class TrailingAlpha:
         else:
             window = self.window
 
-        return portfolio.returns.rolling(window).apply(
-            lambda r: estimate_ols(r, self.benchmark.returns, self.rf).params[0]
-        ).iloc[window:] * annualizer
+        returns, benchmark = align(portfolio.returns, self.benchmark.returns)
+
+        return pd.Series(
+            estimate_rolling_ols(
+                returns,
+                benchmark,
+                window,
+                self.rf
+            ).params[window:, 0] * annualizer,
+            index=returns.index[window:].copy()
+        )
 
     def fancy(self, portfolio: Portfolio) -> pd.Series:
         return self(portfolio) * 100
@@ -1055,7 +1062,8 @@ class Beta:
         self.statistics = statistics
 
     def __call__(self, portfolio: Portfolio) -> float | Stats:
-        est = estimate_ols(portfolio.returns, self.benchmark.returns, self.rf)
+        returns, benchmark = align(portfolio.returns, self.benchmark.returns)
+        est = estimate_ols(returns, benchmark, self.rf)
         beta = est.params[1]
 
         if self.statistics:
@@ -1077,7 +1085,7 @@ class Beta:
                 t_stat=beta.t_stat
             )
 
-        return format(beta * 100, ".2f")
+        return format(beta, ".2f")
 
     @property
     def fancy_name(self) -> str:
@@ -1101,9 +1109,14 @@ class TrailingBeta:
         else:
             window = self.window
 
-        return portfolio.returns.rolling(window).apply(
-            lambda r: estimate_ols(r, self.benchmark.returns, self.rf).params[1]
-        ).iloc[window:]
+        returns, benchmark = align(portfolio.returns, self.benchmark.returns)
+
+        return pd.Series(
+            estimate_rolling_ols(
+                returns, benchmark, window, self.rf
+            ).params[window:, 1],
+            index=returns.index[window:].copy()
+        )
 
     def fancy(self, portfolio: Portfolio) -> pd.Series:
         return self(portfolio)
