@@ -9,7 +9,7 @@ import pandas as pd
 def replace_with_nan(
         *df_or_series: pd.DataFrame | pd.Series,
         to_replace: Any = 0
-):
+) -> list[pd.DataFrame | pd.Series]:
     return [
         data.replace(to_replace, np.nan) for data in df_or_series
     ]
