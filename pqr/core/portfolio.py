@@ -245,8 +245,8 @@ class CashAllocation:
         self.capital = capital
         self.fee = fee
 
-    def __call__(self, portfolio: Portfolio) -> Portfolio:
-        prices, weights = align(self.prices, portfolio.weights)
+    def __call__(self, weights: pd.DataFrame) -> pd.DataFrame:
+        prices, weights = align(self.prices, weights)
         prices_arr = prices.to_numpy()
         weights_arr = weights.to_numpy()
 
@@ -256,16 +256,11 @@ class CashAllocation:
 
         for i in range(len(allocation)):
             w, p, c = weights_arr[i], prices_arr[i], cash[i]
-            prev_alloc = allocation[min(0, i - 1)]
+            prev_alloc = allocation[max(0, i - 1)]
 
             balance[i] = c + np.nansum(prev_alloc * p)
 
-            ideal_alloc = np.nan_to_num(w * balance[i]).astype(int)
-            ideal_alloc_diff = ideal_alloc - prev_alloc
-            ideal_commission = np.nansum(np.abs(ideal_alloc_diff * p)) * self.fee
-            max_allowed = balance[i] - ideal_commission
-
-            alloc = np.nan_to_num(w * max_allowed / p).astype(int)
+            alloc = np.nan_to_num(w * balance[i] / p).astype(int)
             alloc_diff = alloc - prev_alloc
             cash_diff = -(alloc_diff * p)
             commission = np.nansum(np.abs(cash_diff)) * self.fee
@@ -275,16 +270,11 @@ class CashAllocation:
 
         positions_in_cash = np.insert(
             allocation * prices_arr,
-            obj=0, axis=1,
-            values=cash,
+            obj=0, axis=1, values=cash,
         )
 
-        portfolio.set_positions(
-            pd.DataFrame(
-                positions_in_cash / balance[:, np.newaxis],
-                index=weights.index.copy(),
-                columns=["CASH_RESIDUALS"] + list(weights.columns.copy())
-            )
+        return pd.DataFrame(
+            positions_in_cash / balance[:, np.newaxis],
+            index=weights.index.copy(),
+            columns=["CASH_RESIDUALS"] + list(weights.columns.copy())
         )
-
-        return portfolio
