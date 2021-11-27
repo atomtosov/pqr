@@ -8,7 +8,7 @@ import numpy.typing as npt
 import pandas as pd
 
 from pqr.utils import align
-from .utils import compose
+from .utils import compose, top_single, bottom_single
 
 __all__ = [
     "Factor",
@@ -59,11 +59,10 @@ class Factor:
     def top(self, n: npt.ArrayLike[int]) -> pd.DataFrame:
         n = np.array(n).reshape((-1,))
 
-        if self.better == "more":
-            top_func = self._top_single
-        else:  # better = "less"
-            top_func = self._bottom_single
-        top_func = ft.partial(top_func, n=n)
+        top_func = ft.partial(
+            top_single if self.is_better_more() else bottom_single,
+            n=n
+        )
 
         return pd.DataFrame(
             np.apply_along_axis(top_func, 1, self.values.to_numpy()),
@@ -74,39 +73,16 @@ class Factor:
     def bottom(self, n: npt.ArrayLike[int]) -> pd.DataFrame:
         n = np.array(n).reshape((-1,))
 
-        if self.better == "more":
-            bottom_func = self._bottom_single
-        else:  # better = "less"
-            bottom_func = self._top_single
-        bottom_func = ft.partial(bottom_func, n=n)
+        bottom_func = ft.partial(
+            bottom_single if self.is_better_more() else top_single,
+            n=n
+        )
 
         return pd.DataFrame(
             np.apply_along_axis(bottom_func, 1, self.values.to_numpy()),
             index=self.values.index,
             columns=[f"bottom_{_n}" for _n in n]
         )
-
-    @staticmethod
-    def _top_single(arr: np.ndarray, n: np.ndarray) -> np.ndarray:
-        arr = np.unique(arr[~np.isnan(arr)])
-        if arr.any():
-            arr = np.sort(arr)
-            max_len = len(arr)
-            return np.array(
-                [arr[-min(_n, max_len)] for _n in n]
-            )
-        return np.array([np.nan] * len(n))
-
-    @staticmethod
-    def _bottom_single(arr: np.ndarray, n: np.ndarray) -> np.ndarray:
-        arr = np.unique(arr[~np.isnan(arr)])
-        if arr.any():
-            arr = np.sort(arr)
-            max_len = len(arr)
-            return np.array(
-                [arr[min(_n, max_len) - 1] for _n in n]
-            )
-        return np.array([np.nan] * len(n))
 
 
 class FactorPreprocessor:
@@ -187,8 +163,8 @@ class Lag:
 
         return pd.DataFrame(
             values.to_numpy()[:-self.period],
-            index=values.index[self.period:],
-            columns=values.columns
+            index=values.index[self.period:].copy(),
+            columns=values.columns.copy()
         )
 
 
@@ -204,6 +180,6 @@ class Hold:
 
         return pd.DataFrame(
             np.take_along_axis(values.to_numpy(), update_mask, axis=0),
-            index=values.index,
-            columns=values.columns
+            index=values.index.copy(),
+            columns=values.columns.copy()
         )

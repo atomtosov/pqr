@@ -29,7 +29,7 @@ class Benchmark:
             name: Optional[str] = None,
     ) -> Benchmark:
         return cls(
-            index.pct_change().dropna(),
+            index.pct_change().fillna(0),
             name
         )
 
