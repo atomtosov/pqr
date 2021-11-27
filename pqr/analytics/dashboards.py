@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import Sequence, Protocol, Optional
 
 import matplotlib.pyplot as plt
@@ -8,14 +7,11 @@ import pandas as pd
 from IPython.display import display
 
 from pqr.core import Portfolio, Benchmark
-from .metrics import *
 
 __all__ = [
     "Dashboard",
     "Graph",
     "Table",
-
-    "SummaryDashboard",
 ]
 
 
@@ -41,7 +37,7 @@ class TimeSeriesMetric(Protocol):
 
 
 class Dashboard:
-    def __init__(self, items: Sequence[Graph | Table]):
+    def __init__(self, *items: Graph | Table):
         self.items = items
 
     def __call__(self, portfolios: Sequence[Portfolio]) -> None:
@@ -53,22 +49,22 @@ class Graph:
     def __init__(
             self,
             metric: TimeSeriesMetric,
-            benchmark: Optional[Benchmark],
-            log_scale: bool = False
+            benchmark: Optional[Benchmark] = None,
+            log_scale: bool = False,
+            figsize: tuple[int, int] = (10, 10)
     ):
         self.metric = metric
         self.benchmark = benchmark
         self.log_scale = log_scale
+        self.figsize = figsize
 
     def __call__(self, portfolios: Sequence[Portfolio]) -> None:
-        for portfolio in portfolios:
-            if self.log_scale:
-                metric = self.metric(portfolio)
-            else:
-                metric = self.metric.fancy(portfolio)
+        plt.figure(figsize=self.figsize)
 
+        for portfolio in portfolios:
             plt.plot(
-                metric,
+                self.metric(portfolio) if self.log_scale else
+                self.metric.fancy(portfolio),
                 label=portfolio.name
             )
 
@@ -78,14 +74,9 @@ class Graph:
                 self.benchmark.returns[starts_from:],
                 name=self.benchmark.name
             )
-
-            if self.log_scale:
-                metric = self.metric(benchmark)
-            else:
-                metric = self.metric.fancy(benchmark)
-
             plt.plot(
-                metric,
+                self.metric(benchmark) if self.log_scale else
+                self.metric.fancy(benchmark),
                 label=self.benchmark.name,
                 color="gray",
                 alpha=0.8,
@@ -96,7 +87,7 @@ class Graph:
 
         plt.title(f"Portfolios {self.metric.fancy_name}")
         plt.xlabel("Date")
-        plt.ylabel(f"{self.metric.fancy_name} {'(log scale)' if self.log_scale else ''}")
+        plt.ylabel(f"{self.metric.fancy_name}{' (log scale)' if self.log_scale else ''}")
         plt.legend()
         plt.grid()
 
@@ -120,46 +111,3 @@ class Table:
                 index=[portfolio.name for portfolio in portfolios]
             ).T
         )
-
-
-@dataclass
-class SummaryDashboard:
-    benchmark: Benchmark
-    log_scale: bool = False
-    rf: float = 0.0
-    annualizer: Optional[float] = None
-
-    def __post_init__(self):
-        self._dashboard = Dashboard(
-            [
-                Graph(
-                    CompoundedReturns(),
-                    benchmark=self.benchmark,
-                    log_scale=self.log_scale,
-                ),
-
-                Table(
-                    TotalReturn(),
-                    CAGR(annualizer=self.annualizer),
-                    MeanReturn(statistics=True, annualizer=self.annualizer),
-                    Volatility(annualizer=self.annualizer),
-                    WinRate(),
-                    MeanTurnover(annualizer=self.annualizer),
-                    MaxDrawdown(),
-                    ValueAtRisk(annualizer=self.annualizer),
-                    ExpectedTailLoss(annualizer=self.annualizer),
-                    ExpectedTailReward(annualizer=self.annualizer),
-                    RachevRatio(),
-                    CalmarRatio(),
-                    SharpeRatio(rf=self.rf, annualizer=self.annualizer),
-                    OmegaRatio(),
-                    SortinoRatio(),
-                    MeanExcessReturn(statistics=True, benchmark=self.benchmark, annualizer=self.annualizer),
-                    Alpha(statistics=True, benchmark=self.benchmark, rf=self.rf, annualizer=self.annualizer),
-                    Beta(statistics=True, benchmark=self.benchmark, rf=self.rf),
-                )
-            ]
-        )
-
-    def __call__(self, portfolios: Sequence[Portfolio]) -> None:
-        self._dashboard(portfolios)
