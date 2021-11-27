@@ -6,6 +6,7 @@ from warnings import warn
 import numpy as np
 import pandas as pd
 import statsmodels.api as sm
+from statsmodels.regression.rolling import RollingOLS
 
 from pqr.utils import align
 
@@ -74,6 +75,22 @@ def estimate_ols(
     y, x = align(adjusted_returns, adjusted_benchmark)
     x = sm.add_constant(x.to_numpy())
     ols = sm.OLS(y.to_numpy(), x)
+
+    return ols.fit()
+
+
+def estimate_rolling_ols(
+        returns: pd.Series,
+        benchmark: pd.Series,
+        window: int,
+        rf: float = 0.0,
+):
+    adjusted_returns = adjust(returns, rf)
+    adjusted_benchmark = adjust(benchmark, rf)
+
+    y, x = align(adjusted_returns, adjusted_benchmark)
+    x = sm.add_constant(x.to_numpy())
+    ols = RollingOLS(y.to_numpy(), x, window=window)
 
     return ols.fit()
 
