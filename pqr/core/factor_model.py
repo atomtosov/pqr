@@ -167,3 +167,13 @@ class GridSearch:
             )
 
         return pd.DataFrame(metrics)
+
+
+def split_quantiles(n: int) -> list[Quantiles]:
+    q = np.linspace(0, 1, n + 1)
+    quantiles = [
+        Quantiles(q[i], q[i + 1])
+        for i in range(len(q) - 1)
+    ]
+
+    return quantiles
