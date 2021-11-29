@@ -13,7 +13,7 @@ from .utils import estimate_holding
 __all__ = [
     "TTest",
     "ZeroIntelligenceTest",
-    "ProphetTest"
+    "OpportunitiesTest"
 ]
 
 
@@ -147,7 +147,7 @@ class RandomPicking:
         return longs, shorts
 
 
-class ProphetTest:
+class OpportunitiesTest:
     def __init__(
             self,
             universe: Universe,
