@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import functools as ft
-from typing import Callable, Literal
+from typing import Callable, Literal, Sequence, Optional
 
 import numpy as np
 import numpy.typing as npt
@@ -12,8 +12,7 @@ from .utils import compose, top_single, bottom_single
 
 __all__ = [
     "Factor",
-
-    "FactorPreprocessor",
+    "Preprocessor",
 
     "Filter",
     "LookBackPctChange",
@@ -25,14 +24,22 @@ __all__ = [
     "Hold",
 ]
 
+Preprocessor = Callable[[pd.DataFrame], pd.DataFrame]
+
 
 class Factor:
     def __init__(
             self,
             values: pd.DataFrame,
-            better: Literal["more", "less"]
+            better: Literal["more", "less"],
+            preprocessor: Optional[Preprocessor | Sequence[Preprocessor]] = None,
     ):
         self.values = values.astype(float)
+        if isinstance(preprocessor, Sequence):
+            self.values = compose(*preprocessor)(self.values)
+        elif preprocessor is not None:
+            self.values = preprocessor(self.values)
+
         self.better = better
 
     def is_better_more(self) -> bool:
@@ -82,21 +89,6 @@ class Factor:
             np.apply_along_axis(bottom_func, 1, self.values.to_numpy()),
             index=self.values.index,
             columns=[f"bottom_{_n}" for _n in n]
-        )
-
-
-class FactorPreprocessor:
-    def __init__(self, *aggregators: Callable[[pd.DataFrame], pd.DataFrame]):
-        self._aggregator = compose(*aggregators)
-
-    def __call__(
-            self,
-            values: pd.DataFrame,
-            better: Literal["more", "less"],
-    ) -> Factor:
-        return Factor(
-            self._aggregator(values),
-            better
         )
 
 

@@ -4,7 +4,7 @@ from typing import Optional, Callable
 
 import pandas as pd
 
-from .portfolio import Portfolio, PortfolioBuilder, EqualWeights, TheoreticalAllocation
+from .portfolio import Portfolio, AllocationStep
 from .universe import Universe
 
 __all__ = [
@@ -37,21 +37,13 @@ class Benchmark:
     def from_universe(
             cls,
             universe: Universe,
-            weighting_strategy: Optional[Callable[[Portfolio], Portfolio]] = None,
+            weighting_strategy: Optional[AllocationStep] = None,
             name: Optional[str] = None,
     ) -> Benchmark:
-        if weighting_strategy is None:
-            weighting_strategy = EqualWeights()
-
-        benchmark_builder = PortfolioBuilder(
-            weighting_strategy,
-            TheoreticalAllocation(),
-        )
-
-        benchmark = benchmark_builder(
+        benchmark = Portfolio(
             universe,
             longs=universe.mask,
-            name=name
+            allocation_strategy=weighting_strategy
         )
 
         return cls(

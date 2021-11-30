@@ -5,8 +5,8 @@ from typing import Callable, Sequence
 import numpy as np
 import pandas as pd
 
-from .factor import Factor, FactorPreprocessor
-from .portfolio import Portfolio, PortfolioBuilder
+from .factor import Factor, Preprocessor
+from .portfolio import Portfolio, AllocationStep
 from .universe import Universe
 
 __all__ = [
@@ -25,11 +25,11 @@ class FactorModel:
     def __init__(
             self,
             picking_strategies: Sequence[Callable[[Factor], pd.DataFrame]],
-            portfolio_builder: PortfolioBuilder,
+            allocation_strategy: AllocationStep | Sequence[AllocationStep],
             add_wml: bool = False
     ):
         self.picking_strategies = picking_strategies
-        self.portfolio_builder = portfolio_builder
+        self.allocation_strategy = allocation_strategy
         self.add_wml = add_wml
 
     def __call__(
@@ -38,7 +38,12 @@ class FactorModel:
             universe: Universe
     ) -> list[Portfolio]:
         portfolios = [
-            self.portfolio_builder(universe, longs=picker(factor), name=name)
+            Portfolio(
+                universe,
+                longs=picker(factor),
+                allocation_strategy=self.allocation_strategy,
+                name=name
+            )
             for picker, name in zip(
                 self.picking_strategies,
                 [
@@ -51,10 +56,11 @@ class FactorModel:
 
         if self.add_wml:
             portfolios.append(
-                self.portfolio_builder(
+                Portfolio(
                     universe,
                     longs=portfolios[0].picks.astype(bool),
                     shorts=portfolios[-1].picks.astype(bool),
+                    allocation_strategy=self.allocation_strategy,
                     name="WML"
                 )
             )
@@ -136,7 +142,7 @@ class TimeSeries:
 class GridSearch:
     def __init__(
             self,
-            factor_preprocessors: dict[str, FactorPreprocessor],
+            factor_preprocessors: dict[str, Preprocessor | Sequence[Preprocessor]],
             factor_model: FactorModel
     ):
         self.factor_preprocessors = factor_preprocessors
@@ -152,7 +158,7 @@ class GridSearch:
 
         for name, factor_preprocessor in self.factor_preprocessors.items():
             portfolios = self.factor_model(
-                factor_preprocessor(factor.values, factor.better),
+                Factor(factor.values, factor.better, factor_preprocessor),
                 universe
             )
 

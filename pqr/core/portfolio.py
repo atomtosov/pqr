@@ -12,78 +12,28 @@ from .utils import compose, normalize
 
 __all__ = [
     "Portfolio",
-    "PortfolioBuilder",
+    "AllocationStep",
 
     "EqualWeights",
     "WeightsByFactor",
     "ScalingByFactor",
     "LeverageLimits",
-
     "TheoreticalAllocation",
     "CashAllocation",
 ]
 
-BuildingStep = Callable[[pd.DataFrame], pd.DataFrame]
+AllocationStep = Callable[[pd.DataFrame], pd.DataFrame]
 
 
 class Portfolio:
     def __init__(
             self,
-            picks: pd.DataFrame,
-            weights: pd.DataFrame,
-            positions: pd.DataFrame,
-            returns: pd.Series,
-            name: Optional[str] = None
-    ):
-        self.picks = picks.astype(np.int8)
-        self.weights = weights.astype(float)
-        self.positions = positions.astype(float)
-        self.returns = returns.astype(float)
-
-        self.name = name if name is not None else "Portfolio"
-        self.picks.index.name = self.name
-        self.weights.index.name = self.name
-        self.positions.index.name = self.name
-        self.returns.index.name = self.name
-
-    def get_longs(self) -> pd.DataFrame:
-        return pd.DataFrame(
-            self.picks.to_numpy() == 1,
-            index=self.picks.index.copy(),
-            columns=self.picks.columns.copy()
-        )
-
-    def get_shorts(self) -> pd.DataFrame:
-        return pd.DataFrame(
-            self.picks.to_numpy() == -1,
-            index=self.picks.index.copy(),
-            columns=self.picks.columns.copy()
-        )
-
-
-class PortfolioBuilder:
-    def __init__(
-            self,
-            weighting_strategy: BuildingStep | Sequence[BuildingStep],
-            allocation_strategy: BuildingStep | Sequence[BuildingStep],
-    ):
-        if isinstance(weighting_strategy, Sequence):
-            self.weighting_strategy = compose(*weighting_strategy)
-        else:
-            self.weighting_strategy = weighting_strategy
-
-        if isinstance(allocation_strategy, Sequence):
-            self.allocation_strategy = compose(*allocation_strategy)
-        else:
-            self.allocation_strategy = allocation_strategy
-
-    def __call__(
-            self,
             universe: Universe,
             longs: Optional[pd.DataFrame] = None,
             shorts: Optional[pd.DataFrame] = None,
+            allocation_strategy: Optional[AllocationStep | Sequence[AllocationStep]] = None,
             name: Optional[str] = None
-    ) -> Portfolio:
+    ):
         if longs is None and shorts is None:
             raise ValueError("either longs or shorts must be specified")
 
@@ -106,17 +56,36 @@ class PortfolioBuilder:
                 index=shorts.index.copy(),
                 columns=shorts.columns.copy()
             )
+        self.picks = picks
 
-        weights = self.weighting_strategy(picks)
-        positions = self.allocation_strategy(weights)
-        returns = universe(positions)
+        if allocation_strategy is None:
+            allocation_strategy = EqualWeights()
+        elif isinstance(allocation_strategy, Sequence):
+            allocation_strategy = compose(*allocation_strategy)
+        self.positions = allocation_strategy(self.picks)
 
-        return Portfolio(
-            picks,
-            weights,
-            positions,
-            returns,
-            name=name
+        self.returns = universe(self.positions)
+
+        if name is None:
+            name = "Portfolio"
+        self.name = name
+
+        self.picks.index.name = name
+        self.positions.index.name = name
+        self.returns.index.name = name
+
+    def get_longs(self) -> pd.DataFrame:
+        return pd.DataFrame(
+            self.picks.to_numpy() == 1,
+            index=self.picks.index.copy(),
+            columns=self.picks.columns.copy()
+        )
+
+    def get_shorts(self) -> pd.DataFrame:
+        return pd.DataFrame(
+            self.picks.to_numpy() == -1,
+            index=self.picks.index.copy(),
+            columns=self.picks.columns.copy()
         )
 
 
