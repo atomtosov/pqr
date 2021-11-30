@@ -70,8 +70,10 @@ class Graph:
 
         if self.benchmark is not None:
             starts_from = min(portfolio.returns.index[0] for portfolio in portfolios)
+            benchmark_returns = self.benchmark.returns[starts_from:]
+            benchmark_returns.iloc[0] = 0.0
             benchmark = Benchmark(
-                self.benchmark.returns[starts_from:],
+                benchmark_returns,
                 name=self.benchmark.name
             )
             plt.plot(

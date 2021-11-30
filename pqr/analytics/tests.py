@@ -1,12 +1,13 @@
 from __future__ import annotations
 
-from typing import Callable, Optional, Literal
+from typing import Callable, Optional, Literal, Sequence
 
 import numpy as np
 import pandas as pd
 from scipy.stats import ttest_1samp
 
-from pqr.core import Portfolio, PortfolioBuilder, Universe, Hold
+import pqr
+from pqr.core import Portfolio, AllocationStep, Universe, Hold
 from pqr.utils import align_many
 from .utils import estimate_holding
 
@@ -34,14 +35,14 @@ class ZeroIntelligenceTest:
     def __init__(
             self,
             universe: Universe,
-            portfolio_builder: PortfolioBuilder,
+            allocation_strategy: AllocationStep | Sequence[AllocationStep],
             target_metric: Callable[[Portfolio], pd.Series],
             holding: Optional[int] = None,
             n: int = 100,
-            seed: Optional[int] = None
+            seed: Optional[int] = None,
     ):
         self.universe = universe
-        self.portfolio_builder = portfolio_builder
+        self.allocation_strategy = allocation_strategy
         self.target_metric = target_metric
         self.n = n
         self.holding = holding
@@ -58,10 +59,11 @@ class ZeroIntelligenceTest:
 
         random_metrics = []
         for longs, shorts in random_picking:
-            random_portfolio = self.portfolio_builder(
+            random_portfolio = Portfolio(
                 self.universe,
                 longs=longs,
-                shorts=shorts
+                shorts=shorts,
+                allocation_strategy=self.allocation_strategy,
             )
 
             random_metrics.append(
@@ -151,25 +153,27 @@ class OpportunitiesTest:
     def __init__(
             self,
             universe: Universe,
-            portfolio_builder: PortfolioBuilder,
+            allocation_strategy: AllocationStep | Sequence[AllocationStep],
             target_metric: Callable[[Portfolio], pd.Series],
             holding: Optional[int] = None
     ):
         self.universe = universe
-        self.portfolio_builder = portfolio_builder
+        self.allocation_strategy = allocation_strategy
         self.target_metric = target_metric
         self.holding = holding
 
     def __call__(self, portfolio: Portfolio) -> pd.Series:
         holding = estimate_holding(portfolio.picks) if self.holding is None else self.holding
 
-        best_portfolio = self.portfolio_builder(
+        best_portfolio = pqr.Portfolio(
             self.universe,
-            *ProphetPickingStrategy(self.universe, holding, "best")(portfolio)
+            *ProphetPickingStrategy(self.universe, holding, "best")(portfolio),
+            allocation_strategy=self.allocation_strategy
         )
-        worst_portfolio = self.portfolio_builder(
+        worst_portfolio = pqr.Portfolio(
             self.universe,
-            *ProphetPickingStrategy(self.universe, holding, "worst")(portfolio)
+            *ProphetPickingStrategy(self.universe, holding, "worst")(portfolio),
+            allocation_strategy=self.allocation_strategy
         )
 
         best_metric = self.target_metric(best_portfolio)
