@@ -5,7 +5,7 @@ from typing import Optional, Callable, Sequence
 import numpy as np
 import pandas as pd
 
-from pqr.utils import align
+from pqr.utils import align, align_many
 from .factor import Factor
 from .universe import Universe
 from .utils import compose, normalize
@@ -28,10 +28,8 @@ AllocationStep = Callable[[pd.DataFrame], pd.DataFrame]
 class Portfolio:
     def __init__(
             self,
-            universe: Universe,
             longs: Optional[pd.DataFrame] = None,
             shorts: Optional[pd.DataFrame] = None,
-            allocation_strategy: Optional[AllocationStep | Sequence[AllocationStep]] = None,
             name: Optional[str] = None
     ):
         if longs is None and shorts is None:
@@ -58,21 +56,48 @@ class Portfolio:
             )
         self.picks = picks
 
+        self.name = name if name is not None else "Portfolio"
+        self.picks.name = name
+
+        self.positions = None
+        self.returns = None
+
+    def allocate(
+            self,
+            allocation_strategy: Optional[AllocationStep | Sequence[AllocationStep]] = None,
+    ) -> None:
         if allocation_strategy is None:
             allocation_strategy = EqualWeights()
         elif isinstance(allocation_strategy, Sequence):
             allocation_strategy = compose(*allocation_strategy)
+
         self.positions = allocation_strategy(self.picks)
+        self.positions.index.name = self.name
 
-        self.returns = universe(self.positions)
+    def calculate_returns(
+            self,
+            universe: Universe
+    ) -> None:
+        prices, mask, positions = align_many(universe.prices, universe.mask, self.positions)
+        universe_returns = prices.pct_change().to_numpy()[1:]
 
-        if name is None:
-            name = "Portfolio"
-        self.name = name
+        positions_available = positions.to_numpy()[:-1]
+        portfolio_returns = np.where(
+            mask.to_numpy()[:-1],
+            (positions_available * universe_returns), 0
+        )
 
-        self.picks.index.name = name
-        self.positions.index.name = name
-        self.returns.index.name = name
+        dead_returns = np.where(
+            np.isnan(portfolio_returns) & ~np.isclose(positions_available, 0),
+            -positions_available, 0
+        )
+        returns = np.nansum(portfolio_returns, axis=1) + np.nansum(dead_returns, axis=1)
+
+        self.returns = pd.Series(
+            np.insert(returns, 0, 0),
+            index=positions.index.copy()
+        )
+        self.returns.index.name = self.name
 
     def get_longs(self) -> pd.DataFrame:
         return pd.DataFrame(

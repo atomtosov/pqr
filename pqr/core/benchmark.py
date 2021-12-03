@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Optional, Callable
+from typing import Optional
 
 import pandas as pd
 
@@ -40,11 +40,9 @@ class Benchmark:
             weighting_strategy: Optional[AllocationStep] = None,
             name: Optional[str] = None,
     ) -> Benchmark:
-        benchmark = Portfolio(
-            universe,
-            longs=universe.mask,
-            allocation_strategy=weighting_strategy
-        )
+        benchmark = Portfolio(longs=universe.mask)
+        benchmark.allocate(weighting_strategy)
+        benchmark.calculate_returns(universe)
 
         return cls(
             benchmark.returns,
