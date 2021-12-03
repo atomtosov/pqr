@@ -12,7 +12,7 @@ from .universe import Universe
 __all__ = [
     "FactorModel",
 
-    "Quantiles",
+    "Quantiles", "split_quantiles",
     "Top",
     "Bottom",
     "TimeSeries",
@@ -37,33 +37,32 @@ class FactorModel:
             factor: Factor,
             universe: Universe
     ) -> list[Portfolio]:
-        portfolios = [
-            Portfolio(
-                universe,
-                longs=picker(factor),
-                allocation_strategy=self.allocation_strategy,
+        portfolios_names = [
+            "Winners",
+            *[f"Neutral {i}" for i in range(1, len(self.picking_strategies) - 1)],
+            "Losers"
+        ]
+        portfolios = []
+        for picking_strategy, name in zip(self.picking_strategies, portfolios_names):
+            portfolio = Portfolio(
+                longs=picking_strategy(factor),
                 name=name
             )
-            for picker, name in zip(
-                self.picking_strategies,
-                [
-                    "Winners",
-                    *[f"Neutral {i}" for i in range(1, len(self.picking_strategies) - 1)],
-                    "Losers"
-                ]
-            )
-        ]
+            portfolio.allocate(self.allocation_strategy)
+            portfolio.calculate_returns(universe)
+
+            portfolios.append(portfolio)
 
         if self.add_wml:
-            portfolios.append(
-                Portfolio(
-                    universe,
-                    longs=portfolios[0].picks.astype(bool),
-                    shorts=portfolios[-1].picks.astype(bool),
-                    allocation_strategy=self.allocation_strategy,
-                    name="WML"
-                )
+            wml = Portfolio(
+                longs=portfolios[0].picks.astype(bool),
+                shorts=portfolios[-1].picks.astype(bool),
+                name="WML"
             )
+            wml.allocate(self.allocation_strategy)
+            wml.calculate_returns(universe)
+
+            portfolios.append(wml)
 
         return portfolios
 
@@ -177,9 +176,7 @@ class GridSearch:
 
 def split_quantiles(n: int) -> list[Quantiles]:
     q = np.linspace(0, 1, n + 1)
-    quantiles = [
+    return [
         Quantiles(q[i], q[i + 1])
         for i in range(len(q) - 1)
     ]
-
-    return quantiles
