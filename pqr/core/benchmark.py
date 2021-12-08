@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+from dataclasses import dataclass, field
 from typing import Optional
 
 import pandas as pd
 
-from .portfolio import Portfolio, AllocationStep
+from .portfolio import Portfolio, Allocator
 from .universe import Universe
 
 __all__ = [
@@ -12,15 +13,17 @@ __all__ = [
 ]
 
 
+@dataclass
 class Benchmark:
-    def __init__(
-            self,
-            returns: pd.Series,
-            name: Optional[str] = None
-    ):
-        self.returns = returns.astype(float)
-        self.name = name if name is not None else "Benchmark"
-        self.returns.index.name = name
+    returns: pd.Series = field(repr=False)
+    name: Optional[str] = None
+
+    def __post_init__(self):
+        self.returns = self.returns.astype(float)
+        if not self.name:
+            self.name = "Benchmark"
+
+        self.returns.index.name = self.name
 
     @classmethod
     def from_index(
@@ -37,11 +40,11 @@ class Benchmark:
     def from_universe(
             cls,
             universe: Universe,
-            weighting_strategy: Optional[AllocationStep] = None,
+            allocation_strategy: Optional[Allocator] = None,
             name: Optional[str] = None,
     ) -> Benchmark:
         benchmark = Portfolio(longs=universe.mask)
-        benchmark.allocate(weighting_strategy)
+        benchmark.allocate(allocation_strategy)
         benchmark.calculate_returns(universe)
 
         return cls(
