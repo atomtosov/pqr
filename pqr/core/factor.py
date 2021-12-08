@@ -1,14 +1,14 @@
 from __future__ import annotations
 
 import functools as ft
-from typing import Callable, Literal, Sequence, Optional
+from dataclasses import dataclass, field, InitVar
+from typing import Literal, Sequence, Optional, Protocol, Any
 
 import numpy as np
 import numpy.typing as npt
 import pandas as pd
 
 from pqr.utils import align
-from .utils import compose, top_single, bottom_single
 
 __all__ = [
     "Factor",
@@ -24,23 +24,26 @@ __all__ = [
     "Hold",
 ]
 
-Preprocessor = Callable[[pd.DataFrame], pd.DataFrame]
+
+class Preprocessor(Protocol):
+    def process(self, values: pd.DataFrame) -> pd.DataFrame:
+        pass
 
 
+@dataclass
 class Factor:
-    def __init__(
-            self,
-            values: pd.DataFrame,
-            better: Literal["more", "less"],
-            preprocessor: Optional[Preprocessor | Sequence[Preprocessor]] = None,
-    ):
-        self.values = values.astype(float)
-        if isinstance(preprocessor, Sequence):
-            self.values = compose(*preprocessor)(self.values)
-        elif preprocessor is not None:
-            self.values = preprocessor(self.values)
+    values: pd.DataFrame = field(repr=False)
+    better: Literal["more", "less"]
+    preprocessor: InitVar[Optional[Preprocessor | Sequence[Preprocessor]]] = None
 
-        self.better = better
+    def __post_init__(self, preprocessor: Optional[Preprocessor | Sequence[Preprocessor]]):
+        self.values = self.values.astype(float)
+
+        if preprocessor is not None:
+            if not isinstance(preprocessor, Sequence):
+                preprocessor = [preprocessor]
+            for processor in preprocessor:
+                self.values = processor.process(self.values)
 
     def is_better_more(self) -> bool:
         return self.better == "more"
@@ -67,7 +70,7 @@ class Factor:
         n = np.array(n).reshape((-1,))
 
         top_func = ft.partial(
-            top_single if self.is_better_more() else bottom_single,
+            self._top_single if self.is_better_more() else self._bottom_single,
             n=n
         )
 
@@ -81,7 +84,7 @@ class Factor:
         n = np.array(n).reshape((-1,))
 
         bottom_func = ft.partial(
-            bottom_single if self.is_better_more() else top_single,
+            self._bottom_single if self.is_better_more() else self._top_single,
             n=n
         )
 
@@ -91,65 +94,90 @@ class Factor:
             columns=[f"bottom_{_n}" for _n in n]
         )
 
+    @staticmethod
+    def _top_single(arr: np.ndarray, n: np.ndarray) -> np.ndarray:
+        arr = np.unique(arr[~np.isnan(arr)])
+        if arr.any():
+            arr = np.sort(arr)
+            max_len = len(arr)
+            return np.array(
+                [arr[-min(_n, max_len)] for _n in n]
+            )
+        return np.array([np.nan] * len(n))
 
+    @staticmethod
+    def _bottom_single(arr: np.ndarray, n: np.ndarray) -> np.ndarray:
+        arr = np.unique(arr[~np.isnan(arr)])
+        if arr.any():
+            arr = np.sort(arr)
+            max_len = len(arr)
+            return np.array(
+                [arr[min(_n, max_len) - 1] for _n in n]
+            )
+        return np.array([np.nan] * len(n))
+
+
+@dataclass
 class Filter:
-    def __init__(self, mask: pd.DataFrame):
-        self.mask = mask.astype(bool)
+    mask: pd.DataFrame = field(repr=False)
 
-    def __call__(self, values: pd.DataFrame) -> pd.DataFrame:
+    def __post_init__(self):
+        self.mask = self.mask.astype(bool)
+
+    def process(self, values: pd.DataFrame) -> pd.DataFrame:
         universe, values = align(self.mask, values)
         return pd.DataFrame(
             np.where(universe.to_numpy(), values.to_numpy(), np.nan),
-            index=values.index,
-            columns=values.columns
+            index=values.index.copy(),
+            columns=values.columns.copy()
         )
 
 
+@dataclass
 class LookBackPctChange:
-    def __init__(self, period: int):
-        self.period = period
+    period: int
 
-    def __call__(self, values: pd.DataFrame) -> pd.DataFrame:
+    def process(self, values: pd.DataFrame) -> pd.DataFrame:
         return values.pct_change(self.period).iloc[self.period:]
 
 
+@dataclass
 class LookBackMean:
-    def __init__(self, period: int):
-        self.period = period
+    period: int
 
-    def __call__(self, values: pd.DataFrame) -> pd.DataFrame:
+    def process(self, values: pd.DataFrame) -> pd.DataFrame:
         return values.rolling(self.period + 1, axis=0).mean().iloc[self.period:]
 
 
+@dataclass
 class LookBackMedian:
-    def __init__(self, period: int):
-        self.period = period
+    period: int
 
-    def __call__(self, values: pd.DataFrame) -> pd.DataFrame:
+    def process(self, values: pd.DataFrame) -> pd.DataFrame:
         return values.rolling(self.period + 1, axis=0).median().iloc[self.period:]
 
 
+@dataclass
 class LookBackMin:
-    def __init__(self, period: int):
-        self.period = period
+    period: int
 
-    def __call__(self, values: pd.DataFrame) -> pd.DataFrame:
+    def process(self, values: pd.DataFrame) -> pd.DataFrame:
         return values.rolling(self.period + 1, axis=0).min().iloc[self.period:]
 
 
+@dataclass
 class LookBackMax:
-    def __init__(self, period: int):
-        self.period = period
+    period: int
 
-    def __call__(self, values: pd.DataFrame) -> pd.DataFrame:
+    def process(self, values: pd.DataFrame) -> pd.DataFrame:
         return values.rolling(self.period + 1, axis=0).max().iloc[self.period:]
 
 
+@dataclass
 class Lag:
-    def __init__(self, period: int):
-        self.period = period
+    period: int
 
-    def __call__(self, values: pd.DataFrame) -> pd.DataFrame:
+    def process(self, values: pd.DataFrame) -> pd.DataFrame:
         if self.period == 0:
             return values
 
@@ -160,11 +188,11 @@ class Lag:
         )
 
 
+@dataclass
 class Hold:
-    def __init__(self, period: int):
-        self.period = period
+    period: int
 
-    def __call__(self, values: pd.DataFrame) -> pd.DataFrame:
+    def process(self, values: pd.DataFrame) -> pd.DataFrame:
         periods = np.zeros(len(values), dtype=int)
         update_periods = np.arange(len(values), step=self.period)
         periods[update_periods] = update_periods
@@ -175,3 +203,11 @@ class Hold:
             index=values.index.copy(),
             columns=values.columns.copy()
         )
+
+
+@dataclass
+class ReplaceWithNan:
+    to_replace: Any
+
+    def process(self, values: pd.DataFrame) -> pd.DataFrame:
+        return values.replace(self.to_replace, np.nan)
