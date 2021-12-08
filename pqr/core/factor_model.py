@@ -1,12 +1,13 @@
 from __future__ import annotations
 
-from typing import Callable, Sequence
+from dataclasses import dataclass
+from typing import Callable, Sequence, Protocol
 
 import numpy as np
 import pandas as pd
 
 from .factor import Factor, Preprocessor
-from .portfolio import Portfolio, AllocationStep
+from .portfolio import Portfolio, Allocator
 from .universe import Universe
 
 __all__ = [
@@ -17,20 +18,20 @@ __all__ = [
     "Bottom",
     "TimeSeries",
 
-    "GridSearch",
+    "PreprocessorsGrid",
 ]
 
 
+class PickingStrategy(Protocol):
+    def pick(self, factor: Factor) -> pd.DataFrame:
+        pass
+
+
+@dataclass
 class FactorModel:
-    def __init__(
-            self,
-            picking_strategies: Sequence[Callable[[Factor], pd.DataFrame]],
-            allocation_strategy: AllocationStep | Sequence[AllocationStep],
-            add_wml: bool = False
-    ):
-        self.picking_strategies = picking_strategies
-        self.allocation_strategy = allocation_strategy
-        self.add_wml = add_wml
+    picking_strategies: Sequence[PickingStrategy]
+    allocation_strategy: Allocator | Sequence[Allocator]
+    add_wml: bool = False
 
     def __call__(
             self,
@@ -45,7 +46,7 @@ class FactorModel:
         portfolios = []
         for picking_strategy, name in zip(self.picking_strategies, portfolios_names):
             portfolio = Portfolio(
-                longs=picking_strategy(factor),
+                longs=picking_strategy.pick(factor),
                 name=name
             )
             portfolio.allocate(self.allocation_strategy)
@@ -67,16 +68,12 @@ class FactorModel:
         return portfolios
 
 
+@dataclass
 class Quantiles:
-    def __init__(
-            self,
-            min_q: float = 0.0,
-            max_q: float = 1.0
-    ):
-        self.min_q = min_q
-        self.max_q = max_q
+    min_q: float = 0.0
+    max_q: float = 0.0
 
-    def __call__(self, factor: Factor) -> pd.DataFrame:
+    def pick(self, factor: Factor) -> pd.DataFrame:
         factor_values = factor.values.to_numpy()
         q = factor.quantile([self.min_q, self.max_q]).to_numpy()
 
@@ -89,11 +86,11 @@ class Quantiles:
         )
 
 
+@dataclass
 class Top:
-    def __init__(self, n: int = 10):
-        self.n = n
+    n: int = 10
 
-    def __call__(self, factor: Factor) -> pd.DataFrame:
+    def pick(self, factor: Factor) -> pd.DataFrame:
         factor_values = factor.values.to_numpy()
         top = factor.top(self.n).to_numpy()
 
@@ -104,11 +101,11 @@ class Top:
         )
 
 
+@dataclass
 class Bottom:
-    def __init__(self, n: int = 10):
-        self.n = n
+    n: int = 10
 
-    def __call__(self, factor: Factor) -> pd.DataFrame:
+    def pick(self, factor: Factor) -> pd.DataFrame:
         factor_values = factor.values.to_numpy()
         bottom = factor.bottom(self.n).to_numpy()
 
@@ -119,16 +116,12 @@ class Bottom:
         )
 
 
+@dataclass
 class TimeSeries:
-    def __init__(
-            self,
-            min_threshold: float = -np.inf,
-            max_threshold: float = np.inf
-    ):
-        self.min_threshold = min_threshold
-        self.max_threshold = max_threshold
+    min_threshold: float = -np.inf
+    max_threshold: float = np.inf
 
-    def __call__(self, factor: Factor) -> pd.DataFrame:
+    def pick(self, factor: Factor) -> pd.DataFrame:
         factor_values = factor.values.to_numpy()
 
         return pd.DataFrame(
@@ -138,16 +131,12 @@ class TimeSeries:
         )
 
 
-class GridSearch:
-    def __init__(
-            self,
-            factor_preprocessors: dict[str, Preprocessor | Sequence[Preprocessor]],
-            factor_model: FactorModel
-    ):
-        self.factor_preprocessors = factor_preprocessors
-        self.factor_model = factor_model
+@dataclass
+class PreprocessorsGrid:
+    factor_preprocessors: dict[str, Preprocessor | Sequence[Preprocessor]]
+    factor_model: FactorModel
 
-    def __call__(
+    def search(
             self,
             factor: Factor,
             universe: Universe,
