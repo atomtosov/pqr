@@ -234,7 +234,7 @@ class CashAllocation:
         prices_arr = prices.to_numpy()
         weights_arr = weights.to_numpy()
 
-        allocation = np.zeros_like(weights_arr, dtype=float)
+        allocation = np.zeros_like(weights_arr, dtype=int)
         cash = np.ones(allocation.shape[0]) * self.capital
         balance = cash.copy()
 
@@ -269,31 +269,85 @@ class CashAllocation:
             prev_cash: float,
     ):
         balance = prev_cash + np.nansum(prev_alloc * prices)
-        ideal_alloc = np.nan_to_num(
-            balance * weights / prices,
-            nan=0, neginf=0, posinf=0
+
+        allocation_delta = -prev_alloc * (weights == 0)
+        commission = self._accrue_commission(allocation_delta, prices)
+
+        to_rebalance = (allocation_delta == 0) & (prev_alloc != 0) & (weights != 0)
+        allocation_delta[to_rebalance] = self._rebalance_positions(
+            weights[to_rebalance],
+            prices[to_rebalance],
+            prev_alloc[to_rebalance],
+            balance - commission
+        )
+        commission = self._accrue_commission(allocation_delta, prices)
+
+        to_open = (allocation_delta == 0) & (prev_alloc == 0) & (weights != 0)
+        allocation_delta[to_open] = self._open_positions(
+            weights[to_open],
+            prices[to_open],
+            prev_alloc[to_open],
+            balance - commission
         )
 
-        alloc_diff = ideal_alloc - prev_alloc
-        alloc_diff[alloc_diff != 0] /= 1 + self.fee
-        alloc_diff = alloc_diff.astype(int)
+        cash_delta = -(allocation_delta * prices)
+        commission = self._accrue_commission(allocation_delta, prices)
 
-        cash_diff = -(alloc_diff * prices)
-        commission = np.nansum(np.abs(cash_diff)) * self.fee
+        allocation_delta = prev_alloc + allocation_delta
+        cash = prev_cash + np.nansum(cash_delta) - commission
 
-        allocation = prev_alloc + alloc_diff
-        cash = prev_cash + np.nansum(cash_diff) - commission
+        return allocation_delta, cash, balance
 
-        return allocation, cash, balance
-
-    def _allocate_long(
+    def _close_positions(
             self,
-            ideal_weights: np.ndarray,
+            weights: np.ndarray,
+            prev_alloc: np.ndarray
+    ) -> np.ndarray:
+        return -prev_alloc * (weights == 0)
+
+    def _rebalance_positions(
+            self,
+            weights: np.ndarray,
             prices: np.ndarray,
-            balance: np.ndarray,
             prev_alloc: np.ndarray,
+            balance: float
+    ) -> np.ndarray:
+        ideal_alloc = balance * weights / prices
+        allocation = (ideal_alloc - prev_alloc)
+        allocation[allocation > 0] *= 1 - self.fee
+        allocation[allocation < 0] *= 1 + self.fee
+
+        buy, sell = allocation > 0, allocation < 0
+        long, short = prev_alloc > 0, prev_alloc < 0
+        buy_more, sell_some = buy & long, sell & long  # rebalance longs
+        sell_more, buy_some = sell & short, buy & short  # rebalance shorts
+
+        allocation[buy_more | sell_more] = np.trunc(allocation[buy_more | sell_more])
+        allocation[sell_some] = np.floor(allocation[sell_some])
+        allocation[buy_some] = np.ceil(allocation[buy_some])
+
+        return np.nan_to_num(allocation, nan=0)
+
+    def _open_positions(
+            self,
+            weights: np.ndarray,
+            prices: np.ndarray,
+            prev_alloc: np.ndarray,
+            balance: float,
     ):
-        pass
+        ideal_alloc = balance * weights / prices
+        allocation = (ideal_alloc - prev_alloc) * (1 - self.fee)
+        allocation[allocation > 0] *= 1 - self.fee
+        allocation[allocation < 0] *= 1 + self.fee
+
+        return np.nan_to_num(np.trunc(allocation), nan=0)
+
+    def _accrue_commission(
+            self,
+            allocation: np.ndarray,
+            prices: np.ndarray,
+    ) -> float:
+        return np.nansum(np.abs(allocation * prices)) * self.fee
 
 
 def normalize(raw_weights: np.ndarray) -> np.ndarray:
