@@ -33,7 +33,7 @@ class FactorModel:
     allocation_strategy: Allocator | Sequence[Allocator]
     add_wml: bool = False
 
-    def __call__(
+    def build_portfolios(
             self,
             factor: Factor,
             universe: Universe
@@ -77,13 +77,15 @@ class Quantiles:
         factor_values = factor.values.to_numpy()
         q = factor.quantile([self.min_q, self.max_q]).to_numpy()
 
+        if factor.is_better_more():
+            picks = (q[:, [1]] <= factor_values) & (factor_values <= q[:, [0]])
+        else:
+            picks = (q[:, [0]] <= factor_values) & (factor_values <= q[:, [1]])
+
         return pd.DataFrame(
-            (q[:, [1]] <= factor_values) & (factor_values <= q[:, [0]])
-            if factor.is_better_more() else
-            (q[:, [0]] <= factor_values) & (factor_values <= q[:, [1]]),
+            picks,
             index=factor.values.index.copy(),
-            columns=factor.values.columns.copy()
-        )
+            columns=factor.values.columns.copy())
 
 
 @dataclass
@@ -97,8 +99,7 @@ class Top:
         return pd.DataFrame(
             factor_values >= top if factor.is_better_more() else factor_values <= top,
             index=factor.values.index.copy(),
-            columns=factor.values.columns.copy()
-        )
+            columns=factor.values.columns.copy())
 
 
 @dataclass
@@ -112,8 +113,7 @@ class Bottom:
         return pd.DataFrame(
             factor_values <= bottom if factor.is_better_more() else factor_values >= bottom,
             index=factor.values.index.copy(),
-            columns=factor.values.columns.copy()
-        )
+            columns=factor.values.columns.copy())
 
 
 @dataclass
@@ -127,8 +127,7 @@ class TimeSeries:
         return pd.DataFrame(
             (self.min_threshold <= factor_values) & (factor_values <= self.max_threshold),
             index=factor.values.index.copy(),
-            columns=factor.values.columns.copy()
-        )
+            columns=factor.values.columns.copy())
 
 
 @dataclass
@@ -145,27 +144,19 @@ class PreprocessorsGrid:
         metrics = []
 
         for name, factor_preprocessor in self.factor_preprocessors.items():
-            portfolios = self.factor_model(
+            portfolios = self.factor_model.build_portfolios(
                 Factor(factor.values, factor.better, factor_preprocessor),
-                universe
-            )
+                universe)
 
-            metrics.append(
-                pd.Series(
-                    {
-                        portfolio.name: target(portfolio)
-                        for portfolio in portfolios
-                    },
-                    name=name
-                )
-            )
+            metrics_row = pd.Series(
+                {portfolio.name: target(portfolio) for portfolio in portfolios},
+                name=name)
+
+            metrics.append(metrics_row)
 
         return pd.DataFrame(metrics)
 
 
 def split_quantiles(n: int) -> list[Quantiles]:
     q = np.linspace(0, 1, n + 1)
-    return [
-        Quantiles(q[i], q[i + 1])
-        for i in range(len(q) - 1)
-    ]
+    return [Quantiles(q[i], q[i + 1]) for i in range(len(q) - 1)]

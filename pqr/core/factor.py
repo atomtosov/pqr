@@ -22,11 +22,12 @@ __all__ = [
     "LookBackMax",
     "Lag",
     "Hold",
+    "ReplaceWithNan",
 ]
 
 
 class Preprocessor(Protocol):
-    def process(self, values: pd.DataFrame) -> pd.DataFrame:
+    def preprocess(self, values: pd.DataFrame) -> pd.DataFrame:
         pass
 
 
@@ -43,7 +44,7 @@ class Factor:
             if not isinstance(preprocessor, Sequence):
                 preprocessor = [preprocessor]
             for processor in preprocessor:
-                self.values = processor.process(self.values)
+                self.values = processor.preprocess(self.values)
 
     def is_better_more(self) -> bool:
         return self.better == "more"
@@ -57,42 +58,36 @@ class Factor:
         quantiles = np.nanquantile(
             self.values.to_numpy(),
             q if self.is_better_less() else 1 - q,
-            axis=1
-        ).T
+            axis=1).T
 
         return pd.DataFrame(
             quantiles,
             index=self.values.index,
-            columns=[f"q_{_q:.2f}" for _q in q]
-        )
+            columns=[f"q_{_q:.2f}" for _q in q])
 
     def top(self, n: npt.ArrayLike[int]) -> pd.DataFrame:
         n = np.array(n).reshape((-1,))
 
         top_func = ft.partial(
             self._top_single if self.is_better_more() else self._bottom_single,
-            n=n
-        )
+            n=n)
 
         return pd.DataFrame(
             np.apply_along_axis(top_func, 1, self.values.to_numpy()),
             index=self.values.index,
-            columns=[f"top_{_n}" for _n in n]
-        )
+            columns=[f"top_{_n}" for _n in n])
 
     def bottom(self, n: npt.ArrayLike[int]) -> pd.DataFrame:
         n = np.array(n).reshape((-1,))
 
         bottom_func = ft.partial(
             self._bottom_single if self.is_better_more() else self._top_single,
-            n=n
-        )
+            n=n)
 
         return pd.DataFrame(
             np.apply_along_axis(bottom_func, 1, self.values.to_numpy()),
             index=self.values.index,
-            columns=[f"bottom_{_n}" for _n in n]
-        )
+            columns=[f"bottom_{_n}" for _n in n])
 
     @staticmethod
     def _top_single(arr: np.ndarray, n: np.ndarray) -> np.ndarray:
@@ -100,9 +95,8 @@ class Factor:
         if arr.any():
             arr = np.sort(arr)
             max_len = len(arr)
-            return np.array(
-                [arr[-min(_n, max_len)] for _n in n]
-            )
+            return np.array([arr[-min(_n, max_len)] for _n in n])
+
         return np.array([np.nan] * len(n))
 
     @staticmethod
@@ -111,9 +105,8 @@ class Factor:
         if arr.any():
             arr = np.sort(arr)
             max_len = len(arr)
-            return np.array(
-                [arr[min(_n, max_len) - 1] for _n in n]
-            )
+            return np.array([arr[min(_n, max_len) - 1] for _n in n])
+
         return np.array([np.nan] * len(n))
 
 
@@ -124,20 +117,19 @@ class Filter:
     def __post_init__(self):
         self.mask = self.mask.astype(bool)
 
-    def process(self, values: pd.DataFrame) -> pd.DataFrame:
+    def preprocess(self, values: pd.DataFrame) -> pd.DataFrame:
         universe, values = align(self.mask, values)
         return pd.DataFrame(
             np.where(universe.to_numpy(), values.to_numpy(), np.nan),
             index=values.index.copy(),
-            columns=values.columns.copy()
-        )
+            columns=values.columns.copy())
 
 
 @dataclass
 class LookBackPctChange:
     period: int
 
-    def process(self, values: pd.DataFrame) -> pd.DataFrame:
+    def preprocess(self, values: pd.DataFrame) -> pd.DataFrame:
         return values.pct_change(self.period).iloc[self.period:]
 
 
@@ -145,7 +137,7 @@ class LookBackPctChange:
 class LookBackMean:
     period: int
 
-    def process(self, values: pd.DataFrame) -> pd.DataFrame:
+    def preprocess(self, values: pd.DataFrame) -> pd.DataFrame:
         return values.rolling(self.period + 1, axis=0).mean().iloc[self.period:]
 
 
@@ -153,7 +145,7 @@ class LookBackMean:
 class LookBackMedian:
     period: int
 
-    def process(self, values: pd.DataFrame) -> pd.DataFrame:
+    def preprocess(self, values: pd.DataFrame) -> pd.DataFrame:
         return values.rolling(self.period + 1, axis=0).median().iloc[self.period:]
 
 
@@ -161,7 +153,7 @@ class LookBackMedian:
 class LookBackMin:
     period: int
 
-    def process(self, values: pd.DataFrame) -> pd.DataFrame:
+    def preprocess(self, values: pd.DataFrame) -> pd.DataFrame:
         return values.rolling(self.period + 1, axis=0).min().iloc[self.period:]
 
 
@@ -169,7 +161,7 @@ class LookBackMin:
 class LookBackMax:
     period: int
 
-    def process(self, values: pd.DataFrame) -> pd.DataFrame:
+    def preprocess(self, values: pd.DataFrame) -> pd.DataFrame:
         return values.rolling(self.period + 1, axis=0).max().iloc[self.period:]
 
 
@@ -177,22 +169,20 @@ class LookBackMax:
 class Lag:
     period: int
 
-    def process(self, values: pd.DataFrame) -> pd.DataFrame:
-        if self.period == 0:
-            return values
+    def preprocess(self, values: pd.DataFrame) -> pd.DataFrame:
+        values = values.shift(self.period)
 
-        return pd.DataFrame(
-            values.to_numpy()[:-self.period],
-            index=values.index[self.period:].copy(),
-            columns=values.columns.copy()
-        )
+        if self.period >= 0:
+            return values.iloc[self.period:]
+        else:
+            return values.iloc[:self.period]
 
 
 @dataclass
 class Hold:
     period: int
 
-    def process(self, values: pd.DataFrame) -> pd.DataFrame:
+    def preprocess(self, values: pd.DataFrame) -> pd.DataFrame:
         periods = np.zeros(len(values), dtype=int)
         update_periods = np.arange(len(values), step=self.period)
         periods[update_periods] = update_periods
@@ -209,5 +199,5 @@ class Hold:
 class ReplaceWithNan:
     to_replace: Any
 
-    def process(self, values: pd.DataFrame) -> pd.DataFrame:
+    def preprocess(self, values: pd.DataFrame) -> pd.DataFrame:
         return values.replace(self.to_replace, np.nan)

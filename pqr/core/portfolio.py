@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field, InitVar
-from typing import Optional, Sequence, Protocol
+from typing import Optional, Sequence, Protocol, Union
 
 import numpy as np
 import pandas as pd
@@ -12,7 +12,7 @@ from .universe import Universe
 
 __all__ = [
     "Portfolio",
-    "Allocator",
+    "Allocator", "AllocationStrategy",
 
     "EqualWeights",
     "WeightsByFactor",
@@ -26,6 +26,9 @@ __all__ = [
 class Allocator(Protocol):
     def allocate(self, positions: pd.DataFrame) -> pd.DataFrame:
         pass
+
+
+AllocationStrategy = Union[Allocator, Sequence[Allocator]]
 
 
 @dataclass
@@ -47,36 +50,29 @@ class Portfolio:
 
         elif longs is not None and shorts is not None:  # long-short
             longs, shorts = align(longs, shorts)
-            picks = pd.DataFrame(
+            self.picks = pd.DataFrame(
                 longs.to_numpy(dtype=np.int8) - shorts.to_numpy(dtype=np.int8),
                 index=longs.index.copy(),
-                columns=longs.columns.copy()
-            )
+                columns=longs.columns.copy())
         elif longs is not None:  # long-only
-            picks = pd.DataFrame(
+            self.picks = pd.DataFrame(
                 longs.to_numpy(dtype=np.int8),
                 index=longs.index.copy(),
-                columns=longs.columns.copy()
-            )
+                columns=longs.columns.copy())
         else:  # short-only
-            picks = pd.DataFrame(
+            self.picks = pd.DataFrame(
                 -shorts.to_numpy(dtype=np.int8),
                 index=shorts.index.copy(),
-                columns=shorts.columns.copy()
-            )
-        self.picks = picks
+                columns=shorts.columns.copy())
 
         if not self.name:
             self.name = "Portfolio"
-        self.picks.name = self.name
+        self.picks.index.name = self.name
 
         self.positions = None
         self.returns = None
 
-    def allocate(
-            self,
-            allocation_strategy: Optional[Allocator | Sequence[Allocator]] = None,
-    ) -> None:
+    def allocate(self, allocation_strategy: AllocationStrategy = None) -> None:
         if allocation_strategy is None:
             allocation_strategy = [EqualWeights()]
         elif not isinstance(allocation_strategy, Sequence):
@@ -85,46 +81,40 @@ class Portfolio:
         self.positions = self.picks
         for allocator in allocation_strategy:
             self.positions = allocator.allocate(self.positions)
+
         self.positions.index.name = self.name
 
-    def calculate_returns(
-            self,
-            universe: Universe
-    ) -> None:
+    def calculate_returns(self, universe: Universe) -> None:
         prices, mask, positions = align_many(universe.prices, universe.mask, self.positions)
         universe_returns = prices.pct_change().to_numpy()[1:]
 
         positions_available = positions.to_numpy()[:-1]
         portfolio_returns = np.where(
             mask.to_numpy()[:-1],
-            (positions_available * universe_returns), 0
-        )
+            (positions_available * universe_returns), 0)
 
         dead_returns = np.where(
             np.isnan(portfolio_returns) & ~np.isclose(positions_available, 0),
-            -positions_available, 0
-        )
+            -positions_available, 0)
         returns = np.nansum(portfolio_returns, axis=1) + np.nansum(dead_returns, axis=1)
 
         self.returns = pd.Series(
             np.insert(returns, 0, 0),
-            index=positions.index.copy()
-        )
+            index=positions.index.copy())
+
         self.returns.index.name = self.name
 
     def get_longs(self) -> pd.DataFrame:
         return pd.DataFrame(
             self.picks.to_numpy() == 1,
             index=self.picks.index.copy(),
-            columns=self.picks.columns.copy()
-        )
+            columns=self.picks.columns.copy())
 
     def get_shorts(self) -> pd.DataFrame:
         return pd.DataFrame(
             self.picks.to_numpy() == -1,
             index=self.picks.index.copy(),
-            columns=self.picks.columns.copy()
-        )
+            columns=self.picks.columns.copy())
 
 
 @dataclass
@@ -139,8 +129,7 @@ class EqualWeights:
             return pd.DataFrame(
                 (normalize(longs) - normalize(shorts)) * self.leverage,
                 index=positions.index.copy(),
-                columns=positions.columns.copy()
-            )
+                columns=positions.columns.copy())
 
 
 @dataclass
@@ -157,8 +146,7 @@ class WeightsByFactor:
             return pd.DataFrame(
                 (normalize(longs * factor_array) - normalize(shorts * factor_array)) * self.leverage,
                 index=positions.index.copy(),
-                columns=positions.columns.copy()
-            )
+                columns=positions.columns.copy())
 
 
 @dataclass
@@ -177,8 +165,7 @@ class ScalingByFactor:
         return pd.DataFrame(
             leverage * positions.to_numpy(),
             index=positions.index.copy(),
-            columns=positions.columns.copy()
-        )
+            columns=positions.columns.copy())
 
 
 @dataclass
@@ -192,23 +179,18 @@ class LeverageLimits:
 
         with np.errstate(divide="ignore", invalid="ignore"):
             exceed_min = total_leverage < self.min_leverage
-            under_min = (
-                                np.where(exceed_min, w, 0) /
-                                np.where(exceed_min, total_leverage, 1)
-                        ) * self.min_leverage
+            under_min = (np.where(exceed_min, w, 0) /
+                         np.where(exceed_min, total_leverage, 1)) * self.min_leverage
 
             exceed_max = total_leverage > self.max_leverage
-            above_max = (
-                                np.where(exceed_max, w, 0) /
-                                np.where(exceed_max, total_leverage, 1)
-                        ) * self.max_leverage
+            above_max = (np.where(exceed_max, w, 0) /
+                         np.where(exceed_max, total_leverage, 1)) * self.max_leverage
 
         return pd.DataFrame(
             np.where(~(exceed_min | exceed_max), w, 0) +
             under_min + above_max,
             index=positions.index.copy(),
-            columns=positions.columns.copy()
-        )
+            columns=positions.columns.copy())
 
 
 @dataclass
@@ -219,8 +201,7 @@ class TheoreticalCommission:
         return pd.DataFrame(
             positions.to_numpy() * (1 - self.fee),
             index=positions.index.copy(),
-            columns=positions.columns.copy()
-        )
+            columns=positions.columns.copy())
 
 
 @dataclass
@@ -244,22 +225,18 @@ class CashAllocation:
             prev_cash = cash[max(0, i - 1)]
 
             allocation[i], cash[i], balance[i] = self._allocation_step(
-                w, p, prev_alloc, prev_cash
-            )
+                w, p, prev_alloc, prev_cash)
 
         positions_in_cash = np.nan_to_num(
-            np.insert(
-                allocation * prices_arr,
-                obj=0, axis=1, values=cash,
-            ),
+            np.insert(allocation * prices_arr,
+                      obj=0, axis=1, values=cash),
             nan=0, neginf=0, posinf=0
         )
 
         return pd.DataFrame(
             positions_in_cash / balance[:, np.newaxis],
             index=weights.index.copy(),
-            columns=["CASH_RESIDUALS"] + list(weights.columns.copy())
-        )
+            columns=["CASH_RESIDUALS"] + list(weights.columns.copy()))
 
     def _allocation_step(
             self,
@@ -267,7 +244,7 @@ class CashAllocation:
             prices: np.ndarray,
             prev_alloc: np.ndarray,
             prev_cash: float,
-    ):
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         balance = prev_cash + np.nansum(prev_alloc * prices)
 
         allocation_delta = -prev_alloc * (weights == 0)
@@ -333,8 +310,8 @@ class CashAllocation:
             weights: np.ndarray,
             prices: np.ndarray,
             prev_alloc: np.ndarray,
-            balance: float,
-    ):
+            balance: float
+    ) -> np.ndarray:
         ideal_alloc = balance * weights / prices
         allocation = (ideal_alloc - prev_alloc) * (1 - self.fee)
         allocation[allocation > 0] *= 1 - self.fee
@@ -351,8 +328,7 @@ class CashAllocation:
 
 
 def normalize(raw_weights: np.ndarray) -> np.ndarray:
+    normalizing_coef = np.nansum(raw_weights, axis=1, keepdims=True, dtype=float)
     with np.errstate(divide="ignore", invalid="ignore"):
-        return np.nan_to_num(
-            raw_weights / np.nansum(raw_weights, axis=1, keepdims=True, dtype=float),
-            nan=0, neginf=0, posinf=0
-        )
+        return np.nan_to_num(raw_weights / normalizing_coef,
+                             nan=0, neginf=0, posinf=0)

@@ -31,10 +31,7 @@ class Benchmark:
             index: pd.Series,
             name: Optional[str] = None,
     ) -> Benchmark:
-        return cls(
-            index.pct_change().fillna(0),
-            name
-        )
+        return cls(index.pct_change().fillna(0), name)
 
     @classmethod
     def from_universe(
@@ -47,7 +44,4 @@ class Benchmark:
         benchmark.allocate(allocation_strategy)
         benchmark.calculate_returns(universe)
 
-        return cls(
-            benchmark.returns,
-            name
-        )
+        return cls(benchmark.returns, name)
