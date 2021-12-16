@@ -1,169 +1,136 @@
 from __future__ import annotations
 
-from typing import Optional, Protocol
+from dataclasses import dataclass, field, make_dataclass
+from typing import Optional, Protocol, runtime_checkable
 
 import numpy as np
 import pandas as pd
+import statsmodels.api as sm
 from scipy.stats import ttest_1samp
+from statsmodels.regression.rolling import RollingOLS
 
 from pqr.core import Portfolio, Benchmark
-from pqr.utils import align
-from .utils import extract_annualizer, adjust, estimate_ols, stats_container_factory, estimate_rolling_ols
+from pqr.utils import align, extract_annualizer, adjust
 
 __all__ = [
-    "CompoundedReturns", "Drawdown", "Turnover",
-    "TotalReturn", "TrailingTotalReturn",
-    "CAGR", "TrailingCAGR",
-    "MeanReturn", "TrailingMeanReturn",
-    "Volatility", "TrailingVolatility",
-    "WinRate", "TrailingWinRate",
-    "MaxDrawdown", "TrailingMaxDrawdown",
-    "ValueAtRisk", "TrailingValueAtRisk",
-    "ExpectedTailLoss", "TrailingExpectedTailLoss",
-    "ExpectedTailReward", "TrailingExpectedTailReward",
-    "RachevRatio", "TrailingRachevRatio",
-    "CalmarRatio", "TrailingCalmarRatio",
-    "SharpeRatio", "TrailingSharpeRatio",
-    "OmegaRatio", "TrailingOmegaRatio",
-    "SortinoRatio", "TrailingSortinoRatio",
-    "BenchmarkCorrelation", "TrailingBenchmarkCorrelation",
-    "MeanExcessReturn", "TrailingMeanExcessReturn",
-    "Alpha", "TrailingAlpha",
-    "Beta", "TrailingBeta",
-    "MeanTurnover", "TrailingMeanTurnover",
+    "NumericMetric", "TimeSeriesMetric",
+
+    "CompoundedReturns", "TotalReturn", "CAGR",
+    "Drawdown", "MaxDrawdown",
+    "Turnover", "MeanTurnover",
+
+    "MeanReturn",
+    "Volatility",
+    "WinRate",
+    "CalmarRatio",
+    "SharpeRatio",
+    "BenchmarkCorrelation",
+    "MeanExcessReturn",
+    "Alpha", "Beta",
 ]
 
 
-class Stats(Protocol):
-    value: float
-    t_stat: float
-    p_value: float
+@runtime_checkable
+class NumericMetric(Protocol):
+    window: Optional[int]
+    name: str
 
-    def count_stars(self) -> int:
+    def calculate(self, portfolio: Portfolio) -> float | Stats:
         pass
 
-    @property
-    def template(self) -> str:
+    def trailing(self, portfolio: Portfolio) -> pd.Series:
+        pass
+
+    def fancy(self, portfolio: Portfolio) -> str:
         pass
 
 
+@runtime_checkable
+class TimeSeriesMetric(Protocol):
+    name: str
+
+    def calculate(self, portfolio: Portfolio) -> pd.Series:
+        pass
+
+
+@dataclass
 class CompoundedReturns:
-    def __call__(self, portfolio: Portfolio) -> pd.Series:
+    name: str = field(init=False, default="Compounded Returns")
+
+    def calculate(self, portfolio: Portfolio) -> pd.Series:
         return (1 + portfolio.returns).cumprod() - 1
 
-    def fancy(self, portfolio: Portfolio) -> pd.Series:
-        return self(portfolio) * 100
 
-    @property
-    def fancy_name(self) -> str:
-        return "Compounded Returns, %"
-
-
+@dataclass
 class Drawdown:
-    def __call__(self, portfolio: Portfolio) -> pd.Series:
-        equity = CompoundedReturns()(portfolio) + 1
+    name: str = field(init=False, default="Drawdown")
+
+    def calculate(self, portfolio: Portfolio) -> pd.Series:
+        equity = CompoundedReturns().calculate(portfolio) + 1
         high_water_mark = equity.cummax()
         return equity / high_water_mark - 1
 
-    def fancy(self, portfolio: Portfolio) -> pd.Series:
-        return self(portfolio) * 100
 
-    @property
-    def fancy_name(self) -> str:
-        return "Drawdown, %"
-
-
+@dataclass
 class Turnover:
-    def __call__(self, portfolio: Portfolio) -> pd.Series:
+    name: str = field(init=False, default="Turnover")
+
+    def calculate(self, portfolio: Portfolio) -> pd.Series:
         positions = portfolio.positions.to_numpy()
 
-        turnover = np.nansum(
-            np.abs(np.diff(positions, axis=0)),
-            axis=1
-        )
+        positions_change = np.diff(positions, axis=0)
+        turnover = np.nansum(np.abs(positions_change), axis=1)
+
         # add 1st period deals
-        turnover = np.insert(turnover, 0, values=np.nansum(np.abs(positions[0])))
+        turnover = np.insert(turnover, 0,
+                             values=np.nansum(np.abs(positions[0])))
 
-        return pd.Series(
-            turnover,
-            index=portfolio.positions.index
-        )
-
-    def fancy(self, portfolio: Portfolio) -> pd.Series:
-        return self(portfolio) * 100
-
-    @property
-    def fancy_name(self) -> str:
-        return "Turnover, %"
+        return pd.Series(turnover,
+                         index=portfolio.positions.index.copy())
 
 
+@dataclass
 class TotalReturn:
-    def __call__(self, portfolio: Portfolio) -> pd.Series:
-        return CompoundedReturns()(portfolio).iat[-1]
+    window: Optional[int] = None
 
-    def fancy(self, portfolio: Portfolio) -> str:
-        return format(self(portfolio) * 100, ".2f")
+    name: str = field(init=False, default="Total Return, %")
 
-    @property
-    def fancy_name(self) -> str:
-        return "Total Return, %"
+    def calculate(self, portfolio: Portfolio) -> float:
+        return CompoundedReturns().calculate(portfolio).iat[-1]
 
-
-class TrailingTotalReturn:
-    def __init__(self, window: Optional[int] = None):
-        self.window = window
-
-    def __call__(self, portfolio: Portfolio) -> pd.Series:
+    def trailing(self, portfolio: Portfolio) -> pd.Series:
         if self.window is None:
             window = int(extract_annualizer(portfolio.returns))
         else:
             window = self.window
 
         return portfolio.returns.rolling(window).apply(
-            lambda r: ((1 + r).cumprod() - 1).iloc[-1]
+            lambda r: ((1 + r).cumprod() - 1).iat[-1]
         ).iloc[window:]
 
-    def fancy(self, portfolio: Portfolio) -> pd.Series:
-        return self(portfolio) * 100
-
-    @property
-    def fancy_name(self) -> str:
-        return "Trailing Total Return, %"
+    def fancy(self, portfolio: Portfolio) -> str:
+        return format(self.calculate(portfolio) * 100, ".2f")
 
 
+@dataclass
 class CAGR:
-    def __init__(self, annualizer: Optional[float] = None):
-        self.annualizer = annualizer
+    annualizer: Optional[float] = None
+    window: Optional[int] = None
 
-    def __call__(self, portfolio: Portfolio) -> float:
+    name: str = field(init=False, default="CAGR, %")
+
+    def calculate(self, portfolio: Portfolio) -> float:
         if self.annualizer is None:
             annualizer = extract_annualizer(portfolio.returns)
         else:
             annualizer = self.annualizer
 
-        tr = TotalReturn()(portfolio)
+        tr = TotalReturn().calculate(portfolio)
         years = len(portfolio.returns) / annualizer
 
         return (1 + tr) ** (1 / years) - 1
 
-    def fancy(self, portfolio: Portfolio) -> str:
-        return format(self(portfolio) * 100, ".2f")
-
-    @property
-    def fancy_name(self) -> str:
-        return "CAGR, %"
-
-
-class TrailingCAGR:
-    def __init__(
-            self,
-            annualizer: Optional[float] = None,
-            window: Optional[int] = None
-    ):
-        self.annualizer = annualizer
-        self.window = window
-
-    def __call__(self, portfolio: Portfolio) -> pd.Series:
+    def trailing(self, portfolio: Portfolio) -> pd.Series:
         if self.annualizer is None:
             annualizer = extract_annualizer(portfolio.returns)
         else:
@@ -174,29 +141,24 @@ class TrailingCAGR:
         else:
             window = self.window
 
-        tr = TrailingTotalReturn(window)(portfolio)
+        tr = TotalReturn(window).trailing(portfolio)
         years = window / annualizer
 
         return (1 + tr) ** (1 / years) - 1
 
-    def fancy(self, portfolio: Portfolio) -> pd.Series:
-        return self(portfolio) * 100
-
-    @property
-    def fancy_name(self) -> str:
-        return "Trailing CAGR, %"
+    def fancy(self, portfolio: Portfolio) -> str:
+        return format(self.calculate(portfolio) * 100, ".2f")
 
 
+@dataclass
 class MeanReturn:
-    def __init__(
-            self,
-            statistics: bool = False,
-            annualizer: Optional[float] = None,
-    ):
-        self.statistics = statistics
-        self.annualizer = annualizer
+    statistics: bool = False
+    annualizer: Optional[float] = None
+    window: Optional[int] = None
 
-    def __call__(self, portfolio: Portfolio) -> float | Stats:
+    name: str = field(init=False, default="Mean Return, %")
+
+    def calculate(self, portfolio: Portfolio) -> float | Stats:
         if self.annualizer is None:
             annualizer = extract_annualizer(portfolio.returns)
         else:
@@ -209,39 +171,11 @@ class MeanReturn:
             mr = stats_container_factory("MeanReturn")(
                 value=mr,
                 t_stat=ttest.statistic,
-                p_value=ttest.pvalue
-            )
+                p_value=ttest.pvalue)
 
         return mr
 
-    def fancy(self, portfolio: Portfolio) -> str:
-        mr = self(portfolio)
-        if self.statistics:
-            return mr.template.format(
-                value=mr.value * 100,
-                stars="*" * mr.count_stars(),
-                t_stat=mr.t_stat
-            )
-
-        return format(mr * 100, ".2f")
-
-    @property
-    def fancy_name(self) -> str:
-        return "Mean Return, %"
-
-
-class TrailingMeanReturn:
-    def __init__(
-            self,
-            statistics: bool = False,
-            annualizer: Optional[float] = None,
-            window: Optional[int] = None
-    ):
-        self.statistics = statistics
-        self.annualizer = annualizer
-        self.window = window
-
-    def __call__(self, portfolio: Portfolio) -> pd.Series:
+    def trailing(self, portfolio: Portfolio) -> pd.Series:
         if self.annualizer is None:
             annualizer = extract_annualizer(portfolio.returns)
         else:
@@ -254,19 +188,25 @@ class TrailingMeanReturn:
 
         return portfolio.returns.rolling(window).mean().iloc[window:] * annualizer
 
-    def fancy(self, portfolio: Portfolio) -> pd.Series:
-        return self(portfolio) * 100
+    def fancy(self, portfolio: Portfolio) -> str:
+        mr = self.calculate(portfolio)
+        if self.statistics:
+            return mr.template.format(
+                value=mr.value * 100,
+                stars="*" * mr.count_stars(),
+                t_stat=mr.t_stat)
 
-    @property
-    def fancy_name(self) -> str:
-        return "Trailing Mean Return, %"
+        return format(mr * 100, ".2f")
 
 
+@dataclass
 class Volatility:
-    def __init__(self, annualizer: Optional[float] = None):
-        self.annualizer = annualizer
+    annualizer: Optional[float] = None
+    window: Optional[int] = None
 
-    def __call__(self, portfolio: Portfolio) -> float:
+    name: str = field(init=False, default="Volatility, %")
+
+    def calculate(self, portfolio: Portfolio) -> float:
         if self.annualizer is None:
             annualizer = extract_annualizer(portfolio.returns)
         else:
@@ -274,24 +214,7 @@ class Volatility:
 
         return portfolio.returns.std() * np.sqrt(annualizer)
 
-    def fancy(self, portfolio: Portfolio) -> str:
-        return format(self(portfolio) * 100, ".2f")
-
-    @property
-    def fancy_name(self) -> str:
-        return "Volatility, %"
-
-
-class TrailingVolatility:
-    def __init__(
-            self,
-            annualizer: Optional[float] = None,
-            window: Optional[int] = None
-    ):
-        self.annualizer = annualizer
-        self.window = window
-
-    def __call__(self, portfolio: Portfolio) -> pd.Series:
+    def trailing(self, portfolio: Portfolio) -> pd.Series:
         if self.annualizer is None:
             annualizer = extract_annualizer(portfolio.returns)
         else:
@@ -304,31 +227,20 @@ class TrailingVolatility:
 
         return portfolio.returns.rolling(window).std().iloc[window:] * np.sqrt(annualizer)
 
-    def fancy(self, portfolio: Portfolio) -> pd.Series:
-        return self(portfolio) * 100
-
-    @property
-    def fancy_name(self) -> str:
-        return "Trailing Volatility, %"
+    def fancy(self, portfolio: Portfolio) -> str:
+        return format(self.calculate(portfolio) * 100, ".2f")
 
 
+@dataclass
 class WinRate:
-    def __call__(self, portfolio: Portfolio) -> float:
+    window: Optional[int] = None
+
+    name: str = field(init=False, default="Win Rate, %")
+
+    def calculate(self, portfolio: Portfolio) -> float:
         return (portfolio.returns > 0).sum() / len(portfolio.returns)
 
-    def fancy(self, portfolio: Portfolio) -> str:
-        return format(self(portfolio) * 100, ".2f")
-
-    @property
-    def fancy_name(self) -> str:
-        return "Win Rate, %"
-
-
-class TrailingWinRate:
-    def __init__(self, window: Optional[int] = None):
-        self.window = window
-
-    def __call__(self, portfolio: Portfolio) -> pd.Series:
+    def trailing(self, portfolio: Portfolio) -> pd.Series:
         if self.window is None:
             window = int(extract_annualizer(portfolio.returns))
         else:
@@ -336,31 +248,20 @@ class TrailingWinRate:
 
         return (portfolio.returns > 0).rolling(window).sum().iloc[window:] / window
 
-    def fancy(self, portfolio: Portfolio) -> pd.Series:
-        return self(portfolio) * 100
-
-    @property
-    def fancy_name(self) -> str:
-        return "Trailing Win Rate, %"
-
-
-class MaxDrawdown:
-    def __call__(self, portfolio: Portfolio) -> float:
-        return Drawdown()(portfolio).min()
-
     def fancy(self, portfolio: Portfolio) -> str:
-        return format(self(portfolio) * 100, ".2f")
-
-    @property
-    def fancy_name(self) -> str:
-        return "Maximum Drawdown, %"
+        return format(self.calculate(portfolio), ".2f")
 
 
-class TrailingMaxDrawdown:
-    def __init__(self, window: Optional[int] = None):
-        self.window = window
+@dataclass
+class MaxDrawdown:
+    window: Optional[int] = None
 
-    def __call__(self, portfolio: Portfolio) -> pd.Series:
+    name: str = field(init=False, default="Maximum Drawdown, %")
+
+    def calculate(self, portfolio: Portfolio) -> float:
+        return Drawdown().calculate(portfolio).min()
+
+    def trailing(self, portfolio: Portfolio) -> float:
         if self.window is None:
             window = int(extract_annualizer(portfolio.returns))
         else:
@@ -370,272 +271,29 @@ class TrailingMaxDrawdown:
             lambda r: ((1 + r).cumprod() / (1 + r).cumprod().cummax() - 1).min()
         ).iloc[window:]
 
-    def fancy(self, portfolio: Portfolio) -> pd.Series:
-        return self(portfolio) * 100
-
-    @property
-    def fancy_name(self) -> str:
-        return "Trailing Maximum Drawdown, %"
-
-
-class ValueAtRisk:
-    def __init__(
-            self,
-            cutoff: float = 0.05,
-            annualizer: Optional[float] = None
-    ):
-        self.cutoff = cutoff
-        self.annualizer = annualizer
-
-    def __call__(self, portfolio: Portfolio) -> float:
-        if self.annualizer is None:
-            annualizer = extract_annualizer(portfolio.returns)
-        else:
-            annualizer = self.annualizer
-
-        return portfolio.returns.quantile(self.cutoff) * np.sqrt(annualizer)
-
     def fancy(self, portfolio: Portfolio) -> str:
-        return format(self(portfolio) * 100, ".2f")
-
-    @property
-    def fancy_name(self) -> str:
-        return "Value at Risk, %"
+        return format(self.calculate(portfolio), ".2f")
 
 
-class TrailingValueAtRisk:
-    def __init__(
-            self,
-            cutoff: float = 0.05,
-            annualizer: Optional[float] = None,
-            window: Optional[int] = None
-    ):
-        self.cutoff = cutoff
-        self.annualizer = annualizer
-        self.window = window
-
-    def __call__(self, portfolio: Portfolio) -> pd.Series:
-        if self.annualizer is None:
-            annualizer = extract_annualizer(portfolio.returns)
-        else:
-            annualizer = self.annualizer
-
-        if self.window is None:
-            window = int(extract_annualizer(portfolio.returns))
-        else:
-            window = self.window
-
-        return portfolio.returns.rolling(window).quantile(self.cutoff) * np.sqrt(annualizer)
-
-    def fancy(self, portfolio: Portfolio) -> pd.Series:
-        return self(portfolio) * 100
-
-    @property
-    def fancy_name(self) -> str:
-        return "Trailing Value at Risk, %"
-
-
-class ExpectedTailLoss:
-    def __init__(
-            self,
-            cutoff: float = 0.05,
-            annualizer: Optional[float] = None
-    ):
-        self.cutoff = cutoff
-        self.annualizer = annualizer
-
-    def __call__(self, portfolio: Portfolio) -> float:
-        if self.annualizer is None:
-            annualizer = extract_annualizer(portfolio.returns)
-        else:
-            annualizer = self.annualizer
-
-        less_cutoff = portfolio.returns <= portfolio.returns.quantile(self.cutoff)
-        return portfolio.returns[less_cutoff].mean() * np.sqrt(annualizer)
-
-    def fancy(self, portfolio: Portfolio) -> str:
-        return format(self(portfolio) * 100, ".2f")
-
-    @property
-    def fancy_name(self) -> str:
-        return "Expected Tail Loss, %"
-
-
-class TrailingExpectedTailLoss:
-    def __init__(
-            self,
-            cutoff: float = 0.05,
-            annualizer: Optional[float] = None,
-            window: Optional[int] = None
-    ):
-        self.cutoff = cutoff
-        self.annualizer = annualizer
-        self.window = window
-
-    def __call__(self, portfolio: Portfolio) -> pd.Series:
-        if self.annualizer is None:
-            annualizer = extract_annualizer(portfolio.returns)
-        else:
-            annualizer = self.annualizer
-
-        if self.window is None:
-            window = int(extract_annualizer(portfolio.returns))
-        else:
-            window = self.window
-
-        return portfolio.returns.rolling(window).apply(
-            lambda r: r[r <= r.quantile(self.cutoff)].mean()
-        ).iloc[window:] * np.sqrt(annualizer)
-
-    def fancy(self, portfolio: Portfolio) -> pd.Series:
-        return self(portfolio) * 100
-
-    @property
-    def fancy_name(self) -> str:
-        return "Trailing Expected Tail Loss, %"
-
-
-class ExpectedTailReward:
-    def __init__(
-            self,
-            cutoff: float = 0.95,
-            annualizer: Optional[float] = None
-    ):
-        self.cutoff = cutoff
-        self.annualizer = annualizer
-
-    def __call__(self, portfolio: Portfolio) -> float:
-        if self.annualizer is None:
-            annualizer = extract_annualizer(portfolio.returns)
-        else:
-            annualizer = self.annualizer
-
-        more_cutoff = portfolio.returns >= portfolio.returns.quantile(self.cutoff)
-        return portfolio.returns[more_cutoff].mean() * np.sqrt(annualizer)
-
-    def fancy(self, portfolio: Portfolio) -> str:
-        return format(self(portfolio) * 100, ".2f")
-
-    @property
-    def fancy_name(self) -> str:
-        return "Expected Tail Reward, %"
-
-
-class TrailingExpectedTailReward:
-    def __init__(
-            self,
-            cutoff: float = 0.95,
-            annualizer: Optional[float] = None,
-            window: Optional[int] = None
-    ):
-        self.cutoff = cutoff
-        self.annualizer = annualizer
-        self.window = window
-
-    def __call__(self, portfolio: Portfolio) -> pd.Series:
-        if self.annualizer is None:
-            annualizer = extract_annualizer(portfolio.returns)
-        else:
-            annualizer = self.annualizer
-
-        if self.window is None:
-            window = int(extract_annualizer(portfolio.returns))
-        else:
-            window = self.window
-
-        return portfolio.returns.rolling(window).apply(
-            lambda r: r[r >= r.quantile(self.cutoff)].mean()
-        ).iloc[window:] * np.sqrt(annualizer)
-
-    def fancy(self, portfolio: Portfolio) -> pd.Series:
-        return self(portfolio) * 100
-
-    @property
-    def fancy_name(self) -> str:
-        return "Trailing Expected Tail Reward, %"
-
-
-class RachevRatio:
-    def __init__(
-            self,
-            reward_cutoff: float = 0.95,
-            risk_cutoff: float = 0.05
-    ):
-        self.reward_cutoff = reward_cutoff
-        self.risk_cutoff = risk_cutoff
-
-    def __call__(self, portfolio: Portfolio) -> float:
-        etr = ExpectedTailReward(self.reward_cutoff)(portfolio)
-        etl = ExpectedTailLoss(self.risk_cutoff)(portfolio)
-        return -(etr / etl)
-
-    def fancy(self, portfolio: Portfolio) -> str:
-        return format(self(portfolio), ".2f")
-
-    @property
-    def fancy_name(self) -> str:
-        return "Rachev Ratio"
-
-
-class TrailingRachevRatio:
-    def __init__(
-            self,
-            reward_cutoff: float = 0.95,
-            risk_cutoff: float = 0.05,
-            window: Optional[int] = None
-    ):
-        self.reward_cutoff = reward_cutoff
-        self.risk_cutoff = risk_cutoff
-        self.window = window
-
-    def __call__(self, portfolio: Portfolio) -> pd.Series:
-        if self.window is None:
-            window = int(extract_annualizer(portfolio.returns))
-        else:
-            window = self.window
-
-        etr = TrailingExpectedTailReward(self.reward_cutoff, window)(portfolio)
-        etl = TrailingExpectedTailLoss(self.risk_cutoff, window)(portfolio)
-        return -(etr / etl)
-
-    def fancy(self, portfolio: Portfolio) -> pd.Series:
-        return self(portfolio)
-
-    @property
-    def fancy_name(self) -> str:
-        return "Trailing Rachev Ratio"
-
-
+@dataclass
 class CalmarRatio:
-    def __init__(self, annualizer: Optional[float] = None):
-        self.annualizer = annualizer
+    annualizer: Optional[float] = None
+    window: Optional[int] = None
 
-    def __call__(self, portfolio: Portfolio) -> float:
+    name: str = field(init=False, default="Calmar Ratio")
+
+    def calculate(self, portfolio: Portfolio) -> float:
         if self.annualizer is None:
             annualizer = extract_annualizer(portfolio.returns)
         else:
             annualizer = self.annualizer
 
-        return -(CAGR(annualizer)(portfolio) / MaxDrawdown()(portfolio))
+        cagr = CAGR(annualizer).calculate(portfolio)
+        max_dd = MaxDrawdown().calculate(portfolio)
 
-    def fancy(self, portfolio: Portfolio) -> str:
-        return format(self(portfolio), ".2f")
+        return -cagr / max_dd
 
-    @property
-    def fancy_name(self) -> str:
-        return "Calmar Ratio"
-
-
-class TrailingCalmarRatio:
-    def __init__(
-            self,
-            annualizer: Optional[float] = None,
-            window: Optional[int] = None
-    ):
-        self.annualizer = annualizer
-        self.window = window
-
-    def __call__(self, portfolio: Portfolio) -> pd.Series:
+    def trailing(self, portfolio: Portfolio) -> pd.Series:
         if self.annualizer is None:
             annualizer = extract_annualizer(portfolio.returns)
         else:
@@ -646,26 +304,24 @@ class TrailingCalmarRatio:
         else:
             window = self.window
 
-        return -(TrailingCAGR(annualizer, window)(portfolio) / TrailingMaxDrawdown(window)(portfolio))
+        cagr = CAGR(annualizer, window).trailing(portfolio)
+        max_dd = MaxDrawdown(window).trailing(portfolio)
 
-    def fancy(self, portfolio: Portfolio) -> pd.Series:
-        return self(portfolio)
+        return -cagr / max_dd
 
-    @property
-    def fancy_name(self) -> str:
-        return "Trailing Calmar Ratio"
+    def fancy(self, portfolio: Portfolio) -> str:
+        return format(self.calculate(portfolio), ".2f")
 
 
+@dataclass
 class SharpeRatio:
-    def __init__(
-            self,
-            rf: float = 0.0,
-            annualizer: Optional[float] = None
-    ):
-        self.rf = rf
-        self.annualizer = annualizer
+    rf: float = 0.0
+    annualizer: Optional[float] = None
+    window: Optional[int] = None
 
-    def __call__(self, portfolio: Portfolio) -> float:
+    name: str = field(init=False, default="Sharpe Ratio")
+
+    def calculate(self, portfolio: Portfolio) -> float:
         adjusted = adjust(portfolio.returns, self.rf)
         if self.annualizer is None:
             annualizer = extract_annualizer(adjusted)
@@ -674,26 +330,7 @@ class SharpeRatio:
 
         return adjusted.mean() / adjusted.std() * np.sqrt(annualizer)
 
-    def fancy(self, portfolio: Portfolio) -> str:
-        return format(self(portfolio), ".2f")
-
-    @property
-    def fancy_name(self) -> str:
-        return "Sharpe Ratio"
-
-
-class TrailingSharpeRatio:
-    def __init__(
-            self,
-            rf: float = 0.0,
-            annualizer: Optional[float] = None,
-            window: Optional[int] = None
-    ):
-        self.rf = rf
-        self.annualizer = annualizer
-        self.window = window
-
-    def __call__(self, portfolio: Portfolio) -> pd.Series:
+    def trailing(self, portfolio: Portfolio) -> pd.Series:
         adjusted = adjust(portfolio.returns, self.rf)
         if self.annualizer is None:
             annualizer = extract_annualizer(adjusted)
@@ -710,154 +347,22 @@ class TrailingSharpeRatio:
 
         return mr / std * np.sqrt(annualizer)
 
-    def fancy(self, portfolio: Portfolio) -> pd.Series:
-        return self(portfolio)
-
-    @property
-    def fancy_name(self) -> str:
-        return "Trailing Sharpe Ratio"
-
-
-class OmegaRatio:
-    def __init__(self, rf: float = 0.0):
-        self.rf = rf
-
-    def __call__(self, portfolio: Portfolio) -> float:
-        adjusted = adjust(portfolio.returns, self.rf)
-        above = adjusted[adjusted > 0].sum()
-        under = adjusted[adjusted < 0].sum()
-        return -(above / under)
-
     def fancy(self, portfolio: Portfolio) -> str:
-        return format(self(portfolio), ".2f")
-
-    @property
-    def fancy_name(self) -> str:
-        return "Omega Ratio"
+        return format(self.calculate(portfolio), ".2f")
 
 
-class TrailingOmegaRatio:
-    def __init__(
-            self,
-            rf: float = 0.0,
-            window: Optional[int] = None
-    ):
-        self.rf = rf
-        self.window = window
-
-    def __call__(self, portfolio: Portfolio) -> pd.Series:
-        if self.window is None:
-            window = int(extract_annualizer(portfolio.returns))
-        else:
-            window = self.window
-
-        adjusted = adjust(portfolio.returns, self.rf)
-
-        return adjusted.rolling(window).apply(
-            lambda r: -(r[r > 0].sum() / r[r < 0].sum())
-        )
-
-    def fancy(self, portfolio: Portfolio) -> pd.Series:
-        return self(portfolio)
-
-    @property
-    def fancy_name(self) -> str:
-        return "Omega Ratio"
-
-
-class SortinoRatio:
-    def __init__(
-            self,
-            rf: float = 0.0,
-            annualizer: Optional[float] = None
-    ):
-        self.rf = rf
-        self.annualizer = annualizer
-
-    def __call__(self, portfolio: Portfolio) -> float:
-        adjusted = adjust(portfolio.returns, self.rf)
-        if self.annualizer is None:
-            annualizer = extract_annualizer(adjusted)
-        else:
-            annualizer = self.annualizer
-
-        returns_under_mar = np.clip(adjusted, a_min=-np.inf, a_max=0)
-        downside_risk = np.sqrt((returns_under_mar ** 2).mean())
-
-        return adjusted.mean() / downside_risk * np.sqrt(annualizer)
-
-    def fancy(self, portfolio: Portfolio) -> str:
-        return format(self(portfolio), ".2f")
-
-    @property
-    def fancy_name(self) -> str:
-        return "Sortino Ratio"
-
-
-class TrailingSortinoRatio:
-    def __init__(
-            self,
-            rf: float = 0.0,
-            annualizer: Optional[float] = None,
-            window: Optional[int] = None
-    ):
-        self.rf = rf
-        self.annualizer = annualizer
-        self.window = window
-
-    def __call__(self, portfolio: Portfolio) -> pd.Series:
-        adjusted = adjust(portfolio.returns, self.rf)
-        if self.annualizer is None:
-            annualizer = extract_annualizer(adjusted)
-        else:
-            annualizer = self.annualizer
-
-        if self.window is None:
-            window = int(extract_annualizer(portfolio.returns))
-        else:
-            window = self.window
-
-        mr = adjusted.rolling(window).mean().iloc[window:]
-        downside_risk = adjusted.rolling(window).apply(
-            lambda r: np.sqrt((np.clip(adjusted, a_min=-np.inf, a_max=0) ** 2).mean())
-        ).iloc[window:]
-
-        return mr / downside_risk * np.sqrt(annualizer)
-
-    def fancy(self, portfolio: Portfolio) -> pd.Series:
-        return self(portfolio)
-
-    @property
-    def fancy_name(self) -> str:
-        return "Trailing Sortino Ratio"
-
-
+@dataclass
 class BenchmarkCorrelation:
-    def __init__(self, benchmark: Benchmark):
-        self.benchmark = benchmark
+    benchmark: Benchmark
+    window: Optional[int] = None
 
-    def __call__(self, portfolio: Portfolio) -> float:
+    name: str = field(init=False, default="Benchmark Correlation")
+
+    def calculate(self, portfolio: Portfolio) -> float:
         returns, benchmark = align(portfolio.returns, self.benchmark.returns)
         return returns.corr(benchmark)
 
-    def fancy(self, portfolio: Portfolio) -> str:
-        return format(self(portfolio), ".2f")
-
-    @property
-    def fancy_name(self) -> str:
-        return f"{self.benchmark.name} Correlation"
-
-
-class TrailingBenchmarkCorrelation:
-    def __init__(
-            self,
-            benchmark: Benchmark,
-            window: Optional[int] = None
-    ):
-        self.benchmark = benchmark
-        self.window = window
-
-    def __call__(self, portfolio: Portfolio) -> pd.Series:
+    def trailing(self, portfolio: Portfolio) -> pd.Series:
         returns, benchmark = align(portfolio.returns, self.benchmark.returns)
 
         if self.window is None:
@@ -867,26 +372,20 @@ class TrailingBenchmarkCorrelation:
 
         return returns.rolling(window).corr(benchmark)
 
-    def fancy(self, portfolio: Portfolio) -> pd.Series:
-        return self(portfolio)
-
-    @property
-    def fancy_name(self) -> str:
-        return f"Trailing {self.benchmark.name} Correlation"
+    def fancy(self, portfolio: Portfolio) -> str:
+        return format(self.calculate(portfolio), ".2f")
 
 
+@dataclass
 class MeanExcessReturn:
-    def __init__(
-            self,
-            benchmark: Benchmark,
-            statistics: bool = False,
-            annualizer: Optional[float] = None
-    ):
-        self.benchmark = benchmark
-        self.statistics = statistics
-        self.annualizer = annualizer
+    benchmark: Benchmark
+    statistics: bool = False
+    annualizer: Optional[float] = None
+    window: Optional[int] = None
 
-    def __call__(self, portfolio: Portfolio) -> float | Stats:
+    name: str = field(init=False, default="Mean Excess Return, %")
+
+    def calculate(self, portfolio: Portfolio) -> float | Stats:
         adjusted = adjust(portfolio.returns, self.benchmark.returns)
         if self.annualizer is None:
             annualizer = extract_annualizer(adjusted)
@@ -900,40 +399,11 @@ class MeanExcessReturn:
             mer = stats_container_factory("MeanExcessReturn")(
                 value=mer,
                 t_stat=ttest.statistic,
-                p_value=ttest.pvalue
-            )
+                p_value=ttest.pvalue)
 
         return mer
 
-    def fancy(self, portfolio: Portfolio) -> str:
-        mer = self(portfolio)
-
-        if self.statistics:
-            return mer.template.format(
-                value=mer.value * 100,
-                stars="*" * mer.count_stars(),
-                t_stat=mer.t_stat
-            )
-
-        return format(mer * 100, ".2f")
-
-    @property
-    def fancy_name(self) -> str:
-        return "Mean Excess Return, %"
-
-
-class TrailingMeanExcessReturn:
-    def __init__(
-            self,
-            benchmark: Benchmark,
-            annualizer: Optional[float] = None,
-            window: Optional[int] = None
-    ):
-        self.benchmark = benchmark
-        self.annualizer = annualizer
-        self.window = window
-
-    def __call__(self, portfolio: Portfolio) -> pd.Series:
+    def trailing(self, portfolio: Portfolio) -> pd.Series:
         adjusted = adjust(portfolio.returns, self.benchmark.returns)
 
         if self.annualizer is None:
@@ -948,28 +418,29 @@ class TrailingMeanExcessReturn:
 
         return adjusted.rolling(window).mean().iloc[window:] * annualizer
 
-    def fancy(self, portfolio: Portfolio) -> pd.Series:
-        return self(portfolio) * 100
+    def fancy(self, portfolio: Portfolio) -> str:
+        mer = self.calculate(portfolio)
 
-    @property
-    def fancy_name(self) -> str:
-        return "Trailing Mean Excess Return, %"
+        if self.statistics:
+            return mer.template.format(
+                value=mer.value * 100,
+                stars="*" * mer.count_stars(),
+                t_stat=mer.t_stat)
+
+        return format(mer * 100, ".2f")
 
 
+@dataclass
 class Alpha:
-    def __init__(
-            self,
-            benchmark: Benchmark,
-            rf: float = 0.0,
-            statistics: bool = False,
-            annualizer: Optional[float] = None
-    ):
-        self.benchmark = benchmark
-        self.rf = rf
-        self.statistics = statistics
-        self.annualizer = annualizer
+    benchmark: Benchmark
+    rf: float = 0.0
+    statistics: bool = False
+    annualizer: Optional[float] = None
+    window: Optional[int] = None
 
-    def __call__(self, portfolio: Portfolio) -> float | Stats:
+    name: str = field(init=False, default="Alpha, %")
+
+    def calculate(self, portfolio: Portfolio) -> float | Stats:
         if self.annualizer is None:
             annualizer = extract_annualizer(portfolio.returns)
         else:
@@ -984,42 +455,11 @@ class Alpha:
             alpha = stats_container_factory("Alpha")(
                 value=alpha,
                 p_value=est.pvalues[0],
-                t_stat=est.tvalues[0]
-            )
+                t_stat=est.tvalues[0])
 
         return alpha
 
-    def fancy(self, portfolio: Portfolio) -> str:
-        alpha = self(portfolio)
-
-        if self.statistics:
-            return alpha.template.format(
-                value=alpha.value * 100,
-                stars="*" * alpha.count_stars(),
-                t_stat=alpha.t_stat
-            )
-
-        return format(alpha * 100, ".2f")
-
-    @property
-    def fancy_name(self) -> str:
-        return "Alpha, %"
-
-
-class TrailingAlpha:
-    def __init__(
-            self,
-            benchmark: Benchmark,
-            rf: float = 0.0,
-            annualizer: Optional[float] = None,
-            window: Optional[int] = None
-    ):
-        self.benchmark = benchmark
-        self.rf = rf
-        self.annualizer = annualizer
-        self.window = window
-
-    def __call__(self, portfolio: Portfolio) -> pd.Series:
+    def trailing(self, portfolio: Portfolio) -> pd.Series:
         if self.annualizer is None:
             annualizer = extract_annualizer(portfolio.returns)
         else:
@@ -1042,26 +482,28 @@ class TrailingAlpha:
             index=returns.index[window:].copy()
         )
 
-    def fancy(self, portfolio: Portfolio) -> pd.Series:
-        return self(portfolio) * 100
+    def fancy(self, portfolio: Portfolio) -> str:
+        alpha = self.calculate(portfolio)
 
-    @property
-    def fancy_name(self) -> str:
-        return "Trailing Alpha, %"
+        if self.statistics:
+            return alpha.template.format(
+                value=alpha.value * 100,
+                stars="*" * alpha.count_stars(),
+                t_stat=alpha.t_stat)
+
+        return format(alpha * 100, ".2f")
 
 
+@dataclass
 class Beta:
-    def __init__(
-            self,
-            benchmark: Benchmark,
-            rf: float = 0.0,
-            statistics: bool = False,
-    ):
-        self.benchmark = benchmark
-        self.rf = rf
-        self.statistics = statistics
+    benchmark: Benchmark
+    rf: float = 0.0
+    statistics: bool = False
+    window: Optional[int] = None
 
-    def __call__(self, portfolio: Portfolio) -> float | Stats:
+    name: str = field(init=False, default="Beta")
+
+    def calculate(self, portfolio: Portfolio) -> float | Stats:
         returns, benchmark = align(portfolio.returns, self.benchmark.returns)
         est = estimate_ols(returns, benchmark, self.rf)
         beta = est.params[1]
@@ -1075,35 +517,7 @@ class Beta:
 
         return beta
 
-    def fancy(self, portfolio: Portfolio) -> str:
-        beta = self(portfolio)
-
-        if self.statistics:
-            return beta.template.format(
-                value=beta.value,
-                stars="*" * beta.count_stars(),
-                t_stat=beta.t_stat
-            )
-
-        return format(beta, ".2f")
-
-    @property
-    def fancy_name(self) -> str:
-        return "Beta"
-
-
-class TrailingBeta:
-    def __init__(
-            self,
-            benchmark: Benchmark,
-            rf: float = 0.0,
-            window: Optional[int] = None
-    ):
-        self.benchmark = benchmark
-        self.rf = rf
-        self.window = window
-
-    def __call__(self, portfolio: Portfolio) -> pd.Series:
+    def trailing(self, portfolio: Portfolio) -> pd.Series:
         if self.window is None:
             window = int(extract_annualizer(portfolio.returns))
         else:
@@ -1118,44 +532,32 @@ class TrailingBeta:
             index=returns.index[window:].copy()
         )
 
-    def fancy(self, portfolio: Portfolio) -> pd.Series:
-        return self(portfolio)
+    def fancy(self, portfolio: Portfolio) -> str:
+        beta = self.calculate(portfolio)
 
-    @property
-    def fancy_name(self) -> str:
-        return "Trailing Beta, %"
+        if self.statistics:
+            return beta.template.format(
+                value=beta.value,
+                stars="*" * beta.count_stars(),
+                t_stat=beta.t_stat)
+
+        return format(beta, ".2f")
 
 
+@dataclass
 class MeanTurnover:
-    def __init__(self, annualizer: Optional[float] = None):
-        self.annualizer = annualizer
+    annualizer: Optional[float] = None
+    window: Optional[int] = None
 
-    def __call__(self, portfolio: Portfolio) -> float:
+    def calculate(self, portfolio: Portfolio) -> float:
         if self.annualizer is None:
             annualizer = extract_annualizer(portfolio.returns)
         else:
             annualizer = self.annualizer
 
-        return Turnover()(portfolio).mean() * annualizer
+        return Turnover().calculate(portfolio).mean() * annualizer
 
-    def fancy(self, portfolio: Portfolio) -> str:
-        return format(self(portfolio) * 100, ".2f")
-
-    @property
-    def fancy_name(self) -> str:
-        return "Mean Turnover, %"
-
-
-class TrailingMeanTurnover:
-    def __init__(
-            self,
-            annualizer: Optional[float] = None,
-            window: Optional[int] = None
-    ):
-        self.annualizer = annualizer
-        self.window = window
-
-    def __call__(self, portfolio: Portfolio) -> pd.Series:
+    def trailing(self, portfolio: Portfolio) -> pd.Series:
         if self.annualizer is None:
             annualizer = extract_annualizer(portfolio.returns)
         else:
@@ -1166,11 +568,66 @@ class TrailingMeanTurnover:
         else:
             window = self.window
 
-        return Turnover()(portfolio).rolling(window).mean().iloc[window:] * annualizer
+        return Turnover().calculate(portfolio).rolling(window).mean().iloc[window:] * annualizer
 
-    def fancy(self, portfolio: Portfolio) -> pd.Series:
-        return self(portfolio) * 100
+    def fancy(self, portfolio: Portfolio) -> str:
+        return format(self.calculate(portfolio) * 100, ".2f")
 
-    @property
-    def fancy_name(self) -> str:
-        return "Trailing Mean Turnover, %"
+
+class Stats(Protocol):
+    value: float
+    t_stat: float
+    p_value: float
+
+    template: str
+
+    def count_stars(self) -> int:
+        pass
+
+
+def stats_container_factory(metric_name: str) -> type:
+    return make_dataclass(
+        metric_name,
+        [
+            ("value", float),
+            ("t_stat", float),
+            ("p_value", float),
+        ],
+        namespace={
+            "template": property(lambda self: "{value:.2f}{stars} ({t_stat:.2f})"),
+            "count_stars": lambda self: 3 if self.p_value < 0.01 else (
+                2 if self.p_value < 0.05 else (
+                    1 if self.p_value < 0.1 else 0))
+        }
+    )
+
+
+def estimate_ols(
+        returns: pd.Series,
+        benchmark: pd.Series,
+        rf: float = 0.0
+):
+    adjusted_returns = adjust(returns, rf)
+    adjusted_benchmark = adjust(benchmark, rf)
+
+    y, x = align(adjusted_returns, adjusted_benchmark)
+    x = sm.add_constant(x.to_numpy())
+    ols = sm.OLS(y.to_numpy(), x)
+
+    return ols.fit()
+
+
+def estimate_rolling_ols(
+        returns: pd.Series,
+        benchmark: pd.Series,
+        window: int,
+        rf: float = 0.0,
+):
+    adjusted_returns = adjust(returns, rf)
+    adjusted_benchmark = adjust(benchmark, rf)
+
+    y, x = align(adjusted_returns, adjusted_benchmark)
+    x = sm.add_constant(x.to_numpy())
+    ols = RollingOLS(y.to_numpy(), x, window=window)
+
+    return ols.fit()
