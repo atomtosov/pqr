@@ -12,7 +12,7 @@ from .universe import Universe
 
 __all__ = [
     "Portfolio",
-    "Allocator", "AllocationStrategy",
+    "AllocationStep", "AllocationStrategy",
 
     "EqualWeights",
     "WeightsByFactor",
@@ -23,12 +23,12 @@ __all__ = [
 ]
 
 
-class Allocator(Protocol):
+class AllocationStep(Protocol):
     def allocate(self, positions: pd.DataFrame) -> pd.DataFrame:
         pass
 
 
-AllocationStrategy = Union[Allocator, Sequence[Allocator]]
+AllocationStrategy = Union[AllocationStep, Sequence[AllocationStep]]
 
 
 @dataclass
@@ -44,26 +44,17 @@ class Portfolio:
             self,
             longs: Optional[pd.DataFrame],
             shorts: Optional[pd.DataFrame]
-    ):
+    ) -> None:
         if longs is None and shorts is None:
             raise ValueError("either longs or shorts must be specified")
 
-        elif longs is not None and shorts is not None:  # long-short
+        elif longs is not None and shorts is not None:
             longs, shorts = align(longs, shorts)
-            self.picks = pd.DataFrame(
-                longs.to_numpy(dtype=np.int8) - shorts.to_numpy(dtype=np.int8),
-                index=longs.index.copy(),
-                columns=longs.columns.copy())
-        elif longs is not None:  # long-only
-            self.picks = pd.DataFrame(
-                longs.to_numpy(dtype=np.int8),
-                index=longs.index.copy(),
-                columns=longs.columns.copy())
-        else:  # short-only
-            self.picks = pd.DataFrame(
-                -shorts.to_numpy(dtype=np.int8),
-                index=shorts.index.copy(),
-                columns=shorts.columns.copy())
+            self.picks = longs.astype(np.int8) - shorts.astype(np.int8)
+        elif longs is not None:
+            self.picks = longs.astype(np.int8)
+        else:
+            self.picks = -shorts.astype(np.int8)
 
         if not self.name:
             self.name = "Portfolio"
@@ -72,35 +63,30 @@ class Portfolio:
         self.positions = None
         self.returns = None
 
-    def allocate(self, allocation_strategy: AllocationStrategy = None) -> None:
+    def allocate(self, allocation_strategy: Optional[AllocationStrategy] = None) -> None:
         if allocation_strategy is None:
-            allocation_strategy = [EqualWeights()]
-        elif not isinstance(allocation_strategy, Sequence):
+            allocation_strategy = EqualWeights()
+
+        if not isinstance(allocation_strategy, Sequence):
             allocation_strategy = [allocation_strategy]
 
         self.positions = self.picks
-        for allocator in allocation_strategy:
-            self.positions = allocator.allocate(self.positions)
+        for allocation_step in allocation_strategy:
+            self.positions = allocation_step.allocate(self.positions)
 
         self.positions.index.name = self.name
 
     def calculate_returns(self, universe: Universe) -> None:
-        prices, mask, positions = align_many(universe.prices, universe.mask, self.positions)
-        universe_returns = prices.pct_change().to_numpy()[1:]
+        universe_returns = universe.get_universe_returns(nan_as_dead=True)
+        universe_returns, positions = align(universe_returns, self.positions)
 
-        positions_available = positions.to_numpy()[:-1]
-        portfolio_returns = np.where(
-            mask.to_numpy()[:-1],
-            (positions_available * universe_returns), 0)
-
-        dead_returns = np.where(
-            np.isnan(portfolio_returns) & ~np.isclose(positions_available, 0),
-            -positions_available, 0)
-        returns = np.nansum(portfolio_returns, axis=1) + np.nansum(dead_returns, axis=1)
+        portfolio_returns = universe_returns.to_numpy()[1:] * positions.to_numpy()[:-1]
+        returns = np.nansum(portfolio_returns, axis=1)
 
         self.returns = pd.Series(
-            np.insert(returns, 0, 0),
-            index=positions.index.copy())
+            np.insert(returns, obj=0, values=0),
+            index=positions.index.copy()
+        )
 
         self.returns.index.name = self.name
 
@@ -108,13 +94,15 @@ class Portfolio:
         return pd.DataFrame(
             self.picks.to_numpy() == 1,
             index=self.picks.index.copy(),
-            columns=self.picks.columns.copy())
+            columns=self.picks.columns.copy()
+        )
 
     def get_shorts(self) -> pd.DataFrame:
         return pd.DataFrame(
             self.picks.to_numpy() == -1,
             index=self.picks.index.copy(),
-            columns=self.picks.columns.copy())
+            columns=self.picks.columns.copy()
+        )
 
 
 @dataclass
