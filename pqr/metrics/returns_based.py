@@ -195,7 +195,7 @@ def trailing_win_rate(
 
 @infer(returns=True)
 def drawdown(returns: pd.Series) -> pd.Series:
-    equity = compounded_returns(returns, log_scale=False)
+    equity = 1 + compounded_returns(returns, log_scale=False)
     high_water_mark = equity.cummax()
     return equity / high_water_mark - 1
 
