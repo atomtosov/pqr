@@ -86,8 +86,11 @@ def grid_search_factor_portfolios(
     for name, transform in transforms.items():
         metrics_grid.append(
             pd.Series({
-                portfolio.name: metric(portfolio)
-                for portfolio in backtest_factor_portfolios(factor, *args, **kwargs)
+                portfolio.index.name: metric(portfolio)
+                for portfolio in backtest_factor_portfolios(
+                    transform(factor),
+                    *args, **kwargs
+                )
             }, name=name)
         )
 
