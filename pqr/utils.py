@@ -1,91 +1,219 @@
-from __future__ import annotations
+__all__ = [
+    "replace_with_nan",
+    "align",
+    "compose",
+    "partial",
+    "adjust",
+    "estimate_window",
+    "estimate_annualizer",
+    "estimate_holding",
+    "longs_from_portfolio",
+    "shorts_from_portfolio",
+]
 
-from typing import Any
+from functools import (
+    partial,
+    reduce,
+)
+from typing import (
+    Any,
+    Callable,
+    Union, Tuple,
+)
 from warnings import warn
 
 import numpy as np
 import pandas as pd
+from pandas.tseries import offsets
+from pandas.tseries.frequencies import to_offset
 
 
 def replace_with_nan(
-        *df_or_series: pd.DataFrame | pd.Series,
+        *values: Union[pd.DataFrame, pd.Series],
         to_replace: Any = 0
-) -> list[pd.DataFrame | pd.Series]:
-    return [
-        data.replace(to_replace, np.nan) for data in df_or_series
-    ]
+) -> Tuple[Union[pd.DataFrame, pd.Series], ...]:
+    return tuple(v.replace(to_replace, np.nan) for v in values)
 
 
-def is_aligned(
-        left: pd.DataFrame | pd.Series,
-        right: pd.DataFrame | pd.Series
+def align(*values: Union[pd.DataFrame, pd.Series]) -> Tuple[Union[pd.DataFrame, pd.Series], ...]:
+    values = list(values)
+
+    for i in range(len(values) - 1):
+        values[i], values[i + 1] = _align_two(values[i], values[i + 1])
+
+    for i in range(len(values) - 2, 0, -1):
+        values[i], values[i - 1] = _align_two(values[i], values[i - 1])
+
+    return tuple(values)
+
+
+def _align_two(
+        left: Union[pd.DataFrame, pd.Series],
+        right: Union[pd.DataFrame, pd.Series]
+) -> Tuple[Union[pd.DataFrame, pd.Series], Union[pd.DataFrame, pd.Series]]:
+    if _are_aligned(left, right):
+        return left.copy(), right.copy()
+
+    if isinstance(left, pd.Series) or isinstance(right, pd.Series):
+        return left.align(right, join="inner", axis=0)
+
+    return left.align(right, join="inner")
+
+
+def _are_aligned(
+        left: Union[pd.DataFrame, pd.Series],
+        right: Union[pd.DataFrame, pd.Series],
 ) -> bool:
-    if isinstance(left, pd.Series) or isinstance(right, pd.Series):
-        return (
-                (left.index.shape == right.index.shape) and (left.index == right.index).all()
-        )
+    indices_aligned = ((left.index.shape == right.index.shape) and
+                       (left.index == right.index).all())
 
-    return (
-            (left.index.shape == right.index.shape) and (left.index == right.index).all()
-            and
-            (left.columns.shape == right.columns.shape) and (left.columns == right.columns).all()
+    if isinstance(left, pd.Series) or isinstance(right, pd.Series):
+        return indices_aligned
+
+    columns_aligned = ((left.columns.shape == right.columns.shape) and
+                       (left.columns == right.columns).all())
+
+    return indices_aligned and columns_aligned
+
+
+def compose(*funcs: Callable) -> Any:
+    return reduce(
+        lambda f, g: lambda *args, **kwargs: g(f(*args, **kwargs)),
+        funcs
     )
-
-
-def align(
-        left: pd.DataFrame | pd.Series,
-        right: pd.DataFrame | pd.Series
-) -> tuple[pd.DataFrame | pd.Series, pd.DataFrame | pd.Series]:
-    if is_aligned(left, right):
-        return left, right
-
-    axis = None
-    if isinstance(left, pd.Series) or isinstance(right, pd.Series):
-        axis = 0
-    return left.align(right, join="inner", axis=axis)
-
-
-def align_many(*df_or_series: pd.DataFrame | pd.Series) -> tuple[pd.DataFrame | pd.Series, ...]:
-    df_or_series = list(df_or_series)
-
-    for i in range(len(df_or_series) - 1):
-        df_or_series[i], df_or_series[i + 1] = align(df_or_series[i], df_or_series[i + 1])
-
-    for i in range(len(df_or_series) - 2, 0, -1):
-        df_or_series[i], df_or_series[i - 1] = align(df_or_series[i], df_or_series[i - 1])
-
-    return tuple(df_or_series)
-
-
-def extract_annualizer(df_or_series: pd.DataFrame | pd.Series) -> float:
-    freq_alias = {
-        "A": 1, "AS": 1, "BYS": 1, "BA": 1, "BAS": 1, "RE": 1,  # yearly
-        "Q": 4, "QS": 4, "BQ": 4, "BQS": 4,  # quarterly
-        "M": 12, "MS": 12, "BM": 12, "BMS": 12, "CBM": 12, "CBMS": 12,  # monthly
-        "W": 52,  # weekly
-        "B": 252, "C": 252, "D": 252,  # daily
-    }
-
-    if not isinstance(df_or_series.index, pd.DatetimeIndex):
-        raise TypeError("df or series must have pd.DateTimeIndex to infer periodicity")
-
-    idx = df_or_series.index
-    inferred_freq = getattr(idx, "inferred_freq", None)
-    annualizer = freq_alias.get(inferred_freq)
-
-    if annualizer is None:
-        warn("periodicity of df or series cannot be determined correctly, estimation is used")
-        years_approx = (idx[-1] - idx[0]).days / 365.25
-        annualizer = len(idx) / years_approx
-
-    return annualizer
 
 
 def adjust(
         returns: pd.Series,
-        rf: float | pd.Series
+        rf: Union[float, pd.Series],
 ) -> pd.Series:
     if isinstance(rf, pd.Series):
         returns, rf = align(returns, rf)
 
     return returns - rf
+
+
+def estimate_window(values: Union[pd.DataFrame, pd.Series]) -> int:
+    return int(estimate_annualizer(values))
+
+
+def estimate_annualizer(values: Union[pd.DataFrame, pd.Series]) -> float:
+    try:
+        return {
+            "yearly": 1.0,
+            "quarterly": 4.0,
+            "monthly": 12.0,
+            "weekly": 52.0,
+            "daily": 252.0,
+        }[_estimate_periodicity(values)]
+    except KeyError:
+        warn("periodicity of data is undefined, estimation for annualizer is used")
+        idx = values.index
+        years_approx = (idx[-1] - idx[0]).days / 365.25
+        return len(idx) / years_approx
+
+
+def _estimate_periodicity(values: Union[pd.DataFrame, pd.Series]) -> str:
+    if not isinstance(values.index, pd.DatetimeIndex):
+        raise TypeError(
+            "values must have pd.DateTimeIndex to infer periodicity"
+        )
+
+    freqstr = pd.infer_freq(values.index)
+    freq = to_offset(freqstr)
+
+    if _is_yearly(freq):
+        return "yearly"
+    elif _is_quarterly(freq):
+        return "quarterly"
+    elif _is_monthly(freq):
+        return "monthly"
+    elif _is_weekly(freq):
+        return "weekly"
+    elif _is_daily(freq):
+        return "daily"
+
+
+def _is_yearly(freq: offsets.BaseOffset) -> bool:
+    return isinstance(
+        freq,
+        (
+            offsets.YearBegin,
+            offsets.YearEnd,
+            offsets.BYearBegin,
+            offsets.BYearEnd,
+            offsets.FY5253,
+        )
+    )
+
+
+def _is_quarterly(freq: offsets.BaseOffset) -> bool:
+    return isinstance(
+        freq,
+        (
+            offsets.QuarterBegin,
+            offsets.QuarterEnd,
+            offsets.BQuarterBegin,
+            offsets.BQuarterEnd,
+            offsets.FY5253Quarter,
+        )
+    )
+
+
+def _is_monthly(freq: offsets.BaseOffset) -> bool:
+    return isinstance(
+        freq,
+        (
+            offsets.BusinessMonthBegin,
+            offsets.BusinessMonthEnd,
+            offsets.CustomBusinessMonthBegin,
+            offsets.CustomBusinessMonthEnd,
+            offsets.MonthBegin,
+            offsets.MonthEnd,
+            offsets.LastWeekOfMonth,
+            offsets.WeekOfMonth,
+        )
+    )
+
+
+def _is_weekly(freq: offsets.BaseOffset) -> bool:
+    return isinstance(
+        freq,
+        (
+            offsets.Week,
+        )
+    )
+
+
+def _is_daily(freq: offsets.BaseOffset) -> bool:
+    return isinstance(
+        freq,
+        (
+            offsets.Day,
+            offsets.BusinessDay,
+            offsets.CustomBusinessDay,
+        )
+    )
+
+
+def estimate_holding(portfolio: pd.DataFrame) -> int:
+    picks = picks_from_portfolio(portfolio)
+    diff = np.diff(picks.to_numpy(), axis=0)
+    rebalancings_long = (diff == 1).any(axis=1).sum()
+    rebalancings_short = (diff == -1).any(axis=1).sum()
+    avg_rebalacings = (rebalancings_long + rebalancings_short) / 2
+
+    return round(len(diff) / avg_rebalacings)
+
+
+def picks_from_portfolio(portfolio: pd.DataFrame) -> pd.DataFrame:
+    return (longs_from_portfolio(portfolio).astype(np.int8) -
+            shorts_from_portfolio(portfolio).astype(np.int8))
+
+
+def longs_from_portfolio(portfolio: pd.DataFrame) -> pd.DataFrame:
+    return portfolio.drop(columns=["returns"], errors="ignore") > 0
+
+
+def shorts_from_portfolio(portfolio: pd.DataFrame) -> pd.DataFrame:
+    return portfolio.drop(columns=["returns"], errors="ignore") < 0

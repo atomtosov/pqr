@@ -1,47 +1,40 @@
-from __future__ import annotations
+__all__ = [
+    "index_as_benchmark",
+    "universe_as_benchmark",
+]
 
-from dataclasses import dataclass, field
-from typing import Optional
+from typing import (
+    Optional,
+    Callable,
+)
 
 import pandas as pd
 
-from .portfolio import Portfolio, Allocator
-from .universe import Universe
-
-__all__ = [
-    "Benchmark",
-]
+from pqr.core.backtest import backtest_portfolio
 
 
-@dataclass
-class Benchmark:
-    returns: pd.Series = field(repr=False)
-    name: Optional[str] = None
+def index_as_benchmark(
+        index: pd.Series,
+        name: Optional[str] = None,
+) -> pd.Series:
+    benchmark = index.astype(float).pct_change()
+    benchmark.iat[0] = 0.0
+    benchmark.index.name = name or "Benchmark"
+    return benchmark
 
-    def __post_init__(self):
-        self.returns = self.returns.astype(float)
-        if not self.name:
-            self.name = "Benchmark"
 
-        self.returns.index.name = self.name
-
-    @classmethod
-    def from_index(
-            cls,
-            index: pd.Series,
-            name: Optional[str] = None,
-    ) -> Benchmark:
-        return cls(index.pct_change().fillna(0), name)
-
-    @classmethod
-    def from_universe(
-            cls,
-            universe: Universe,
-            allocation_strategy: Optional[Allocator] = None,
-            name: Optional[str] = None,
-    ) -> Benchmark:
-        benchmark = Portfolio(longs=universe.mask)
-        benchmark.allocate(allocation_strategy)
-        benchmark.calculate_returns(universe)
-
-        return cls(benchmark.returns, name)
+def universe_as_benchmark(
+        prices: pd.DataFrame,
+        universe: Optional[pd.DataFrame] = None,
+        allocation: Optional[Callable[[pd.DataFrame], pd.DataFrame]] = None,
+        name: Optional[str] = None,
+) -> pd.Series:
+    if universe is None:
+        universe = prices.notnull()
+    benchmark = backtest_portfolio(
+        prices=prices,
+        longs=universe,
+        allocation=allocation,
+        name=name or "Benchmark",
+    )
+    return benchmark["returns"]
