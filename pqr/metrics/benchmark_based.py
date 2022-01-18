@@ -118,7 +118,10 @@ def trailing_alpha(
         window: Optional[int] = None,
 ) -> pd.Series:
     capm = _estimate_trailing_capm(returns, benchmark, rf, window)
-    return capm.params[window:, 0] * annualizer
+    return pd.Series(
+        capm.params[window:, 0] * annualizer,
+        index=returns.index[-len(capm.params) + window:]
+    )
 
 
 @infer(returns=True, benchmark=True)
@@ -147,7 +150,10 @@ def trailing_beta(
         window: Optional[int] = None,
 ) -> pd.Series:
     capm = _estimate_trailing_capm(returns, benchmark, rf, window)
-    return capm.params[window:, 1]
+    return pd.Series(
+        capm.params[window:, 1],
+        index=returns.index[-len(capm.params) + window:]
+    )
 
 
 def _estimate_capm(

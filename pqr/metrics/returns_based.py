@@ -96,7 +96,9 @@ def trailing_cagr(
 ) -> pd.Series:
     return returns.rolling(window).apply(
         total_return,
-        annualizer=annualizer,
+        kwargs={
+            "annualizer": annualizer,
+        },
     ).iloc[window:]
 
 
@@ -170,8 +172,10 @@ def trailing_downside_risk(
 ) -> pd.Series:
     return returns.rolling(window).apply(
         downside_risk,
-        mar=mar,
-        annualizer=annualizer,
+        kwargs={
+            "mar": mar,
+            "annualizer": annualizer,
+        },
     ).iloc[window:]
 
 
@@ -252,8 +256,10 @@ def trailing_expected_tail_loss(
 ) -> pd.Series:
     return returns.rolling(window).apply(
         expected_tail_loss,
-        cutoff=cutoff,
-        annualizer=annualizer,
+        kwargs={
+            "cutoff": cutoff,
+            "annualizer": annualizer,
+        },
     ).iloc[window:]
 
 
@@ -278,8 +284,10 @@ def trailing_expected_tail_reward(
 ) -> pd.Series:
     return returns.rolling(window).apply(
         expected_tail_reward,
-        cutoff=cutoff,
-        annualizer=annualizer,
+        kwargs={
+            "cutoff": cutoff,
+            "annualizer": annualizer,
+        },
     ).iloc[window:]
 
 
@@ -303,8 +311,10 @@ def trailing_rachev_ratio(
         risk_cutoff: float = 0.05,
         window: Optional[int] = None,
 ) -> pd.Series:
-    etr = trailing_expected_tail_reward(returns, reward_cutoff, annualizer=1, window=window)
-    etl = trailing_expected_tail_loss(returns, risk_cutoff, annualizer=1, window=window)
+    etr = trailing_expected_tail_reward(returns, reward_cutoff,
+                                        annualizer=1, window=window)
+    etl = trailing_expected_tail_loss(returns, risk_cutoff,
+                                      annualizer=1, window=window)
     return -(etr / etl)
 
 
@@ -354,8 +364,10 @@ def trailing_sharpe_ratio(
 ) -> pd.Series:
     return returns.rolling(window).apply(
         sharpe_ratio,
-        rf=rf,
-        annualizer=annualizer,
+        kwargs={
+            "rf": rf,
+            "annualizer": annualizer,
+        },
     ).iloc[window:]
 
 
@@ -380,7 +392,9 @@ def trailing_omega_ratio(
 ) -> pd.Series:
     return returns.rolling(window).apply(
         omega_ratio,
-        rf=rf,
+        kwargs={
+            "rf": rf,
+        },
     ).iloc[window:]
 
 
