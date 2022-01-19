@@ -19,10 +19,10 @@ from IPython.display import display
 
 def display_dashboard(
         portfolios: Sequence[pd.DataFrame],
-        *data_marts: Callable[[Sequence[pd.DataFrame]], None]
+        items: Sequence[Callable[[Sequence[pd.DataFrame]], None]],
 ) -> None:
-    for data_mart in data_marts:
-        data_mart(portfolios)
+    for item in items:
+        item(portfolios)
 
 
 def plot_chart(
