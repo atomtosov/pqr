@@ -10,7 +10,7 @@ from pqr.utils import align
 
 def calculate_returns(
         prices: pd.DataFrame,
-        holdings: pd.DataFrame
+        holdings: pd.DataFrame,
 ) -> pd.DataFrame:
     universe_returns, holdings = align(
         _prices_to_returns(prices),
