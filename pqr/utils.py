@@ -18,7 +18,8 @@ from functools import (
 from typing import (
     Any,
     Callable,
-    Union, Tuple,
+    Union,
+    Tuple,
 )
 from warnings import warn
 
