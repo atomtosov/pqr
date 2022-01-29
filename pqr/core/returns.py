@@ -47,5 +47,5 @@ def _prices_to_returns(prices: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(
         universe_returns,
         index=prices.index.copy(),
-        columns=prices.columns.copy()
+        columns=prices.columns.copy(),
     )

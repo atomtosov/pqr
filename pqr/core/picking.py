@@ -32,13 +32,11 @@ def pick(
         raise ValueError("either longs or shorts must be given")
     elif longs is not None and shorts is not None:
         longs, shorts = align(longs, shorts)
-        picks = longs.astype(np.int8) - shorts.astype(np.int8)
+        return longs.astype(np.int8) - shorts.astype(np.int8)
     elif longs is not None and shorts is None:
-        picks = longs.astype(np.int8)
+        return longs.astype(np.int8)
     else:
-        picks = shorts.astype(np.int8)
-
-    return picks
+        return shorts.astype(np.int8)
 
 
 def quantiles(
@@ -50,13 +48,12 @@ def quantiles(
     min_q, max_q = np.nanquantile(
         factor_array,
         [min_q, max_q],
-        axis=1, keepdims=True
+        axis=1, keepdims=True,
     )
-
     return pd.DataFrame(
         (min_q <= factor_array) & (factor_array <= max_q),
         index=factor.index.copy(),
-        columns=factor.columns.copy()
+        columns=factor.columns.copy(),
     )
 
 
@@ -70,7 +67,7 @@ def split_quantiles(n: int) -> List[Callable[[pd.DataFrame], pd.DataFrame]]:
 
 def top(
         factor: pd.DataFrame,
-        k: int = 10
+        k: int = 10,
 ) -> pd.DataFrame:
     factor_array = factor.to_numpy()
     top_k = np.apply_along_axis(
@@ -78,7 +75,6 @@ def top(
         axis=1,
         arr=factor_array
     )[:, np.newaxis]
-
     return pd.DataFrame(
         factor_array >= top_k,
         index=factor.index.copy(),
@@ -88,7 +84,7 @@ def top(
 
 def bottom(
         factor: pd.DataFrame,
-        k: int = 10
+        k: int = 10,
 ) -> pd.DataFrame:
     factor_array = factor.to_numpy()
     bottom_k = np.apply_along_axis(
@@ -96,7 +92,6 @@ def bottom(
         axis=1,
         arr=factor_array
     )[:, np.newaxis]
-
     return pd.DataFrame(
         factor_array <= bottom_k,
         index=factor.index.copy(),
@@ -108,27 +103,6 @@ def split_top_bottom(k: int) -> List[Callable[[pd.DataFrame], pd.DataFrame]]:
     return [
         partial(top, k=k),
         partial(bottom, k=k)
-    ]
-
-
-def time_series(
-        factor: pd.DataFrame,
-        min_threshold: float = -np.inf,
-        max_threshold: float = np.inf
-) -> pd.DataFrame:
-    factor_array = factor.to_numpy()
-
-    return pd.DataFrame(
-        (min_threshold <= factor_array) & (factor_array <= max_threshold),
-        index=factor.index.copy(),
-        columns=factor.columns.copy()
-    )
-
-
-def split_time_series(threshold: float = 0.0) -> List[Callable[[pd.DataFrame], pd.DataFrame]]:
-    return [
-        partial(time_series, max_threshold=threshold),
-        partial(time_series, min_threshold=threshold),
     ]
 
 
@@ -160,3 +134,23 @@ def _bottom_single(
         return np.min(uniq_arr)
     else:
         return np.nan
+
+
+def time_series(
+        factor: pd.DataFrame,
+        min_threshold: float = -np.inf,
+        max_threshold: float = np.inf,
+) -> pd.DataFrame:
+    factor_array = factor.to_numpy()
+    return pd.DataFrame(
+        (min_threshold <= factor_array) & (factor_array <= max_threshold),
+        index=factor.index.copy(),
+        columns=factor.columns.copy()
+    )
+
+
+def split_time_series(threshold: float = 0.0) -> List[Callable[[pd.DataFrame], pd.DataFrame]]:
+    return [
+        partial(time_series, max_threshold=threshold),
+        partial(time_series, min_threshold=threshold),
+    ]

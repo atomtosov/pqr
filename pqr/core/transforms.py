@@ -23,7 +23,7 @@ def filter(
     return pd.DataFrame(
         np.where(universe.to_numpy(bool), factor.to_numpy(float), np.nan),
         index=factor.index.copy(),
-        columns=factor.columns.copy()
+        columns=factor.columns.copy(),
     )
 
 
@@ -31,9 +31,9 @@ def look_back_pct_change(
         factor: pd.DataFrame,
         period: int,
 ) -> pd.DataFrame:
-    values_array = factor.to_numpy()
+    factor_array = factor.to_numpy()
     return pd.DataFrame(
-        (values_array[period:] - values_array[:-period]) / values_array[:-period],
+        (factor_array[period:] - factor_array[:-period]) / factor_array[:-period],
         index=factor.index[period:].copy(),
         columns=factor.columns.copy()
     )

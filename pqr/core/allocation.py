@@ -17,62 +17,57 @@ from pqr.utils import align
 def equal_weights(holdings: pd.DataFrame) -> pd.DataFrame:
     picks_array = holdings.to_numpy()
     longs, shorts = picks_array > 0, picks_array < 0
-
-    with np.errstate(divide="ignore", invalid="ignore"):
-        return pd.DataFrame(
-            _normalize(longs) - _normalize(shorts),
-            index=holdings.index.copy(),
-            columns=holdings.columns.copy()
-        )
+    return pd.DataFrame(
+        _normalize(longs) - _normalize(shorts),
+        index=holdings.index.copy(),
+        columns=holdings.columns.copy()
+    )
 
 
 def factor_weights(
         holdings: pd.DataFrame,
-        factor: pd.DataFrame
+        factor: pd.DataFrame,
 ) -> pd.DataFrame:
     holdings, factor_values = align(holdings, factor)
     holdings_array, factor_array = holdings.to_numpy(), factor_values.to_numpy()
     longs, shorts = holdings_array > 0, holdings_array < 0
-
-    with np.errstate(divide="ignore", invalid="ignore"):
-        return pd.DataFrame(
-            _normalize(longs * factor_array) - _normalize(shorts * factor_array),
-            index=holdings.index.copy(),
-            columns=holdings.columns.copy()
-        )
+    return pd.DataFrame(
+        _normalize(longs * factor_array) - _normalize(shorts * factor_array),
+        index=holdings.index.copy(),
+        columns=holdings.columns.copy(),
+    )
 
 
 def _normalize(raw_weights: np.ndarray) -> np.ndarray:
     normalizing_coef = np.nansum(
         raw_weights,
-        axis=1, keepdims=True, dtype=float
+        axis=1, keepdims=True, dtype=float,
     )
     with np.errstate(divide="ignore", invalid="ignore"):
         return np.nan_to_num(
             raw_weights / normalizing_coef,
-            nan=0, neginf=0, posinf=0
+            nan=0, neginf=0, posinf=0,
         )
 
 
 def factor_scaling(
         holdings: pd.DataFrame,
         factor: pd.DataFrame,
-        target: float = 1.0
+        target: float = 1.0,
 ) -> pd.DataFrame:
-    holdings, factor_values = align(holdings, factor)
-    leverage = target / factor_values.to_numpy()
-
+    holdings, factor = align(holdings, factor)
+    leverage = target / factor.to_numpy()
     return pd.DataFrame(
         leverage * holdings.to_numpy(),
         index=holdings.index.copy(),
-        columns=holdings.columns.copy()
+        columns=holdings.columns.copy(),
     )
 
 
 def limit_leverage(
         holdings: pd.DataFrame,
         min_leverage: float = -np.inf,
-        max_leverage: float = np.inf
+        max_leverage: float = np.inf,
 ) -> pd.DataFrame:
     w = holdings.to_numpy()
     total_leverage = np.nansum(w, axis=1, keepdims=True)
@@ -90,7 +85,7 @@ def limit_leverage(
         np.where(~(exceed_min | exceed_max), w, 0) +
         under_min + above_max,
         index=holdings.index.copy(),
-        columns=holdings.columns.copy()
+        columns=holdings.columns.copy(),
     )
 
 
@@ -98,7 +93,7 @@ def allocate_cash(
         holdings: pd.DataFrame,
         prices: pd.DataFrame,
         capital: float = 1_000_000.0,
-        fee: float = 0.0
+        fee: float = 0.0,
 ) -> pd.DataFrame:
     prices, weights = align(prices, holdings)
     prices_arr = prices.to_numpy()
@@ -127,7 +122,7 @@ def allocate_cash(
     return pd.DataFrame(
         positions_in_cash / balance[:, np.newaxis],
         index=weights.index.copy(),
-        columns=["CASH_RESIDUALS"] + list(weights.columns.copy())
+        columns=["cash_residuals"] + list(weights.columns.copy())
     )
 
 
@@ -136,7 +131,7 @@ def _allocation_step(
         prices: np.ndarray,
         prev_alloc: np.ndarray,
         prev_cash: float,
-        fee: float
+        fee: float,
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     balance = prev_cash + np.nansum(prev_alloc * prices)
     allocation_delta = _close_positions(weights, prev_alloc)
@@ -171,7 +166,7 @@ def _allocation_step(
 
 def _close_positions(
         weights: np.ndarray,
-        prev_alloc: np.ndarray
+        prev_alloc: np.ndarray,
 ) -> np.ndarray:
     return -prev_alloc * (weights == 0)
 
@@ -181,7 +176,7 @@ def _rebalance_positions(
         prices: np.ndarray,
         prev_alloc: np.ndarray,
         balance: float,
-        fee: float
+        fee: float,
 ) -> np.ndarray:
     ideal_alloc = balance * weights / prices
     allocation = (ideal_alloc - prev_alloc)
@@ -205,7 +200,7 @@ def _open_positions(
         prices: np.ndarray,
         prev_alloc: np.ndarray,
         balance: float,
-        fee: float
+        fee: float,
 ) -> np.ndarray:
     ideal_alloc = balance * weights / prices
     allocation = (ideal_alloc - prev_alloc) * (1 - fee)
@@ -218,6 +213,6 @@ def _open_positions(
 def _accrue_commission(
         allocation: np.ndarray,
         prices: np.ndarray,
-        fee: float
+        fee: float,
 ) -> np.ndarray:
     return np.nansum(np.abs(allocation * prices)) * fee
