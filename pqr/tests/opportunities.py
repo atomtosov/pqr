@@ -1,6 +1,7 @@
 from typing import (
     Optional,
     Callable,
+    Literal,
 )
 
 import numpy as np
@@ -11,10 +12,8 @@ from pqr.core import (
     filter,
     look_back_pct_change,
     lag,
-    hold,
 )
 from pqr.utils import (
-    estimate_holding,
     align,
     compose,
     partial,
@@ -24,97 +23,52 @@ from pqr.utils import (
 
 
 def opportunities_test(
-        portfolio: pd.DataFrame,
+        base_portfolio: pd.DataFrame,
         prices: pd.DataFrame,
         universe: Optional[pd.DataFrame] = None,
         allocation: Optional[Callable[[pd.DataFrame], pd.DataFrame]] = None,
-        holding: Optional[int] = None,
 ) -> pd.Series:
-    if universe is None:
-        universe = prices.notnull()
-
-    if holding is None:
-        holding = estimate_holding(portfolio)
-
-    best_portfolio = get_best_portfolio(
-        portfolio=portfolio,
+    best_portfolio = get_extreme_portfolio(
+        base_portfolio=base_portfolio,
         prices=prices,
         universe=universe,
         allocation=allocation,
-        holding=holding,
+        how="best",
     )
-    worst_portfolio = get_worst_portfolio(
-        portfolio=portfolio,
+    worst_portfolio = get_extreme_portfolio(
+        base_portfolio=base_portfolio,
         prices=prices,
         universe=universe,
         allocation=allocation,
-        holding=holding,
+        how="worst",
     )
 
+    best_portfolio, worst_portfolio, base_portfolio = align(
+        best_portfolio,
+        worst_portfolio,
+        base_portfolio,
+    )
     op_est = (
-            (best_portfolio["returns"] - portfolio["returns"]) /
+            (best_portfolio["returns"] - base_portfolio["returns"]) /
             (best_portfolio["returns"] - worst_portfolio["returns"])
     ).dropna()
-    op_est.index.name = "Opportunities"
+    op_est.name = "opportunities"
 
     return op_est
 
 
-def get_best_portfolio(
-        portfolio: pd.DataFrame,
-        prices: pd.DataFrame,
-        universe: Optional[pd.DataFrame] = None,
-        allocation: Optional[Callable[[pd.DataFrame], pd.DataFrame]] = None,
-        holding: Optional[int] = None,
-) -> pd.DataFrame:
-    if universe is None:
-        universe = prices.notnull()
-
-    if holding is None:
-        holding = estimate_holding(portfolio)
-
-    return _get_extreme_portfolio(
-        base_portfolio=portfolio,
-        prices=prices,
-        universe=universe,
-        allocation=allocation,
-        holding=holding,
-        how="best",
-    )
-
-
-def get_worst_portfolio(
-        portfolio: pd.DataFrame,
-        prices: pd.DataFrame,
-        universe: Optional[pd.DataFrame] = None,
-        allocation: Optional[Callable[[pd.DataFrame], pd.DataFrame]] = None,
-        holding: Optional[int] = None
-) -> pd.DataFrame:
-    if universe is None:
-        universe = prices.notnull()
-
-    if holding is None:
-        holding = estimate_holding(portfolio)
-
-    return _get_extreme_portfolio(
-        base_portfolio=portfolio,
-        prices=prices,
-        universe=universe,
-        allocation=allocation,
-        holding=holding,
-        how="worst",
-    )
-
-
-def _get_extreme_portfolio(
+def get_extreme_portfolio(
         base_portfolio: pd.DataFrame,
         prices: pd.DataFrame,
-        universe: pd.DataFrame,
-        allocation: Callable[[pd.DataFrame], pd.DataFrame],
-        holding: int,
-        how: str
+        universe: Optional[pd.DataFrame] = None,
+        allocation: Callable[[pd.DataFrame], pd.DataFrame] = None,
+        how: Literal["best", "worst"] = "best",
 ) -> pd.DataFrame:
-    longs, shorts = longs_from_portfolio(base_portfolio), shorts_from_portfolio(base_portfolio)
+    if universe is None:
+        universe = prices.notnull()
+
+    longs = longs_from_portfolio(base_portfolio)
+    shorts = shorts_from_portfolio(base_portfolio)
 
     if how == "best":
         how_long = "best"
@@ -129,14 +83,12 @@ def _get_extreme_portfolio(
             prices=prices,
             universe=universe,
             holdings_number=longs.sum(axis=1),
-            holding=holding,
             how=how_long,
         ),
         shorts=pick_with_forward_looking(
             prices=prices,
             universe=universe,
             holdings_number=shorts.sum(axis=1),
-            holding=holding,
             how=how_short,
         ),
         allocation=allocation,
@@ -148,14 +100,17 @@ def pick_with_forward_looking(
         prices: pd.DataFrame,
         universe: pd.DataFrame,
         holdings_number: pd.Series,
-        holding: Optional[int] = None,
-        how: str = "best",
+        how: str,
 ) -> pd.DataFrame:
+    prices, universe, holdings_number = align(
+        prices,
+        universe,
+        holdings_number,
+    )
     forward_looking_transform = compose(
         partial(filter, universe=universe),
-        partial(look_back_pct_change, period=holding),
-        partial(lag, period=-holding),
-        partial(hold, period=holding),
+        partial(look_back_pct_change, period=1),
+        partial(lag, period=-1),
     )
     forward_returns, holdings_number = align(
         forward_looking_transform(prices),
@@ -170,13 +125,12 @@ def pick_with_forward_looking(
         choosing_func = _bottom_idx
 
     choices = np.zeros_like(forward_returns, dtype=bool)
-    stop = len(choices)
-    for i in range(0, stop, holding):
+    for i in range(0, len(choices)):
         choice = choosing_func(
             forward_returns_array[i],
             holdings_number_array[i],
         )
-        choices[i:min(stop, i + holding), choice] = True
+        choices[i, choice] = True
 
     return pd.DataFrame(
         choices,
@@ -192,7 +146,7 @@ def _top_idx(arr: np.ndarray, n: int) -> np.ndarray:
     unique_values = np.unique(arr[~np.isnan(arr)])
     if unique_values.any():
         sorted_values = np.sort(unique_values)
-        return np.where(arr >= sorted_values[-n])[0]
+        return np.where(arr >= sorted_values[-min(n, len(sorted_values))])[0]
 
     return np.array([], dtype=int)
 
@@ -204,6 +158,6 @@ def _bottom_idx(arr: np.ndarray, n: int) -> np.ndarray:
     unique_values = np.unique(arr[~np.isnan(arr)])
     if unique_values.any():
         sorted_values = np.sort(unique_values)
-        return np.where(arr < sorted_values[n])[0]
+        return np.where(arr <= sorted_values[min(n, len(sorted_values)) - 1])[0]
 
     return np.array([], dtype=int)
