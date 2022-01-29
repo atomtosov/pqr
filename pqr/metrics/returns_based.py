@@ -48,17 +48,8 @@ from pqr.utils import adjust
 
 
 @infer(returns=True)
-def compounded_returns(
-        returns: pd.Series,
-        *,
-        log_scale: bool = False,
-) -> pd.Series:
-    compounded = (1 + returns).cumprod() - 1
-    if log_scale:
-        compounded[compounded > 0] = np.log(compounded[compounded > 0])
-        compounded[compounded < 0] = np.log(-compounded[compounded < 0])
-
-    return compounded
+def compounded_returns(returns: pd.Series) -> pd.Series:
+    return (1 + returns).cumprod() - 1
 
 
 @infer(returns=True)

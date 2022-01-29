@@ -27,28 +27,34 @@ def display_dashboard(
 
 def plot_chart(
         portfolios: Sequence[pd.DataFrame],
-        metrics: Dict[str, Callable[[pd.DataFrame], pd.Series]],
+        metric: Callable[[pd.DataFrame], pd.Series],
+        fancy_name: Optional[str] = None,
         benchmark: Optional[pd.Series] = None,
+        log_scale: bool = False,
         **kwargs,
 ) -> None:
     plt.figure(**kwargs)
 
-    for name, metric in metrics.items():
-        for portfolio in portfolios:
-            plt.plot(metric(portfolio), label=portfolio.index.name)
+    for portfolio in portfolios:
+        plt.plot(metric(portfolio), label=portfolio.index.name)
 
-        if benchmark is not None:
-            starts_from = min(portfolio.index[0] for portfolio in portfolios)
-            plt.plot(
-                metric(benchmark[starts_from:]),
-                label=benchmark.index.name,
-                color="gray", alpha=0.8,
-            )
+    if benchmark is not None:
+        starts_from = min(portfolio.index[0] for portfolio in portfolios)
+        plt.plot(
+            metric(benchmark[starts_from:]),
+            label=benchmark.index.name,
+            color="gray", alpha=0.8,
+        )
 
-    metric_names = ', '.join(metrics.keys())
-    plt.title(f"Portfolios {metric_names}")
+    if fancy_name is None:
+        fancy_name = metric.__name__
+
+    if log_scale:
+        plt.yscale("symlog")
+
+    plt.title(f"Portfolios {fancy_name}")
     plt.xlabel("Date")
-    plt.ylabel(metric_names)
+    plt.ylabel(fancy_name)
     plt.legend()
     plt.grid()
 
