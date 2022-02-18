@@ -26,45 +26,65 @@ You can find it on [rtd](https://pqr.readthedocs.io/en/latest/index.html) (for n
 import pandas as pd
 import pqr
 
+# read and preprocess the data
 prices = pd.read_csv("prices.csv", parse_dates=True)
 pe = pd.read_csv("pe.csv", parse_dates=True)
 volume = pd.read_csv("volume.csv", parse_dates=True)
 prices, pe, volume = pqr.utils.replace_with_nan(prices, pe, volume, to_replace=0)
 
+# define universe and make benchmark based on it
 universe = pqr.Universe(prices)
 universe.filter(volume >= 10_000_000)
 
-preprocessor = [
-    pqr.Filter(universe.mask),
-    pqr.LookBackMedian(3),
-    pqr.Hold(3),
-]
-value = pqr.Factor(pe, "less", preprocessor)
+benchmark = pqr.Benchmark.from_universe(
+    universe,
+    allocation_algorithm=pqr.AllocationAlgorithm([
+        pqr.utils.EqualWeights(),
+    ])
+)
 
-benchmark = pqr.Benchmark.from_universe(universe)
+# prepare value factor
+preprocessor = pqr.factors.Preprocessor([
+    pqr.factors.Filter(universe.mask),
+    pqr.factors.LookBackMedian(3),
+    pqr.factors.Hold(3),
+])
 
-fm = pqr.fm.FactorModel(
-    picking_strategies=pqr.fm.split_quantiles(3),
-    allocation_strategy=pqr.EqualWeights(),
+value = pqr.factors.Factor(
+    pe,
+    better="less",
+    preprocessor=preprocessor
+)
+
+# form a factor model, covering all stock universe, and build portfolios
+fm = pqr.factors.FactorModel(
+    universe=universe,
+    strategies=pqr.factors.split_quantiles(3),
+    allocation_algorithm=pqr.AllocationAlgorithm([
+        pqr.utils.EqualWeights()
+    ]),
     add_wml=True
 )
-portfolios = fm(value, universe)
 
-summary = pqr.dash.Dashboard(
-    pqr.dash.Graph(pqr.metrics.CompoundedReturns(), benchmark=benchmark),
-    pqr.dash.Table(
+portfolios = fm.backtest(value)
+
+# create a dashboard with basic info about our strategies
+summary = pqr.dashboards.Dashboard([
+    pqr.dashboards.Chart(pqr.metrics.CompoundedReturns(), benchmark=benchmark),
+    pqr.dashboards.Table([
         pqr.metrics.MeanReturn(annualizer=1, statistics=True),
         pqr.metrics.Volatility(annualizer=1),
         pqr.metrics.SharpeRatio(rf=0),
         pqr.metrics.MeanExcessReturn(benchmark),
         pqr.metrics.Alpha(benchmark, statistics=True),
         pqr.metrics.Beta(benchmark),
-    )
-)
-summary(portfolios)
+    ])
+])
+
+summary.display(portfolios)
 ```
 
-You can also see this example on real data with output in examples/quickstart.ipynb.
+You can also see this example on real data with output in `examples/quickstart.ipynb`.
 
 ## Communication
 
