@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 __all__ = [
     "turnover",
     "mean_turnover",
@@ -14,11 +16,7 @@ from pqr.metrics._infer import infer
 
 @infer(holdings=True)
 def turnover(holdings: pd.DataFrame) -> pd.Series:
-    holdings_array = holdings.drop(
-        columns=["returns"],
-        errors="ignore",
-    ).to_numpy()
-
+    holdings_array = holdings.to_numpy()
     abs_holdings_change = np.abs(np.diff(holdings_array, axis=0))
 
     return pd.Series(
@@ -26,7 +24,7 @@ def turnover(holdings: pd.DataFrame) -> pd.Series:
             np.nansum(abs_holdings_change, axis=1),
             obj=0, values=np.nansum(np.abs(holdings_array[0]))
         ),
-        index=holdings.index.copy()
+        index=holdings.index.copy(),
     )
 
 

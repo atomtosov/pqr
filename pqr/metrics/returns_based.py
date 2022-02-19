@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 __all__ = [
     "compounded_returns",
     "total_return",
@@ -33,11 +35,7 @@ __all__ = [
     "trailing_sortino_ratio",
 ]
 
-from typing import (
-    Optional,
-    Union,
-    Tuple,
-)
+from typing import Optional
 
 import numpy as np
 import pandas as pd
@@ -54,7 +52,7 @@ def compounded_returns(returns: pd.Series) -> pd.Series:
 
 @infer(returns=True)
 def total_return(returns: pd.Series) -> float:
-    return compounded_returns(returns, log_scale=False).iat[-1]
+    return compounded_returns(returns).iat[-1]
 
 
 @infer(returns=True, window=True)
@@ -99,7 +97,7 @@ def mean_return(
         *,
         statistics: bool = False,
         annualizer: Optional[float] = None,
-) -> Union[float, Tuple[float, float, float]]:
+) -> float | tuple[float, float, float]:
     mr = returns.mean() * annualizer
 
     if statistics:
@@ -186,7 +184,7 @@ def trailing_win_rate(
 
 @infer(returns=True)
 def drawdown(returns: pd.Series) -> pd.Series:
-    equity = 1 + compounded_returns(returns, log_scale=False)
+    equity = 1 + compounded_returns(returns)
     high_water_mark = equity.cummax()
     return equity / high_water_mark - 1
 

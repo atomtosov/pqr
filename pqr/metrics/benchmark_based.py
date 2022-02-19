@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 __all__ = [
     "benchmark_correlation",
     "excess_returns",
@@ -10,11 +12,7 @@ __all__ = [
     "trailing_beta",
 ]
 
-from typing import (
-    Optional,
-    Tuple,
-    Union,
-)
+from typing import Optional
 
 import pandas as pd
 import statsmodels.api as sm
@@ -67,7 +65,7 @@ def mean_excess_return(
         *,
         statistics: bool = False,
         annualizer: Optional[float] = None,
-) -> Union[float, Tuple[float, float, float]]:
+) -> float | tuple[float, float, float]:
     er = excess_returns(returns, benchmark)
     mer = er.mean() * annualizer
 
@@ -98,7 +96,7 @@ def alpha(
         rf: float = 0.0,
         statistics: bool = False,
         annualizer: Optional[float] = None,
-) -> Union[float, Tuple[float, float, float]]:
+) -> float | tuple[float, float, float]:
     capm = _estimate_capm(returns, benchmark, rf)
     alpha_capm = capm.params[0] * annualizer
 
@@ -131,7 +129,7 @@ def beta(
         *,
         rf: float = 0.0,
         statistics: bool = False,
-) -> Union[float, Tuple[float, float, float]]:
+) -> float | tuple[float, float, float]:
     capm = _estimate_capm(returns, benchmark, rf)
     beta_capm = capm.params[1]
 
