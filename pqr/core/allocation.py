@@ -1,12 +1,12 @@
+from __future__ import annotations
+
 __all__ = [
     "equal_weights",
-    "factor_weights",
-    "factor_scaling",
+    "normalized_weights",
+    "scale",
     "limit_leverage",
     "allocate_cash",
 ]
-
-from typing import Tuple
 
 import numpy as np
 import pandas as pd
@@ -14,27 +14,27 @@ import pandas as pd
 from pqr.utils import align
 
 
-def equal_weights(holdings: pd.DataFrame) -> pd.DataFrame:
-    picks_array = holdings.to_numpy()
+def equal_weights(picks: pd.DataFrame) -> pd.DataFrame:
+    picks_array = picks.to_numpy()
     longs, shorts = picks_array > 0, picks_array < 0
     return pd.DataFrame(
         _normalize(longs) - _normalize(shorts),
-        index=holdings.index.copy(),
-        columns=holdings.columns.copy()
+        index=picks.index.copy(),
+        columns=picks.columns.copy()
     )
 
 
-def factor_weights(
-        holdings: pd.DataFrame,
-        factor: pd.DataFrame,
+def normalized_weights(
+        picks: pd.DataFrame,
+        weights: pd.DataFrame,
 ) -> pd.DataFrame:
-    holdings, factor_values = align(holdings, factor)
-    holdings_array, factor_array = holdings.to_numpy(), factor_values.to_numpy()
+    picks, factor_values = align(picks, weights)
+    holdings_array, factor_array = picks.to_numpy(), factor_values.to_numpy()
     longs, shorts = holdings_array > 0, holdings_array < 0
     return pd.DataFrame(
         _normalize(longs * factor_array) - _normalize(shorts * factor_array),
-        index=holdings.index.copy(),
-        columns=holdings.columns.copy(),
+        index=picks.index.copy(),
+        columns=picks.columns.copy(),
     )
 
 
@@ -50,13 +50,13 @@ def _normalize(raw_weights: np.ndarray) -> np.ndarray:
         )
 
 
-def factor_scaling(
+def scale(
         holdings: pd.DataFrame,
-        factor: pd.DataFrame,
+        leverage: pd.DataFrame,
         target: float = 1.0,
 ) -> pd.DataFrame:
-    holdings, factor = align(holdings, factor)
-    leverage = target / factor.to_numpy()
+    holdings, leverage = align(holdings, leverage)
+    leverage = target / leverage.to_numpy()
     return pd.DataFrame(
         leverage * holdings.to_numpy(),
         index=holdings.index.copy(),
@@ -132,7 +132,7 @@ def _allocation_step(
         prev_alloc: np.ndarray,
         prev_cash: float,
         fee: float,
-) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     balance = prev_cash + np.nansum(prev_alloc * prices)
     allocation_delta = _close_positions(weights, prev_alloc)
     commission = _accrue_commission(allocation_delta, prices, fee)

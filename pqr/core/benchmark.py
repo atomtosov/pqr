@@ -1,40 +1,76 @@
+from __future__ import annotations
+
 __all__ = [
-    "index_as_benchmark",
-    "universe_as_benchmark",
+    "Benchmark",
 ]
 
+from dataclasses import dataclass, field
 from typing import (
     Optional,
     Callable,
+    Any,
 )
 
 import pandas as pd
 
-from pqr.core.backtest import backtest_portfolio
+from pqr.core.portfolio import Portfolio
 
 
-def index_as_benchmark(
-        index: pd.Series,
-        name: Optional[str] = None,
-) -> pd.Series:
-    benchmark = index.astype(float).pct_change()
-    benchmark.iat[0] = 0.0
-    benchmark.index.name = name or "Benchmark"
-    return benchmark
+@dataclass
+class Benchmark:
+    returns: pd.Series = field(repr=False)
+    name: Optional[str] = None
 
+    def __post_init__(self) -> None:
+        if self.name is not None:
+            self.returns.index.name = self.name
 
-def universe_as_benchmark(
-        prices: pd.DataFrame,
-        universe: Optional[pd.DataFrame] = None,
-        allocation: Optional[Callable[[pd.DataFrame], pd.DataFrame]] = None,
-        name: Optional[str] = None,
-) -> pd.Series:
-    if universe is None:
-        universe = prices.notnull()
-    benchmark = backtest_portfolio(
-        prices=prices,
-        longs=universe,
-        allocation=allocation,
-        name=name or "Benchmark",
-    )
-    return benchmark["returns"]
+    @classmethod
+    def from_index(
+            cls,
+            index: pd.Series,
+            name: Optional[str],
+    ) -> Benchmark:
+        return cls(
+            returns=index.pct_change().fillna(0),
+            name=name,
+        )
+
+    @classmethod
+    def from_portfolio(
+            cls,
+            portfolio: Portfolio,
+            name: Optional[str] = None,
+    ) -> Benchmark:
+        return cls(
+            returns=portfolio.returns,
+            name=name or portfolio.name,
+        )
+
+    @classmethod
+    def from_universe(
+            cls,
+            universe: pd.DataFrame,
+            allocator: Callable[[pd.DataFrame], pd.DataFrame] = None,
+            calculator: Callable[[pd.DataFrame], pd.Series] = None,
+            name: Optional[str] = None,
+    ) -> Benchmark:
+        return cls.from_portfolio(
+            portfolio=Portfolio.backtest(
+                longs=universe,
+                shorts=None,
+                allocator=allocator,
+                calculator=calculator,
+                name=name or "Benchmark",
+            ),
+            name=name or "Benchmark",
+        )
+
+    def starting_from(self, idx: Any) -> Benchmark:
+        return Benchmark(
+            returns=self.returns[idx:],
+            name=self.name,
+        )
+
+    def to_pandas(self) -> pd.Series:
+        return self.returns.copy()

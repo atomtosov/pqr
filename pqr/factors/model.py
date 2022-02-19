@@ -1,5 +1,4 @@
 __all__ = [
-    "backtest_portfolio",
     "backtest_factor_portfolios",
     "grid_search_factor_portfolios",
 ]
@@ -13,29 +12,6 @@ from typing import (
 )
 
 import pandas as pd
-
-from pqr.core.allocation import equal_weights
-from pqr.core.picking import pick
-from pqr.core.returns import calculate_returns
-
-
-def backtest_portfolio(
-        prices: pd.DataFrame,
-        longs: Optional[pd.DataFrame] = None,
-        shorts: Optional[pd.DataFrame] = None,
-        allocation: Optional[Callable[[pd.DataFrame], pd.DataFrame]] = None,
-        name: Optional[str] = None,
-) -> pd.DataFrame:
-    picks = pick(longs, shorts)
-    if allocation is None:
-        holdings = equal_weights(picks)
-    else:
-        holdings = allocation(picks)
-    portfolio = calculate_returns(prices, holdings)
-
-    portfolio.index.name = name or "Portfolio"
-
-    return portfolio
 
 
 def backtest_factor_portfolios(
