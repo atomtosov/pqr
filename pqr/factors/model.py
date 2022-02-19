@@ -1,48 +1,46 @@
+from __future__ import annotations
+
 __all__ = [
     "backtest_factor_portfolios",
     "grid_search_factor_portfolios",
 ]
 
 from typing import (
-    Sequence,
     Optional,
     Callable,
-    List,
-    Dict,
 )
 
 import pandas as pd
 
+from pqr.core import Portfolio
+
 
 def backtest_factor_portfolios(
         factor: pd.DataFrame,
-        prices: pd.DataFrame,
-        strategies: Sequence[Callable[[pd.DataFrame], pd.DataFrame]],
-        allocation: Optional[Callable[[pd.DataFrame], pd.DataFrame]] = None,
+        strategies: dict[str, Callable[[pd.DataFrame], pd.DataFrame]],
+        calculator: Callable[[pd.DataFrame], pd.Series],
+        allocator: Optional[Callable[[pd.DataFrame], pd.DataFrame]] = None,
         add_wml: bool = False,
-) -> List[pd.DataFrame]:
-    names = (["Winners"] +
-             [f"Neutral {i}" for i in range(1, len(strategies) - 1)] +
-             ["Losers"])
-
+) -> list[Portfolio]:
     portfolios = []
-    for name, strategy in zip(names, strategies):
+    for name, strategy in strategies.items():
         portfolios.append(
-            backtest_portfolio(
-                prices=prices,
+            Portfolio.backtest(
+                calculator=calculator,
                 longs=strategy(factor),
-                allocation=allocation,
+                shorts=None,
+                allocator=allocator,
                 name=name,
             )
         )
 
     if add_wml:
         portfolios.append(
-            backtest_portfolio(
-                prices=prices,
-                longs=strategies[0](factor),
-                shorts=strategies[1](factor),
-                allocation=allocation,
+            Portfolio.backtest(
+                calculator=calculator,
+                longs=portfolios[0].get_long_picks(),
+                shorts=portfolios[-1].get_short_picks(),
+                allocator=allocator,
                 name="WML",
             )
         )
@@ -52,8 +50,8 @@ def backtest_factor_portfolios(
 
 def grid_search_factor_portfolios(
         factor: pd.DataFrame,
-        transforms: Dict[str, Callable[[pd.DataFrame], pd.DataFrame]],
-        metric: Callable[[pd.DataFrame], float],
+        transforms: dict[str, Callable[[pd.DataFrame], pd.DataFrame]],
+        metric: Callable[[Portfolio], float],
         *args,
         **kwargs,
 ) -> pd.DataFrame:
@@ -62,7 +60,7 @@ def grid_search_factor_portfolios(
     for name, transform in transforms.items():
         metrics_grid.append(
             pd.Series({
-                portfolio.index.name: metric(portfolio)
+                portfolio.name: metric(portfolio)
                 for portfolio in backtest_factor_portfolios(
                     transform(factor),
                     *args, **kwargs

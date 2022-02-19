@@ -1,5 +1,6 @@
+from __future__ import annotations
+
 __all__ = [
-    "pick",
     "quantiles",
     "top",
     "bottom",
@@ -9,40 +10,28 @@ __all__ = [
     "split_time_series",
 ]
 
-from typing import (
-    Callable,
-    Optional,
-    List,
-)
+from typing import Callable, Literal, Generator, Sequence
 
 import numpy as np
 import pandas as pd
 
-from pqr.utils import (
-    align,
-    partial,
-)
+from pqr.utils import partial
 
 
-def pick(
-        longs: Optional[pd.DataFrame] = None,
-        shorts: Optional[pd.DataFrame] = None,
-) -> pd.DataFrame:
-    if longs is None and shorts is None:
-        raise ValueError("either longs or shorts must be given")
-    elif longs is not None and shorts is not None:
-        longs, shorts = align(longs, shorts)
-        return longs.astype(np.int8) - shorts.astype(np.int8)
-    elif longs is not None and shorts is None:
-        return longs.astype(np.int8)
-    else:
-        return shorts.astype(np.int8)
+def factor_portfolios_names_factory(n: int) -> Generator[str]:
+    for i in range(n):
+        if i == 0:
+            yield "Winners"
+        elif i == n - 1:
+            yield "Losers"
+        else:
+            yield f"Neutral {i}"
 
 
 def quantiles(
         factor: pd.DataFrame,
         min_q: float = 0.0,
-        max_q: float = 1.0
+        max_q: float = 1.0,
 ) -> pd.DataFrame:
     factor_array = factor.to_numpy()
     min_q, max_q = np.nanquantile(
@@ -57,12 +46,19 @@ def quantiles(
     )
 
 
-def split_quantiles(n: int) -> List[Callable[[pd.DataFrame], pd.DataFrame]]:
+def split_quantiles(
+        n: int,
+        better: Literal["more", "less"],
+) -> dict[str, Callable[[pd.DataFrame], pd.DataFrame]]:
     q = np.linspace(0, 1, n + 1)
-    return [
+    q_strategies = [
         partial(quantiles, min_q=q[i], max_q=q[i + 1])
         for i in range(n)
     ]
+    if better == "more":
+        q_strategies.reverse()
+
+    return dict(zip(factor_portfolios_names_factory(n), q_strategies))
 
 
 def top(
@@ -99,11 +95,19 @@ def bottom(
     )
 
 
-def split_top_bottom(k: int) -> List[Callable[[pd.DataFrame], pd.DataFrame]]:
-    return [
+def split_top_bottom(
+        k: int,
+        better: Literal["more", "less"],
+) -> dict[str, Callable[[pd.DataFrame], pd.DataFrame]]:
+    strategies = [
         partial(top, k=k),
         partial(bottom, k=k)
     ]
+
+    if better == "less":
+        strategies.reverse()
+
+    return dict(zip(factor_portfolios_names_factory(2), strategies))
 
 
 def _top_single(
@@ -149,8 +153,27 @@ def time_series(
     )
 
 
-def split_time_series(threshold: float = 0.0) -> List[Callable[[pd.DataFrame], pd.DataFrame]]:
-    return [
-        partial(time_series, max_threshold=threshold),
-        partial(time_series, min_threshold=threshold),
+def split_time_series(
+        thresholds: Sequence[float],
+        better: Literal["more", "less"],
+) -> dict[str, Callable[[pd.DataFrame], pd.DataFrame]]:
+    thresholds = list(sorted(thresholds))
+    thresholds.insert(0, -np.inf)
+    thresholds.append(np.inf)
+
+    strategies = [
+        partial(
+            time_series,
+            min_threshold=thresholds[i],
+            max_thresholds=thresholds[i + 1]
+        )
+        for i in range(len(thresholds) - 1)
     ]
+
+    if better == "more":
+        strategies.reverse()
+
+    return dict(zip(
+        factor_portfolios_names_factory(len(thresholds) - 1),
+        strategies,
+    ))
