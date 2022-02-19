@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 import statsmodels.api as sm
 
+from pqr.core import Portfolio, Benchmark
 from pqr.regressions.fama_french import estimate_fama_french
 from pqr.utils import (
     adjust,
@@ -16,9 +17,9 @@ from pqr.utils import (
 
 
 def estimate_fama_macbeth(
-        portfolios: Sequence[pd.DataFrame],
-        market: pd.Series,
-        benchmarks: Sequence[pd.Series],
+        portfolios: Sequence[Portfolio],
+        market: Benchmark,
+        benchmarks: Sequence[Benchmark],
         rf: float = 0.0,
 ) -> pd.DataFrame:
     # 1st step: estimate betas
@@ -31,7 +32,8 @@ def estimate_fama_macbeth(
     # 2nd step: estimate lambdas
     aligned_returns = align(
         *[adjust(portfolio.returns, rf) for portfolio in portfolios],
-        *[adjust(market.returns, rf)] + list(benchmarks)
+        adjust(market.returns, rf),
+        *[benchmark.returns for benchmark in benchmarks]
     )
     portfolios_returns = aligned_returns[:-len(benchmarks) - 1]
 
@@ -48,6 +50,6 @@ def estimate_fama_macbeth(
             np.mean(lambdas, axis=0),
             np.std(lambdas, axis=0) / np.sqrt(len(lambdas))
         ]).T,
-        index=[market.index.name] + [benchmark.index.name for benchmark in benchmarks],
+        index=[market.name] + [benchmark.name for benchmark in benchmarks],
         columns=["coef", "se"]
     )
