@@ -39,7 +39,7 @@ def backtest_factor_portfolios(
             Portfolio.backtest(
                 calculator=calculator,
                 longs=portfolios[0].get_long_picks(),
-                shorts=portfolios[-1].get_short_picks(),
+                shorts=portfolios[-1].get_long_picks(),
                 allocator=allocator,
                 name="WML",
             )
