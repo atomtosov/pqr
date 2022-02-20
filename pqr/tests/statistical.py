@@ -1,26 +1,27 @@
+from __future__ import annotations
+
 __all__ = [
     "t_test",
+    "wilcoxon_test",
 ]
 
-from typing import (
-    Literal,
-    Tuple,
-)
+from typing import Literal
 
-import pandas as pd
 from scipy.stats import (
     ttest_1samp,
     wilcoxon,
 )
 
+from pqr.core import Portfolio
+
 
 def t_test(
-        portfolio: pd.DataFrame,
+        portfolio: Portfolio,
         h0: float = 0,
         alternative: Literal["two-sided", "less", "greater"] = "greater",
-) -> Tuple[float, float]:
+) -> tuple[float, float]:
     t_stat, p_val = ttest_1samp(
-        portfolio["returns"],
+        portfolio.returns,
         popmean=h0,
         alternative=alternative,
     )
@@ -28,11 +29,11 @@ def t_test(
 
 
 def wilcoxon_test(
-        portfolio: pd.DataFrame,
+        wml_portfolio: Portfolio,
         alternative: Literal["two-sided", "less", "greater"] = "greater",
-) -> Tuple[float, float]:
+) -> tuple[float, float]:
     t_stat, p_val = wilcoxon(
-        portfolio["returns"],
+        wml_portfolio.returns,
         alternative=alternative,
     )
     return t_stat, p_val
