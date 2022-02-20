@@ -53,7 +53,7 @@ def _normalize(raw_weights: np.ndarray) -> np.ndarray:
 def scale(
         holdings: pd.DataFrame,
         base_leverage: pd.DataFrame,
-        target: float = 1.0,
+        target: float,
 ) -> pd.DataFrame:
     holdings, leverage = align(holdings, base_leverage)
     leverage = target / leverage.to_numpy()
