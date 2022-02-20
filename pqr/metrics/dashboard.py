@@ -1,16 +1,15 @@
 from __future__ import annotations
 
 __all__ = [
-    "FancyMetric",
-    "show_table",
-    "plot_chart",
+    "Table",
+    "Figure",
     "Dashboard",
 ]
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from functools import wraps
 from typing import (
     Callable,
-    Sequence,
     Optional,
 )
 
@@ -21,42 +20,53 @@ from IPython.display import display
 from pqr.core import Portfolio, Benchmark
 
 
-class FancyMetric:
-    def __init__(
+@dataclass
+class Table:
+    metrics: dict = field(default_factory=dict)
+
+    def display(self, portfolios: list[Portfolio]) -> None:
+        metrics_table = {}
+        for name, metric in self.metrics.items():
+            metrics_table[name] = [
+                metric(portfolio)
+                for portfolio in portfolios
+            ]
+
+        display(
+            pd.DataFrame(
+                metrics_table,
+                index=[portfolio.name for portfolio in portfolios]
+            ).T
+        )
+
+    def add_metric(
             self,
-            metric_fn: Callable[
-                [pd.DataFrame | Portfolio | Benchmark, ...],
-                float | tuple[float, float, float] | pd.Series
-            ],
-            precision: int = 2,
+            metric: Callable[[Portfolio], float | tuple[float, float, float]],
+            *,
             multiplier: float = 1.0,
+            precision: int = 2,
             name: Optional[str] = None,
-            **kwargs,
     ) -> None:
-        self.metric_fn = metric_fn
-        self.precision = precision
-        self.multiplier = multiplier
-        self.kwargs = kwargs
+        @wraps(metric)
+        def displayable_metric(portfolio: Portfolio) -> str:
+            metric_value = metric(portfolio)
 
-        self.name = name or metric_fn.__name__
+            if isinstance(metric_value, tuple):  # statistics
+                coef, t_stat, p_value = metric_value
+                return "{coef}{stars} ({t_stat})".format(
+                    coef=format(coef * multiplier, f".{precision}f"),
+                    stars="*" * self._count_stars(p_value),
+                    t_stat=format(t_stat, f".{precision}f"),
+                )
+            else:
+                return format(
+                    metric_value * multiplier,
+                    f".{precision}f"
+                )
 
-    def __call__(self, portfolio: Portfolio) -> str | pd.Series:
-        metric_value = self.metric_fn(portfolio, **self.kwargs)
-
-        if isinstance(metric_value, tuple):  # statistics
-            coef, t_stat, p_value = metric_value
-            return "{coef}{stars} ({t_stat})".format(
-                coef=format(coef * self.multiplier, f".{self.precision}f"),
-                stars="*" * self._count_stars(p_value),
-                t_stat=format(t_stat, f".{self.precision}f"),
-            )
-        elif isinstance(metric_value, pd.Series):  # time-series
-            return (metric_value * self.multiplier).round(self.precision)
-        else:
-            return format(
-                metric_value * self.multiplier,
-                f".{self.precision}f"
-            )
+        if name is None:
+            name = metric.__name__
+        self.metrics[name] = displayable_metric
 
     @staticmethod
     def _count_stars(p_value: float) -> int:
@@ -70,66 +80,60 @@ class FancyMetric:
             return 0
 
 
-def show_table(
-        portfolios: Sequence[Portfolio],
-        metrics: Sequence[FancyMetric],
-) -> None:
-    metrics_table = {}
-    for metric in metrics:
-        metrics_table[metric.name] = [
-            metric(portfolio)
-            for portfolio in portfolios
-        ]
+@dataclass
+class Figure:
+    metric: Callable[[Portfolio | Benchmark], pd.Series]
+    multiplier: float = 1.0
+    name: Optional[str] = None
+    benchmark: Optional[Benchmark] = None
+    log_scale: bool = False
+    kwargs: dict = field(default_factory=dict)
 
-    display(
-        pd.DataFrame(
-            metrics_table,
-            index=[portfolio.name for portfolio in portfolios]
-        ).T
-    )
+    def __post_init__(self) -> None:
+        if self.name is None:
+            self.name = self.metric.__name__
 
+    def display(self, portfolios: list[Portfolio]) -> None:
+        plt.figure(**self.kwargs)
 
-def plot_chart(
-        portfolios: Sequence[Portfolio],
-        metric: FancyMetric,
-        benchmark: Optional[Benchmark] = None,
-        log_scale: bool = False,
-        **kwargs
-) -> None:
-    plt.figure(**kwargs)
+        for portfolio in portfolios:
+            plt.plot(self.metric(portfolio) * self.multiplier, label=portfolio.name)
 
-    for portfolio in portfolios:
-        plt.plot(metric(portfolio), label=portfolio.name)
+        if self.benchmark is not None:
+            plt.plot(
+                self.metric(
+                    self.benchmark.starting_from(
+                        min(portfolio.returns.index[0] for portfolio in portfolios)
+                    )
+                ) * self.multiplier,
+                label=self.benchmark.name,
+                color="gray",
+                alpha=0.8,
+                linestyle="--",
+            )
 
-    if benchmark is not None:
-        plt.plot(
-            metric(
-                benchmark.starting_from(
-                    min(portfolio.returns.index[0] for portfolio in portfolios)
-                )
-            ),
-            label=benchmark.name,
-            color="gray",
-            alpha=0.8,
-            linestyle="--",
-        )
+        if self.log_scale:
+            plt.yscale("symlog")
 
-    if log_scale:
-        plt.yscale("symlog")
+        plt.title(f"Portfolios {self.name}")
+        plt.xlabel("Date")
+        plt.ylabel(self.name)
+        plt.legend()
+        plt.grid()
 
-    plt.title(f"Portfolios {metric.name}")
-    plt.xlabel("Date")
-    plt.ylabel(metric.name)
-    plt.legend()
-    plt.grid()
-
-    plt.show()
+        plt.show()
 
 
 @dataclass
 class Dashboard:
-    items: Sequence[Callable[[Sequence[Portfolio]], None]]
+    items: list[Table | Figure] = field(default_factory=list)
 
-    def display(self, portfolios: Sequence[Portfolio]):
+    def display(self, portfolios: list[Portfolio]):
         for item in self.items:
-            item(portfolios)
+            item.display(portfolios)
+
+    def add_item(self, item: Table | Figure) -> None:
+        self.items.append(item)
+
+    def remove_item(self, idx: int) -> None:
+        self.items.pop(idx)

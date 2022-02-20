@@ -92,12 +92,12 @@ def _infer_holdings(*args, **kwargs):
 def _infer_annualizer(*args, **kwargs):
     if "annualizer" not in kwargs:
         if args:
-            kwargs["annualizer"] = estimate_annualizer(args[0].returns)
+            kwargs["annualizer"] = estimate_annualizer(args[0])
         else:
             try:
-                kwargs["annualizer"] = estimate_annualizer(kwargs["returns"].returns)
+                kwargs["annualizer"] = estimate_annualizer(kwargs["returns"])
             except KeyError:
-                kwargs["annualizer"] = estimate_annualizer(kwargs["holdings"].holdings)
+                kwargs["annualizer"] = estimate_annualizer(kwargs["holdings"])
 
     return kwargs
 
@@ -105,11 +105,11 @@ def _infer_annualizer(*args, **kwargs):
 def _infer_window(*args, **kwargs):
     if "window" not in kwargs:
         if args:
-            kwargs["window"] = estimate_window(args[0].returns)
+            kwargs["window"] = estimate_window(args[0])
         else:
             try:
-                kwargs["window"] = estimate_window(kwargs["returns"].returns)
+                kwargs["window"] = estimate_window(kwargs["returns"])
             except KeyError:
-                kwargs["window"] = estimate_window(kwargs["holdings"].holdings)
+                kwargs["window"] = estimate_window(kwargs["holdings"])
 
     return kwargs
