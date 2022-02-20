@@ -10,7 +10,6 @@ from typing import Optional, Callable
 import numpy as np
 import pandas as pd
 
-from pqr.core.allocation import equal_weights
 from pqr.utils import align
 
 
@@ -30,7 +29,7 @@ class Portfolio:
             cls,
             longs: Optional[pd.DataFrame],
             shorts: Optional[pd.DataFrame],
-            allocator: Optional[Callable[[pd.DataFrame], pd.DataFrame]],
+            allocator: Callable[[pd.DataFrame], pd.DataFrame],
             calculator: Callable[[pd.DataFrame], pd.Series],
             name: Optional[str] = None,
     ) -> Portfolio:
@@ -43,9 +42,6 @@ class Portfolio:
             picks = longs.astype(np.int8)
         else:
             picks = shorts.astype(np.int8)
-
-        if allocator is None:
-            allocator = equal_weights
 
         holdings = allocator(picks)
         returns = calculator(holdings)

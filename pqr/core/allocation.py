@@ -26,13 +26,13 @@ def equal_weights(picks: pd.DataFrame) -> pd.DataFrame:
 
 def normalized_weights(
         picks: pd.DataFrame,
-        weights: pd.DataFrame,
+        base_weights: pd.DataFrame,
 ) -> pd.DataFrame:
-    picks, factor_values = align(picks, weights)
-    holdings_array, factor_array = picks.to_numpy(), factor_values.to_numpy()
+    picks, base_weights = align(picks, base_weights)
+    holdings_array, w_array = picks.to_numpy(), base_weights.to_numpy()
     longs, shorts = holdings_array > 0, holdings_array < 0
     return pd.DataFrame(
-        _normalize(longs * factor_array) - _normalize(shorts * factor_array),
+        _normalize(longs * w_array) - _normalize(shorts * w_array),
         index=picks.index.copy(),
         columns=picks.columns.copy(),
     )
@@ -52,10 +52,10 @@ def _normalize(raw_weights: np.ndarray) -> np.ndarray:
 
 def scale(
         holdings: pd.DataFrame,
-        leverage: pd.DataFrame,
+        base_leverage: pd.DataFrame,
         target: float = 1.0,
 ) -> pd.DataFrame:
-    holdings, leverage = align(holdings, leverage)
+    holdings, leverage = align(holdings, base_leverage)
     leverage = target / leverage.to_numpy()
     return pd.DataFrame(
         leverage * holdings.to_numpy(),

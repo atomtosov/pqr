@@ -67,8 +67,10 @@ class Benchmark:
         )
 
     def starting_from(self, idx: Any) -> Benchmark:
+        returns = self.returns.copy()[idx:]
+        returns.iat[0] = 0
         return Benchmark(
-            returns=self.returns[idx:],
+            returns=returns,
             name=self.name,
         )
 
