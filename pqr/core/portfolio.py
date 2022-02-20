@@ -28,10 +28,10 @@ class Portfolio:
     @classmethod
     def backtest(
             cls,
+            longs: Optional[pd.DataFrame],
+            shorts: Optional[pd.DataFrame],
+            allocator: Optional[Callable[[pd.DataFrame], pd.DataFrame]],
             calculator: Callable[[pd.DataFrame], pd.Series],
-            allocator: Optional[Callable[[pd.DataFrame], pd.DataFrame]] = None,
-            longs: Optional[pd.DataFrame] = None,
-            shorts: Optional[pd.DataFrame] = None,
             name: Optional[str] = None,
     ) -> Portfolio:
         if longs is None and shorts is None:

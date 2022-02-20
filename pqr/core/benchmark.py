@@ -51,8 +51,8 @@ class Benchmark:
     def from_universe(
             cls,
             universe: pd.DataFrame,
-            allocator: Callable[[pd.DataFrame], pd.DataFrame] = None,
-            calculator: Callable[[pd.DataFrame], pd.Series] = None,
+            allocator: Callable[[pd.DataFrame], pd.DataFrame],
+            calculator: Callable[[pd.DataFrame], pd.Series],
             name: Optional[str] = None,
     ) -> Benchmark:
         return cls.from_portfolio(
