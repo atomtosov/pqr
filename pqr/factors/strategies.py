@@ -165,7 +165,7 @@ def split_time_series(
         partial(
             time_series,
             min_threshold=thresholds[i],
-            max_thresholds=thresholds[i + 1]
+            max_threshold=thresholds[i + 1]
         )
         for i in range(len(thresholds) - 1)
     ]
