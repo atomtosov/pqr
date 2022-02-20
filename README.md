@@ -30,56 +30,110 @@ import pqr
 prices = pd.read_csv("prices.csv", parse_dates=True)
 pe = pd.read_csv("pe.csv", parse_dates=True)
 volume = pd.read_csv("volume.csv", parse_dates=True)
+
 prices, pe, volume = pqr.utils.replace_with_nan(prices, pe, volume, to_replace=0)
+prices, pe, volume = pqr.utils.align(prices, pe, volume)
 
 # define universe and make benchmark based on it
-universe = pqr.Universe(prices)
-universe.filter(volume >= 10_000_000)
+universe = volume >= 1_000_000
+returns_calculator = pqr.utils.partial(
+    pqr.calculate_returns,
+    universe_returns=pqr.prices_to_returns(prices),
+)
 
 benchmark = pqr.Benchmark.from_universe(
-    universe,
-    allocation_algorithm=pqr.AllocationAlgorithm([
-        pqr.utils.EqualWeights(),
-    ])
+    universe=universe,
+    allocator=pqr.equal_weights,
+    calculator=returns_calculator,
 )
+
+# prepare dashboard
+table = pqr.metrics.Table()
+table.add_metric(
+    pqr.utils.partial(
+        pqr.metrics.mean_return,
+        statistics=True,
+        annualizer=1,
+    ),
+    multiplier=100,
+    precision=2,
+    name="Monthly Mean Return, %",
+)
+table.add_metric(
+    pqr.utils.partial(
+        pqr.metrics.volatility,
+        annualizer=1,
+    ),
+    multiplier=100,
+    precision=2,
+    name="Monthly Volatility, %",
+)
+table.add_metric(
+    pqr.metrics.max_drawdown,
+    multiplier=100,
+    name="Maximum Drawdown, %",
+)
+table.add_metric(
+    pqr.utils.partial(
+        pqr.metrics.mean_excess_return,
+        benchmark=benchmark,
+        statistics=True,
+        annualizer=1,
+    ),
+    multiplier=100,
+    precision=2,
+    name="Monthly Mean Excess Return, %",
+)
+table.add_metric(
+    pqr.utils.partial(
+        pqr.metrics.alpha,
+        benchmark=benchmark,
+        statistics=True,
+        annualizer=1,
+    ),
+    multiplier=100,
+    precision=2,
+    name="Monthly Alpha, %",
+
+)
+table.add_metric(
+    pqr.utils.partial(
+        pqr.metrics.beta,
+        benchmark=benchmark,
+        statistics=True,
+    ),
+    precision=2,
+    name="Monthly Beta, %",
+)
+
+fig = pqr.metrics.Figure(
+    pqr.metrics.compounded_returns,
+    name="Compounded Returns",
+    benchmark=benchmark,
+    kwargs={
+        "figsize": (10, 6),
+    }
+)
+
+summary = pqr.metrics.Dashboard([table, fig])
 
 # prepare value factor
-preprocessor = pqr.factors.Preprocessor([
-    pqr.factors.Filter(universe.mask),
-    pqr.factors.LookBackMedian(3),
-    pqr.factors.Hold(3),
-])
-
-value = pqr.factors.Factor(
-    pe,
-    better="less",
-    preprocessor=preprocessor
+static_transform = pqr.utils.compose(
+    pqr.utils.partial(pqr.factors.filter, universe=universe),
+    pqr.utils.partial(pqr.factors.look_back_median, period=3),
+    pqr.utils.partial(pqr.factors.hold, period=3),
 )
+
+value = static_transform(pe)
 
 # form a factor model, covering all stock universe, and build portfolios
-fm = pqr.factors.FactorModel(
-    universe=universe,
-    strategies=pqr.factors.split_quantiles(3),
-    allocation_algorithm=pqr.AllocationAlgorithm([
-        pqr.utils.EqualWeights()
-    ]),
-    add_wml=True
+portfolios = pqr.factors.backtest_factor_portfolios(
+    factor=value,
+    strategies=pqr.factors.split_quantiles(3, "less"),
+    allocator=pqr.equal_weights,
+    calculator=returns_calculator,
+    add_wml=True,
 )
-
-portfolios = fm.backtest(value)
-
-# create a dashboard with basic info about our strategies
-summary = pqr.dashboards.Dashboard([
-    pqr.dashboards.Chart(pqr.metrics.CompoundedReturns(), benchmark=benchmark),
-    pqr.dashboards.Table([
-        pqr.metrics.MeanReturn(annualizer=1, statistics=True),
-        pqr.metrics.Volatility(annualizer=1),
-        pqr.metrics.SharpeRatio(rf=0),
-        pqr.metrics.MeanExcessReturn(benchmark),
-        pqr.metrics.Alpha(benchmark, statistics=True),
-        pqr.metrics.Beta(benchmark),
-    ])
-])
 
 summary.display(portfolios)
 ```
