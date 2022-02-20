@@ -1,74 +1,63 @@
-from typing import (
-    Optional,
-    Callable,
-    Literal,
-)
+from __future__ import annotations
+
+from typing import Callable, Literal
 
 import numpy as np
 import pandas as pd
 
-from pqr.core import (
-    backtest_portfolio,
-    filter,
-    look_back_pct_change,
-    lag,
-)
-from pqr.utils import (
-    align,
-    compose,
-    partial,
-    longs_from_portfolio,
-    shorts_from_portfolio,
-)
+from pqr.core import Portfolio
+from pqr.factors import filter, look_back_pct_change, lag
+from pqr.utils import align, compose, partial
 
 
 def opportunities_test(
-        base_portfolio: pd.DataFrame,
+        base_portfolio: Portfolio,
         prices: pd.DataFrame,
-        universe: Optional[pd.DataFrame] = None,
-        allocation: Optional[Callable[[pd.DataFrame], pd.DataFrame]] = None,
+        universe: pd.DataFrame,
+        allocator: Callable[[pd.DataFrame], pd.DataFrame],
+        calculator: Callable[[pd.DataFrame], pd.Series],
 ) -> pd.Series:
     best_portfolio = get_extreme_portfolio(
         base_portfolio=base_portfolio,
         prices=prices,
         universe=universe,
-        allocation=allocation,
+        allocator=allocator,
+        calculator=calculator,
         how="best",
     )
     worst_portfolio = get_extreme_portfolio(
         base_portfolio=base_portfolio,
         prices=prices,
         universe=universe,
-        allocation=allocation,
+        allocator=allocator,
+        calculator=calculator,
         how="worst",
     )
 
-    best_portfolio, worst_portfolio, base_portfolio = align(
-        best_portfolio,
-        worst_portfolio,
-        base_portfolio,
+    best_portfolio_returns, worst_portfolio_returns, base_portfolio_returns = align(
+        best_portfolio.returns,
+        worst_portfolio.returns.iloc[1:],
+        base_portfolio.returns.iloc[1:],
     )
     op_est = (
-            (best_portfolio["returns"] - base_portfolio["returns"]) /
-            (best_portfolio["returns"] - worst_portfolio["returns"])
+            (best_portfolio_returns - base_portfolio_returns) /
+            (best_portfolio_returns - worst_portfolio_returns)
     ).dropna()
-    op_est.name = "opportunities"
+    op_est.name = "Opportunities"
 
     return op_est
 
 
 def get_extreme_portfolio(
-        base_portfolio: pd.DataFrame,
+        base_portfolio: Portfolio,
         prices: pd.DataFrame,
-        universe: Optional[pd.DataFrame] = None,
-        allocation: Callable[[pd.DataFrame], pd.DataFrame] = None,
-        how: Literal["best", "worst"] = "best",
-) -> pd.DataFrame:
-    if universe is None:
-        universe = prices.notnull()
-
-    longs = longs_from_portfolio(base_portfolio)
-    shorts = shorts_from_portfolio(base_portfolio)
+        universe: pd.DataFrame,
+        allocator: Callable[[pd.DataFrame], pd.DataFrame],
+        calculator: Callable[[pd.DataFrame], pd.Series],
+        how: Literal["best", "worst"],
+) -> Portfolio:
+    longs = base_portfolio.get_long_picks()
+    shorts = base_portfolio.get_short_picks()
 
     if how == "best":
         how_long = "best"
@@ -77,8 +66,7 @@ def get_extreme_portfolio(
         how_long = "worst"
         how_short = "best"
 
-    return backtest_portfolio(
-        prices=prices,
+    return Portfolio.backtest(
         longs=pick_with_forward_looking(
             prices=prices,
             universe=universe,
@@ -91,7 +79,8 @@ def get_extreme_portfolio(
             holdings_number=shorts.sum(axis=1),
             how=how_short,
         ),
-        allocation=allocation,
+        allocator=allocator,
+        calculator=calculator,
         name=how.capitalize(),
     )
 
@@ -146,7 +135,7 @@ def _top_idx(arr: np.ndarray, n: int) -> np.ndarray:
     unique_values = np.unique(arr[~np.isnan(arr)])
     if unique_values.any():
         sorted_values = np.sort(unique_values)
-        return np.where(arr >= sorted_values[-min(n, len(sorted_values))])[0]
+        return np.where(arr >= sorted_values[-min(n, len(sorted_values))])[0][:n]
 
     return np.array([], dtype=int)
 
@@ -158,6 +147,6 @@ def _bottom_idx(arr: np.ndarray, n: int) -> np.ndarray:
     unique_values = np.unique(arr[~np.isnan(arr)])
     if unique_values.any():
         sorted_values = np.sort(unique_values)
-        return np.where(arr <= sorted_values[min(n, len(sorted_values)) - 1])[0]
+        return np.where(arr <= sorted_values[min(n, len(sorted_values)) - 1])[0][:n]
 
     return np.array([], dtype=int)
