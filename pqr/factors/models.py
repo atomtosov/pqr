@@ -18,8 +18,8 @@ from pqr.core import Portfolio
 def backtest_factor_portfolios(
         factor: pd.DataFrame,
         strategies: dict[str, Callable[[pd.DataFrame], pd.DataFrame]],
+        allocator: Optional[Callable[[pd.DataFrame], pd.DataFrame]],
         calculator: Callable[[pd.DataFrame], pd.Series],
-        allocator: Optional[Callable[[pd.DataFrame], pd.DataFrame]] = None,
         add_wml: bool = False,
 ) -> list[Portfolio]:
     portfolios = []
