@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 __all__ = [
     "replace_with_nan",
     "align",
@@ -7,8 +9,6 @@ __all__ = [
     "estimate_window",
     "estimate_annualizer",
     "estimate_holding",
-    "longs_from_portfolio",
-    "shorts_from_portfolio",
 ]
 
 from functools import (
@@ -197,24 +197,10 @@ def _is_daily(freq: offsets.BaseOffset) -> bool:
     )
 
 
-def estimate_holding(portfolio: pd.DataFrame) -> int:
-    picks = picks_from_portfolio(portfolio)
+def estimate_holding(picks: pd.DataFrame) -> int:
     diff = np.diff(picks.to_numpy(), axis=0)
     rebalancings_long = (diff == 1).any(axis=1).sum()
     rebalancings_short = (diff == -1).any(axis=1).sum()
     avg_rebalacings = (rebalancings_long + rebalancings_short) / 2
 
     return round(len(diff) / avg_rebalacings)
-
-
-def picks_from_portfolio(portfolio: pd.DataFrame) -> pd.DataFrame:
-    return (longs_from_portfolio(portfolio).astype(np.int8) -
-            shorts_from_portfolio(portfolio).astype(np.int8))
-
-
-def longs_from_portfolio(portfolio: pd.DataFrame) -> pd.DataFrame:
-    return portfolio.drop(columns=["returns"], errors="ignore") > 0
-
-
-def shorts_from_portfolio(portfolio: pd.DataFrame) -> pd.DataFrame:
-    return portfolio.drop(columns=["returns"], errors="ignore") < 0
